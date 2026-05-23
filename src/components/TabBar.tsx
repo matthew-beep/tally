@@ -60,10 +60,10 @@ export function TabBar() {
                 gap: 3,
                 padding: '8px 14px',
                 borderRadius: T.r.tab,
-                background: active ? T.bg : 'transparent',
-                color: active ? T.ink : T.inkFaint,
+                background: active ? T.ink : 'transparent',
+                color: active ? T.bg : T.inkMuted,
                 textDecoration: 'none',
-                transition: 'color 0.1s',
+                transition: 'background 0.15s, color 0.15s',
               }}
             >
               <span style={{ fontSize: 20 }}>{tab.icon}</span>
