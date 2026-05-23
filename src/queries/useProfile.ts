@@ -9,12 +9,12 @@ export function useCurrentProfile() {
   return useQuery({
     queryKey: ['profile', 'me'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return null
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return null
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', session.user.id)
         .single()
       if (error) throw error
       return data as Profile
@@ -27,11 +27,12 @@ export function useSearchProfiles(query: string) {
   return useQuery({
     queryKey: ['profiles', 'search', query],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return []
       const { data: me } = await supabase
         .from('profiles')
         .select('id')
-        .eq('user_id', user!.id)
+        .eq('user_id', session.user.id)
         .single()
 
       const { data, error } = await supabase
@@ -53,12 +54,12 @@ export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return []
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return []
       const { data: me } = await supabase
         .from('profiles')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', session.user.id)
         .single()
       if (!me) return []
       const { data, error } = await supabase

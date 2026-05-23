@@ -17,7 +17,8 @@ export function useGlobalBalances() {
   return useQuery<GlobalBalances | null>({
     queryKey: ['global-balances'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return null
 
       const { data: me } = await supabase

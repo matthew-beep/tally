@@ -9,12 +9,19 @@ export function useGroups() {
   return useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return []
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+      if (!profile) return []
       const { data, error } = await supabase
         .from('group_members')
         .select('group_id, groups(*)')
-        .eq('user_id', user.id)
+        .eq('user_id', profile.id)
         .order('joined_at', { ascending: false })
       if (error) throw error
       return (data?.map(row => (row as any).groups).filter(Boolean) ?? []) as Group[]
@@ -60,7 +67,8 @@ export function useCreateGroup() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ name, emoji }: { name: string; emoji: string }) => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) throw new Error('Not authenticated')
 
       const { data: profile } = await supabase
