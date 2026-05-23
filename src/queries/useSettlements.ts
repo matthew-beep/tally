@@ -1,0 +1,94 @@
+'use client'
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase'
+import type { Settlement } from '@/types'
+
+export function useSettlements(groupId: string) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['settlements', groupId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('settlements')
+        .select('*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*)')
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data ?? []) as Settlement[]
+    },
+    enabled: !!groupId,
+  })
+}
+
+export function useCreateSettlement(groupId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (payload: {
+      from_user: string
+      to_user: string
+      amount: number
+      note?: string
+      settled_date: string
+    }) => {
+      const { data, error } = await supabase
+        .from('settlements')
+        .insert({ ...payload, group_id: groupId, status: 'pending' })
+        .select()
+        .single()
+      if (error) throw error
+
+      await supabase.from('notifications').insert({
+        recipient_id: payload.to_user,
+        type: 'settlement_confirm',
+        settlement_id: data.id,
+      })
+
+      return data as Settlement
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+    },
+  })
+}
+
+export function useConfirmSettlement() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, groupId, fromUser }: { id: string; groupId: string; fromUser: string }) => {
+      await supabase.from('settlements').update({ status: 'confirmed' }).eq('id', id)
+      await supabase.from('notifications').insert({
+        recipient_id: fromUser,
+        type: 'settlement_confirmed',
+        settlement_id: id,
+      })
+      return { id, groupId }
+    },
+    onSuccess: ({ groupId }) => {
+      qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
+
+export function useDenySettlement() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, groupId, fromUser }: { id: string; groupId: string; fromUser: string }) => {
+      await supabase.from('notifications').insert({
+        recipient_id: fromUser,
+        type: 'settlement_denied',
+        settlement_id: id,
+      })
+      await supabase.from('settlements').delete().eq('id', id)
+      return { id, groupId }
+    },
+    onSuccess: ({ groupId }) => {
+      qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+}
