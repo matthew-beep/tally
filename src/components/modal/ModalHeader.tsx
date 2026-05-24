@@ -3,6 +3,7 @@
 import { T, F, FH } from '@/design/tokens'
 import type { CSSProperties, ReactNode } from 'react'
 import { useContext } from 'react'
+import { X } from 'lucide-react'
 import { ModalContext } from './ModalContext'
 
 interface ModalHeaderProps {
@@ -67,7 +68,7 @@ export function ModalHeader({ title, children, showClose = true, onClose, style 
             justifyContent: 'center',
           }}
         >
-          ×
+          <X size={16} strokeWidth={2.5} />
         </button>
       )}
     </div>

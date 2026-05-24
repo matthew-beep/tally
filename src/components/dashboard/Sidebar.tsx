@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { T, F, FH } from '@/design/tokens'
 import { useGroups } from '@/queries/useGroups'
+import { useUIStore } from '@/store/ui'
 
 const NAV_ITEMS = [
   { label: 'Home',     href: '/',         match: (p: string) => p === '/' },
@@ -14,7 +15,7 @@ const NAV_ITEMS = [
 
 export function Sidebar() {
   const pathname = usePathname()
-  const router   = useRouter()
+  const setNewGroupOpen = useUIStore(s => s.setNewGroupOpen)
   const { data: groups = [] } = useGroups()
 
   return (
@@ -73,7 +74,7 @@ export function Sidebar() {
           )
         })}
         <button
-          onClick={() => router.push('/groups/new')}
+          onClick={() => setNewGroupOpen(true)}
           style={{ width: '100%', marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: T.r.md, cursor: 'pointer', background: 'transparent', border: `1.5px dashed ${T.lineStrong}`, color: T.inkMuted, fontSize: 13, fontWeight: 500, fontFamily: F }}
         >
           <span>＋</span> New group

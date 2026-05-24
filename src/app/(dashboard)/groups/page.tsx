@@ -9,10 +9,10 @@ import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { calcNetBalances } from '@/lib/balance'
-import { useRouter } from 'next/navigation'
+import { useUIStore } from '@/store/ui'
 
 export default function GroupsPage() {
-  const router = useRouter()
+  const setNewGroupOpen = useUIStore(s => s.setNewGroupOpen)
   const { data: groups = [], isLoading } = useGroups()
   const { data: profile } = useCurrentProfile()
 
@@ -21,7 +21,7 @@ export default function GroupsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div style={{ fontSize: 24, fontWeight: 700, fontFamily: FH, letterSpacing: -0.5 }}>Groups</div>
           <button
-            onClick={() => router.push('/groups/new')}
+            onClick={() => setNewGroupOpen(true)}
             style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: F }}
           >
             + New group
@@ -36,7 +36,7 @@ export default function GroupsPage() {
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No groups yet</div>
             <div style={{ fontSize: 13, color: T.inkMuted, marginBottom: 20 }}>Create a group and start splitting expenses with friends.</div>
             <button
-              onClick={() => router.push('/groups/new')}
+              onClick={() => setNewGroupOpen(true)}
               style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '11px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: F }}
             >
               Create your first group

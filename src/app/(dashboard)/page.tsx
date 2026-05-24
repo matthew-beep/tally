@@ -12,6 +12,7 @@ import { useSettlements } from '@/queries/useSettlements'
 import { useGlobalBalances, useRecentActivity } from '@/queries/useGlobalBalances'
 import { calcNetBalances } from '@/lib/balance'
 import type { Profile } from '@/types'
+import { useUIStore } from '@/store/ui'
 
 function AmtText({ amount, size = 15 }: { amount: number; size?: number }) {
   const sign  = amount >= 0 ? '+' : '−'
@@ -30,6 +31,7 @@ function AmtText({ amount, size = 15 }: { amount: number; size?: number }) {
 
 function TopBar() {
   const router = useRouter()
+  const setNewGroupOpen = useUIStore(s => s.setNewGroupOpen)
   const { data: profile } = useCurrentProfile()
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -44,7 +46,7 @@ function TopBar() {
       </div>
       <div className="home-topbar-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <button
-          onClick={() => router.push('/groups/new')}
+          onClick={() => setNewGroupOpen(true)}
           className="home-topbar-add"
           style={{ background: T.ink, border: 'none', borderRadius: T.r.md, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: T.bg, fontFamily: F, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
@@ -165,7 +167,7 @@ function GroupCard({ group, myId }: { group: { id: string; name: string; emoji: 
 }
 
 function GroupsPanel() {
-  const router = useRouter()
+  const setNewGroupOpen = useUIStore(s => s.setNewGroupOpen)
   const { data: groups = [], isLoading } = useGroups()
   const { data: gb } = useGlobalBalances()
 
@@ -174,7 +176,7 @@ function GroupsPanel() {
       <div className="home-groups-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted }}>Groups</div>
         <button
-          onClick={() => router.push('/groups/new')}
+          onClick={() => setNewGroupOpen(true)}
           style={{ background: T.ink, border: 'none', borderRadius: T.r.md, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: T.bg, fontFamily: F, cursor: 'pointer' }}
         >
           New group +

@@ -3,74 +3,74 @@
 ## 1. Supabase setup (nothing done yet — do this first)
 
 ### 1a. Create project & configure env
-- [ ] Create project at supabase.com
-- [ ] Copy `SUPABASE_URL` and `SUPABASE_ANON_KEY` into `.env.local`
+- [x] Create project at supabase.com
+- [x] Copy `SUPABASE_URL` and `SUPABASE_ANON_KEY` into `.env.local`
 - [ ] Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` (used by the public `/expense/[share_token]` page)
 
 ### 1b. Run database schema
-Run the schema from `CLAUDE.md` in the Supabase SQL editor, plus these additions:
-
-- [ ] Core tables: `profiles`, `groups`, `group_members`, `expenses`, `expense_splits`, `settlements`, `notifications`
-- [ ] Add `add_code text UNIQUE` column to `profiles` — referenced in `src/types/index.ts` and `me/page.tsx` but missing from the CLAUDE.md schema SQL
-- [ ] Add the `touch_updated_at` trigger on `expenses`
-- [ ] Add the `handle_new_user` trigger on `auth.users` — auto-creates a `profiles` row on sign-up. Also generate `add_code` here (e.g. `substr(md5(random()::text), 1, 8)`)
-- [ ] Enable RLS + add policies on `expenses`, `expense_splits`, `settlements`, `expense_items`, `expense_item_assignments` (group members only — see CLAUDE.md)
+- [x] Core tables: `profiles`, `groups`, `group_members`, `expenses`, `expense_splits`, `settlements`, `notifications`
+- [x] `profiles.id = auth.users.id` — simplified identity model, no two-UUID bridging
+- [x] `add_code` on profiles, `touch_updated_at` trigger, `handle_new_user` trigger, RLS + policies
 
 ### 1c. Enable Google OAuth
-- [ ] Supabase → Authentication → Providers → Google
+- [ ] Supabase → Authentication → Providers → Google (suspended — credentials leaked, appeal pending)
 - [ ] Create OAuth app in Google Cloud Console, paste client ID + secret into Supabase
 - [ ] Set callback URL: `https://<your-project>.supabase.co/auth/v1/callback`
 - [ ] Add `http://localhost:3000` to allowed redirect URLs
 
 ---
 
-## 2. Wire up auth (two stubs to fix)
+## 2. Wire up auth
 
-- [ ] **`src/app/login/LoginButton.tsx`** — replace `router.push('/')` with the real `signInWithOAuth` call:
-  ```ts
-  const supabase = createClient()
-  const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect') ?? '/'
-  await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
-    },
-  })
-  ```
-  Also restore `useSearchParams` and `createClient` imports.
-
+- [x] **`src/app/login/LoginButton.tsx`** — email/password form implemented with dev auto-login button
+- [ ] **Google OAuth** — restore `signInWithOAuth` once appeal is approved
 - [ ] **`middleware.ts`** — doesn't exist yet. Create `src/middleware.ts` using the pattern from CLAUDE.md to protect all routes except `/login`, `/invite`, `/expense`.
 
 ---
 
-## 3. Rewire mock-data pages to real Supabase queries ⭐ biggest task
+## 3. Rewire mock-data pages to real Supabase queries ✅
 
-Two pages still use `src/lib/mockData.ts` instead of the real query hooks:
-
-### 3a. Group detail page — `src/app/(dashboard)/groups/[id]/page.tsx`
-This is the core of the app. Replace the whole mock implementation with real data using existing hooks (`useGroup`, `useGroupMembers`, `useExpenses`, `useSettlements`, `calcNetBalances`, `simplifyDebts`). The UI design is done — just swap the data source.
-- [ ] Show real balance hero (user's net balance in the group)
-- [ ] Show real "Who pays who" (simplified debt list)
-- [ ] Show real activity feed (merged expenses + settlements, sorted by `created_at`)
-- [ ] Wire "Settle up" button → `router.push('/groups/${groupId}/settle')`
-- [ ] Wire "+ Add expense" button → `router.push('/groups/${groupId}/add')`
-
-### 3b. Home page — `src/app/(dashboard)/page.tsx`
-- [ ] Replace mock global balances with real cross-group balance calculation (query all groups the user is in, then aggregate)
-- [ ] Replace mock groups panel with real `useGroups()` data
-- [ ] Replace mock activity feed with real expenses/settlements from all groups
+- [x] Group detail page — real balances, who pays who, activity feed, settle/add buttons
+- [x] Home page — real global balances, groups panel, recent activity
+- [x] Sidebar — real groups list
 
 ---
 
 ## 4. Add member flow (not yet built)
 
-Currently you can create a group but can't add other users to it. MVP needs member search.
+Currently you can create a group but can't add other users to it. Full flow described below.
 
-- [ ] Build member search UI — search box that calls a Supabase query matching `name`, `display_name`, or `email ILIKE` (see CLAUDE.md "Member search query")
-- [ ] Add a query hook `useAddMember(groupId)` that inserts into `group_members`
-- [ ] Surface the add member UI somewhere in group detail (e.g. a "+ Invite" button that opens a modal)
-- [ ] Copy invite link button — group's `invite_token` as `tally.app/invite/:token`
+### 4a. Recents hook
+- [ ] Create `src/queries/useRecents.ts` — queries all group members across the user's groups, joins profiles, sorts by most recent shared expense. Cached by TanStack Query (60s stale time). Excludes self.
+
+### 4b. MemberPicker component
+- [ ] Create `src/components/MemberPicker.tsx`
+  - Props: `selected: Profile[]`, `onChange: (profiles: Profile[]) => void`, `excludeIds?: string[]`
+  - Shows recents list immediately on open (from `useRecents()`)
+  - Typing filters recents client-side first
+  - 2+ chars fires `useSearchProfiles(query)` for server results
+  - Recents matches at top, server results below
+  - Selected people shown as removable chips at top
+  - Opens as a bottom sheet
+
+### 4c. Group creation with members
+- [ ] Update `useCreateGroup` in `src/queries/useGroups.ts` to accept `memberIds: string[]`
+  - Sequence: insert group → insert creator → insert each member into `group_members`
+- [ ] Update `src/app/(dashboard)/groups/new/page.tsx` to include MemberPicker
+  - Creator shown as non-removable chip
+  - "Add people" button opens picker sheet
+  - Selected members shown as chips in form
+  - All written to DB in one shot on "Create"
+
+### 4d. Add member to existing group
+- [ ] Add `useAddGroupMember(groupId)` mutation to `src/queries/useGroups.ts`
+  - Inserts one row into `group_members`, invalidates `['group_members', groupId]`
+- [ ] Add "+ Add" button near member avatars on group detail page
+  - Opens MemberPicker sheet with `excludeIds` set to current members
+  - Tap a person → mutation fires immediately, no confirm step
+
+### 4e. Invite link (nice to have)
+- [ ] Copy invite link button on group detail — copies `tally.app/invite/[invite_token]` to clipboard
 
 ---
 

@@ -3,6 +3,7 @@
 import { T, F } from '@/design/tokens'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { ModeSheet } from '@/components/ModeSheet'
+import { NewGroupModal } from '@/components/NewGroupModal'
 import { TabBar } from '@/components/TabBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +24,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <TabBar />
       </div>
       <ModeSheet />
+      <NewGroupModal />
     </div>
   )
 }
