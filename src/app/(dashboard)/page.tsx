@@ -52,7 +52,7 @@ function TopBar() {
           <span className="home-topbar-add-icon">+</span>
         </button>
         <div onClick={() => router.push('/me')} style={{ cursor: 'pointer' }}>
-          <Avatar profile={profile ?? null} slot={0} size={34} isYou />
+          <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
         </div>
       </div>
     </div>

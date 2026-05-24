@@ -1,6 +1,5 @@
 export interface Profile {
-  id: string
-  user_id: string | null
+  id: string  // = auth.users.id
   name: string
   display_name: string | null
   email: string | null

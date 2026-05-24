@@ -137,7 +137,7 @@ export default function GroupDetailPage() {
                   profile={(m as any).profile}
                   slot={i % 4 as 0 | 1 | 2 | 3}
                   size={24}
-                  isYou={(m as any).profile?.user_id === profile?.user_id}
+                  isYou={(m as any).profile?.id === profile?.id}
                 />
               </div>
             ))}
@@ -198,9 +198,9 @@ export default function GroupDetailPage() {
                   key={i}
                   style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', borderBottom: i < debts.length - 1 ? `1px solid ${T.line}` : 'none', gap: 10 }}
                 >
-                  <Avatar profile={fromProfile} slot={slotFor(members, debt.from)} size={32} isYou={fromProfile?.user_id === profile?.user_id} />
+                  <Avatar profile={fromProfile} slot={slotFor(members, debt.from)} size={32} isYou={fromProfile?.id === profile?.id} />
                   <div style={{ width: 22, height: 22, background: T.bg, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0, color: T.inkMuted }}>→</div>
-                  <Avatar profile={toProfile}   slot={slotFor(members, debt.to)}   size={32} isYou={toProfile?.user_id === profile?.user_id} />
+                  <Avatar profile={toProfile}   slot={slotFor(members, debt.to)}   size={32} isYou={toProfile?.id === profile?.id} />
                   <div style={{ flex: 1, marginLeft: 4 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
                       {fromProfile?.display_name ?? fromProfile?.name ?? '…'} → {toProfile?.display_name ?? toProfile?.name ?? '…'}

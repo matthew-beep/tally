@@ -77,12 +77,12 @@ export default function SettleUpPage() {
           {/* From → To visual */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '16px', background: T.bg, borderRadius: T.r.md }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <Avatar profile={fromProfile} slot={members.findIndex(m => m.user_id === fromUser) as 0 | 1 | 2 | 3} size={44} isYou={fromProfile?.user_id === profile?.user_id} />
+              <Avatar profile={fromProfile} slot={members.findIndex(m => m.user_id === fromUser) as 0 | 1 | 2 | 3} size={44} isYou={fromProfile?.id === profile?.id} />
               <div style={{ fontSize: 12, fontWeight: 600 }}>{fromProfile ? (fromProfile.display_name ?? fromProfile.name) : '…'}</div>
             </div>
             <div style={{ fontSize: 22, color: T.inkFaint }}>→</div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <Avatar profile={toProfile} slot={members.findIndex(m => m.user_id === toUser) as 0 | 1 | 2 | 3} size={44} isYou={toProfile?.user_id === profile?.user_id} />
+              <Avatar profile={toProfile} slot={members.findIndex(m => m.user_id === toUser) as 0 | 1 | 2 | 3} size={44} isYou={toProfile?.id === profile?.id} />
               <div style={{ fontSize: 12, fontWeight: 600 }}>{toProfile ? (toProfile.display_name ?? toProfile.name) : '…'}</div>
             </div>
           </div>

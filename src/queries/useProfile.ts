@@ -14,7 +14,7 @@ export function useCurrentProfile() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('id', session.user.id)
         .single()
       if (error) throw error
       return data as Profile
@@ -29,18 +29,13 @@ export function useSearchProfiles(query: string) {
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return []
-      const { data: me } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .single()
 
       const { data, error } = await supabase
         .from('profiles')
         .select('id, name, display_name, avatar_url')
         .or(`name.ilike.%${query}%,display_name.ilike.%${query}%,add_code.eq.${query.toUpperCase()}`)
         .eq('status', 'active')
-        .neq('id', me?.id)
+        .neq('id', session.user.id)
         .limit(10)
       if (error) throw error
       return (data ?? []) as Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url'>[]
@@ -56,16 +51,10 @@ export function useNotifications() {
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return []
-      const { data: me } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .single()
-      if (!me) return []
       const { data, error } = await supabase
         .from('notifications')
         .select('*, settlement:settlements(*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*))')
-        .eq('recipient_id', me.id)
+        .eq('recipient_id', session.user.id)
         .eq('read', false)
         .order('created_at', { ascending: false })
       if (error) throw error

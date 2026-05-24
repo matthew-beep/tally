@@ -21,21 +21,14 @@ export function useGlobalBalances() {
       const user = session?.user
       if (!user) return null
 
-      const { data: me } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-      if (!me) return null
-
       const { data: memberships } = await supabase
         .from('group_members')
         .select('group_id')
-        .eq('user_id', me.id)
+        .eq('user_id', user.id)
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) {
-        return { myId: me.id, net: {}, profileMap: {}, transfers: [] }
+        return { myId: user.id, net: {}, profileMap: {}, transfers: [] }
       }
 
       const [expRes, settleRes, memberRes] = await Promise.all([
@@ -78,7 +71,7 @@ export function useGlobalBalances() {
       )
 
       return {
-        myId: me.id,
+        myId: user.id,
         net: rounded,
         profileMap,
         transfers: simplifyDebts(rounded),
@@ -105,20 +98,14 @@ export function useRecentActivity() {
   return useQuery<RecentExpense[]>({
     queryKey: ['recent-activity'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
+      const user = session?.user
       if (!user) return []
-
-      const { data: me } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-      if (!me) return []
 
       const { data: memberships } = await supabase
         .from('group_members')
         .select('group_id')
-        .eq('user_id', me.id)
+        .eq('user_id', user.id)
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) return []

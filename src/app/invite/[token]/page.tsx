@@ -25,17 +25,9 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
     )
   }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('user_id', session.user.id)
-    .single()
-
-  if (profile) {
-    await supabase
-      .from('group_members')
-      .upsert({ group_id: group.id, user_id: profile.id })
-  }
+  await supabase
+    .from('group_members')
+    .upsert({ group_id: group.id, user_id: session.user.id })
 
   redirect(`/groups/${group.id}`)
 }

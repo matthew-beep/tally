@@ -12,16 +12,10 @@ export function useGroups() {
       const { data: { session } } = await supabase.auth.getSession()
       const user = session?.user
       if (!user) return []
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-      if (!profile) return []
       const { data, error } = await supabase
         .from('group_members')
         .select('group_id, groups(*)')
-        .eq('user_id', profile.id)
+        .eq('user_id', user.id)
         .order('joined_at', { ascending: false })
       if (error) throw error
       return (data?.map(row => (row as any).groups).filter(Boolean) ?? []) as Group[]
@@ -71,23 +65,16 @@ export function useCreateGroup() {
       const user = session?.user
       if (!user) throw new Error('Not authenticated')
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user.id)
-        .single()
-      if (!profile) throw new Error('Profile not found')
-
       const { data: group, error } = await supabase
         .from('groups')
-        .insert({ name, emoji, created_by: profile.id })
+        .insert({ name, emoji, created_by: user.id })
         .select()
         .single()
       if (error) throw error
 
       await supabase
         .from('group_members')
-        .insert({ group_id: group.id, user_id: profile.id })
+        .insert({ group_id: group.id, user_id: user.id })
 
       return group as Group
     },

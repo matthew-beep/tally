@@ -157,9 +157,9 @@ export default function AddExpensePage() {
                       cursor: 'pointer', fontSize: 13, fontWeight: 600, fontFamily: F,
                     }}
                   >
-                    <Avatar profile={p} slot={(i % 4) as 0 | 1 | 2 | 3} size={20} isYou={p?.user_id === profile?.user_id} />
+                    <Avatar profile={p} slot={(i % 4) as 0 | 1 | 2 | 3} size={20} isYou={p?.id === profile?.id} />
                     {name}
-                    {p?.user_id === profile?.user_id && ' (you)'}
+                    {p?.id === profile?.id && ' (you)'}
                   </button>
                 )
               })}
