@@ -1,12 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
+import { MemberCombobox } from '@/components/MemberCombobox'
+import type { MemberEntry } from '@/components/MemberCombobox'
 import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
+import { addMembersToGroup, createGuestProfile } from '@/queries/useMembers'
 import { calcNetBalances, simplifyDebts } from '@/lib/balance'
 import type { Profile, Expense, Settlement } from '@/types'
 
@@ -29,6 +34,28 @@ export default function GroupDetailPage() {
   const params   = useParams()
   const groupId  = params.id as string
   const router   = useRouter()
+  const qc       = useQueryClient()
+  const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [pendingMembers, setPendingMembers] = useState<MemberEntry[]>([])
+  const [adding, setAdding] = useState(false)
+
+  async function handleAddMembers() {
+    if (!pendingMembers.length) return
+    setAdding(true)
+    try {
+      const ids: string[] = []
+      for (const entry of pendingMembers) {
+        if (entry.type === 'user') ids.push(entry.profile.id)
+        else ids.push(await createGuestProfile(entry.name))
+      }
+      await addMembersToGroup(groupId, ids)
+      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
+      setPendingMembers([])
+      setAddMemberOpen(false)
+    } finally {
+      setAdding(false)
+    }
+  }
 
   const { data: group,       isLoading: loadingGroup   } = useGroup(groupId)
   const { data: members = [], isLoading: loadingMembers } = useGroupMembers(groupId)
@@ -142,9 +169,49 @@ export default function GroupDetailPage() {
               </div>
             ))}
             <span style={{ marginLeft: 10, fontSize: 12, color: T.inkMuted }}>{members.length} {members.length === 1 ? 'person' : 'people'}</span>
+            <button
+              onClick={() => setAddMemberOpen(true)}
+              style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: T.r.pill, border: `1.5px dashed ${T.lineStrong}`, background: 'transparent', color: T.inkMuted, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: F }}
+            >
+              + Add
+            </button>
           </div>
         </div>
       </div>
+
+      {addMemberOpen && (
+        <div style={{
+          marginTop: 12, background: T.surface, borderRadius: T.r.lg,
+          padding: 14, boxShadow: T.shadow,
+        }}>
+          <MemberCombobox
+            value={pendingMembers}
+            onChange={setPendingMembers}
+            excludeIds={members.map(m => m.user_id)}
+            autoFocus
+          />
+          <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => { setAddMemberOpen(false); setPendingMembers([]) }}
+              style={{ padding: '8px 14px', borderRadius: T.r.md, background: 'transparent', color: T.inkMuted, border: 0, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: F }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddMembers}
+              disabled={!pendingMembers.length || adding}
+              style={{
+                padding: '8px 16px', borderRadius: T.r.md, border: 0, cursor: pendingMembers.length ? 'pointer' : 'default',
+                background: pendingMembers.length ? T.ink : T.surfaceAlt,
+                color: pendingMembers.length ? T.bg : T.inkMuted,
+                fontSize: 13, fontWeight: 700, fontFamily: F,
+              }}
+            >
+              {adding ? 'Adding…' : pendingMembers.length ? `Add ${pendingMembers.length} to group` : 'Add to group'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Balance hero */}
       <div style={{ padding: '22px 20px', background: T.surface, borderRadius: T.r.xl, boxShadow: T.shadowSm, marginBottom: 14 }}>

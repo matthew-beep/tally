@@ -36,67 +36,84 @@
 
 ---
 
-## 4. Add member flow (not yet built)
+## 4. Add member flow ⚠️ UX under review
 
-Currently you can create a group but can't add other users to it. Full flow described below.
+Built but the UX for group creation + adding members is being redesigned. See discussion notes below.
 
 ### 4a. Recents hook
-- [ ] Create `src/queries/useRecents.ts` — queries all group members across the user's groups, joins profiles, sorts by most recent shared expense. Cached by TanStack Query (60s stale time). Excludes self.
+- [x] `useRecentCollaborators` in `src/queries/useMembers.ts` — queries all group members across the user's groups, deduped, excludes self
 
 ### 4b. MemberPicker component
-- [ ] Create `src/components/MemberPicker.tsx`
-  - Props: `selected: Profile[]`, `onChange: (profiles: Profile[]) => void`, `excludeIds?: string[]`
-  - Shows recents list immediately on open (from `useRecents()`)
-  - Typing filters recents client-side first
-  - 2+ chars fires `useSearchProfiles(query)` for server results
-  - Recents matches at top, server results below
-  - Selected people shown as removable chips at top
-  - Opens as a bottom sheet
+- [x] `src/components/AddMemberModal.tsx` — recents + search (2+ chars), selected chips, add code recognition, built as a portal modal
 
 ### 4c. Group creation with members
-- [ ] Update `useCreateGroup` in `src/queries/useGroups.ts` to accept `memberIds: string[]`
-  - Sequence: insert group → insert creator → insert each member into `group_members`
-- [ ] Update `src/app/(dashboard)/groups/new/page.tsx` to include MemberPicker
-  - Creator shown as non-removable chip
-  - "Add people" button opens picker sheet
-  - Selected members shown as chips in form
-  - All written to DB in one shot on "Create"
+- [x] `addMembersToGroup` utility in `src/queries/useMembers.ts` — bulk upsert into `group_members`
+- [x] `NewGroupModal` wired: creates group then calls `addMembersToGroup` for selected members
 
 ### 4d. Add member to existing group
-- [ ] Add `useAddGroupMember(groupId)` mutation to `src/queries/useGroups.ts`
-  - Inserts one row into `group_members`, invalidates `['group_members', groupId]`
-- [ ] Add "+ Add" button near member avatars on group detail page
-  - Opens MemberPicker sheet with `excludeIds` set to current members
-  - Tap a person → mutation fires immediately, no confirm step
+- [x] `useAddGroupMember(groupId)` in `src/queries/useMembers.ts`
+- [x] "+ Add" button on group detail page opens `AddMemberModal` with `existingMemberIds`
 
-### 4e. Invite link (nice to have)
-- [ ] Copy invite link button on group detail — copies `tally.app/invite/[invite_token]` to clipboard
+### 4e. Invite link
+- [x] Copy invite link + QR code in `AddMemberModal` right panel (group context only)
+
+### UX redesign discussion
+The current flow (nested `AddMemberModal` inside `NewGroupModal`) has a gap: new users with no recents see an empty state during group creation, and the invite link (which needs `invite_token`) isn't available until after the group exists. Three options being evaluated:
+- **A** — Defer member-adding entirely to after group creation (group detail page has full recents + search + invite link)
+- **B** — Two-step modal: step 1 creates the group, modal transitions to step 2 with recents + search + invite link/QR
+- **C** — Single modal with invite link shown after save
 
 ---
 
-## 5. Notifications write-path (DB side missing)
+## 5. Notifications write-path ✅
 
-The Me page UI for confirming/denying settlements is built, but nothing writes notifications to the DB:
-
-- [ ] When a settlement is created → insert a `settlement_confirm` notification for the payee (`to_user`)
-- [ ] When a settlement is confirmed → insert a `settlement_confirmed` notification for the payer (`from_user`), mark the original notification as read
-- [ ] When a settlement is denied → insert a `settlement_denied` notification for the payer, delete the settlement row
-
-This logic lives in `src/queries/useSettlements.ts` — add the notification inserts to `useCreateSettlement`, `useConfirmSettlement`, and `useDenySettlement`.
+- [x] Settlement created → inserts `settlement_confirm` notification for payee (`to_user`) in `useCreateSettlement`
+- [x] Settlement confirmed → inserts `settlement_confirmed` notification for payer (`from_user`) in `useConfirmSettlement`
+- [x] Settlement denied → inserts `settlement_denied` notification for payer, deletes settlement row in `useDenySettlement`
 
 ---
 
 ## 6. Polish / small fixes
 
 - [ ] **Display name editing** — Me page has no way to set `display_name`. Add an inline edit or a simple form field.
-- [ ] **Group detail back button** — currently navigates to `/` (hardcoded); should navigate to `/groups` or use `router.back()`
+- [x] **Group detail back button** — navigates to `/groups`
 - [ ] **Home page layout** — currently uses a desktop multi-column layout (different from the DashboardPage wrapper used everywhere else); consider aligning it
 - [ ] **Expense splits sum validation** — in exact split mode, show a running total so the user knows if their amounts don't add up to the expense total before hitting save
-- [ ] **Empty state for group detail** — no expenses yet? Show a friendly prompt.
+- [x] **Empty state for group detail** — shows "No expenses yet — add one to get started."
 
 ---
 
-## 7. Later (Phase 2+, don't build yet)
+## 7. Identity & handle system
+
+Full spec: [`docs/identity-and-search-spec.md`](docs/identity-and-search-spec.md)
+
+### 7a. Database
+- [ ] Add `handle TEXT UNIQUE` column to `profiles`
+- [ ] Update `handle_new_user` trigger — leave handle as `NULL` on creation (suggested client-side)
+- [ ] Add RLS policy allowing authenticated users to insert guest profiles (`user_id = NULL, status = 'guest'`)
+
+### 7b. Onboarding — Google OAuth (new user)
+- [ ] Create `src/app/onboarding/page.tsx` — single screen, name pre-filled (read-only), handle input with real-time availability check, Continue button writes handle to DB
+- [ ] Update `src/middleware.ts` — after auth check, if `profile.handle === null` redirect to `/onboarding`
+
+### 7c. Signup — email/password (new user)
+- [ ] Update `src/app/login/LoginButton.tsx` signup form — add first name, last name, handle fields. Handle auto-suggested from first name as user types. Writes everything on submit.
+
+### 7d. Search overhaul
+- [ ] Add `handle` to `ProfileSnippet` type, remove `add_code` from it
+- [ ] Update `useSearchProfiles` — three modes based on input: `@` prefix → handle fuzzy, 8-char alphanumeric → add code exact, else → name + handle fuzzy
+- [ ] Update `MemberCombobox` search result rows — show `@handle` instead of `add_code`
+
+---
+
+## 8. Dashboard balance cards
+
+- [ ] **Simplify "owed to you" and "you owe" cards** — currently show individual breakdowns per person. Change to a single total number per card (e.g. "You are owed $47.50" / "You owe $23.00")
+- [ ] **Add expand button** — small button top-right of each card opens a modal showing the full per-person breakdown (who owes what, across which groups)
+
+---
+
+## 9. Later (Phase 2+, don't build yet)
 
 - Invite link flow (`/invite/[token]`) — skeleton exists, needs real join logic
 - Public expense share page (`/expense/[share_token]`) — skeleton exists, needs service-role fetch

@@ -22,6 +22,8 @@ export function useCurrentProfile() {
   })
 }
 
+export type ProfileSnippet = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code'>
+
 export function useSearchProfiles(query: string) {
   const supabase = createClient()
   return useQuery({
@@ -32,15 +34,31 @@ export function useSearchProfiles(query: string) {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, display_name, avatar_url')
-        .or(`name.ilike.%${query}%,display_name.ilike.%${query}%,add_code.eq.${query.toUpperCase()}`)
+        .select('id, name, display_name, avatar_url, add_code')
+        .or(`name.ilike.%${query}%,display_name.ilike.%${query}%,email.ilike.%${query}%,add_code.eq.${query.toUpperCase()}`)
         .eq('status', 'active')
         .neq('id', session.user.id)
         .limit(10)
       if (error) throw error
-      return (data ?? []) as Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url'>[]
+      return (data ?? []) as ProfileSnippet[]
     },
     enabled: query.length >= 2,
+  })
+}
+
+export function useProfileByAddCode(code: string) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['profiles', 'byCode', code],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, name, display_name, avatar_url, add_code')
+        .eq('add_code', code.toUpperCase())
+        .single()
+      return (data ?? null) as ProfileSnippet | null
+    },
+    enabled: code.length > 0,
   })
 }
 

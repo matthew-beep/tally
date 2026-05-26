@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 export function ModeSheet() {
-  const { fabOpen, setFabOpen, activeGroupId, setNewGroupOpen } = useUIStore()
+  const { fabOpen, setFabOpen, activeGroupId } = useUIStore()
   const router = useRouter()
 
   useEffect(() => {
@@ -84,7 +84,7 @@ export function ModeSheet() {
           <button
             onClick={() => {
               setFabOpen(false)
-              setNewGroupOpen(true)
+              router.push('/groups/new')
             }}
             style={{
               background: T.sun,

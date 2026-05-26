@@ -56,6 +56,22 @@ export function useGroupMembers(groupId: string) {
   })
 }
 
+export function useProfileGroups(profileId: string | undefined) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['profile_groups', profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .eq('user_id', profileId!)
+      if (error) throw error
+      return (data?.map(r => r.group_id) ?? []) as string[]
+    },
+    enabled: !!profileId,
+  })
+}
+
 export function useCreateGroup() {
   const supabase = createClient()
   const qc = useQueryClient()
