@@ -2,6 +2,7 @@ export interface Profile {
   id: string  // = auth.users.id
   name: string
   display_name: string | null
+  handle: string | null
   email: string | null
   avatar_url: string | null
   add_code: string | null
@@ -32,7 +33,7 @@ export interface Expense {
   paid_by: string
   description: string
   amount: number
-  split_type: 'equal' | 'exact' | 'itemized'
+  split_type: 'equal' | 'exact' | 'percentage' | 'itemized'
   category: string | null
   tax: number
   tip: number
@@ -81,8 +82,15 @@ export interface Settlement {
 export interface Notification {
   id: string
   recipient_id: string
-  type: 'settlement_confirm' | 'settlement_confirmed' | 'settlement_denied'
-  settlement_id: string
+  type:
+    | 'group_invite'
+    | 'group_invite_accepted'
+    | 'group_invite_declined'
+    | 'settlement_confirm'
+    | 'settlement_confirmed'
+    | 'settlement_denied'
+  settlement_id: string | null
+  group_id: string | null
   read: boolean
   created_at: string
   settlement?: Settlement

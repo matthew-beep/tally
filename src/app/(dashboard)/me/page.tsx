@@ -101,14 +101,14 @@ function SettlementConfirmCard({ notification }: { notification: Notification })
       {s.note && <div style={{ fontSize: 12, color: T.inkMuted, marginBottom: 12 }}>{s.note}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
-          onClick={() => confirm.mutate({ id: s.id, groupId: s.group_id, fromUser: s.from_user })}
+          onClick={() => confirm.mutate({ id: s.id, groupId: s.group_id })}
           disabled={confirm.isPending}
           style={{ flex: 1, background: T.mintSoft, color: T.mintInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
         >
           ✓ Confirm
         </button>
         <button
-          onClick={() => deny.mutate({ id: s.id, groupId: s.group_id, fromUser: s.from_user })}
+          onClick={() => deny.mutate({ id: s.id, groupId: s.group_id })}
           disabled={deny.isPending}
           style={{ flex: 1, background: T.coralSoft, color: T.coralInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
         >

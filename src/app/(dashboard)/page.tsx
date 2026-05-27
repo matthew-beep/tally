@@ -60,6 +60,22 @@ function TopBar() {
   )
 }
 
+function heroCost(total: number) {
+  const isPositive = total >= 0
+  const whole      = Math.floor(Math.abs(total)).toLocaleString()
+  const cents      = (Math.abs(total) % 1).toFixed(2).slice(1)
+  const sign       = total >= 0 ? '+' : '−'
+
+  return (
+    <div style={{ lineHeight: 1, marginBottom: 6, color: isPositive ? T.mintInk : T.coralInk }}>
+      <span className="home-balance-sign" style={{ fontFamily: FH, fontSize: 22, fontWeight: 500, opacity: 0.7 }}>{sign}$</span>
+      <span className="home-balance-whole" style={{ fontFamily: FH, fontSize: 44, fontWeight: 700, letterSpacing: -1.5, fontVariantNumeric: 'tabular-nums' }}>{whole}</span>
+      <span style={{ fontFamily: FMONO, fontSize: 13, opacity: 0.7 }}>{cents}</span>
+    </div>
+  )
+
+}
+
 function HeroRow() {
   const { data: gb, isLoading } = useGlobalBalances()
   const myId = gb?.myId
@@ -84,33 +100,27 @@ function HeroRow() {
   const owedToYou = gb.transfers.filter(t => t.to === myId).map(t => ({ profile: gb.profileMap[t.from], amount: t.amount }))
   const youOwe    = gb.transfers.filter(t => t.from === myId).map(t => ({ profile: gb.profileMap[t.to], amount: t.amount }))
 
+
+  const totalOwedToYou = owedToYou.reduce((sum, { amount }) => sum + amount, 0)
+  const totalYouOwe = youOwe.reduce((sum, { amount }) => sum + amount, 0)
+
   return (
     <div className="home-hero">
       <div className="home-hero-balance" style={{ background: T.surface, borderRadius: T.r.xl, padding: '22px 22px 20px', boxShadow: T.shadowSm, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', right: -20, top: -20, width: 120, height: 120, borderRadius: '50%', background: isPositive ? T.mintSoft : T.coralSoft, opacity: 0.6 }} />
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 10 }}>Net balance</div>
-        <div style={{ lineHeight: 1, marginBottom: 6, color: isPositive ? T.mintInk : T.coralInk }}>
-          <span className="home-balance-sign" style={{ fontFamily: FH, fontSize: 22, fontWeight: 500, opacity: 0.7 }}>{sign}$</span>
-          <span className="home-balance-whole" style={{ fontFamily: FH, fontSize: 44, fontWeight: 700, letterSpacing: -1.5, fontVariantNumeric: 'tabular-nums' }}>{whole}</span>
-          <span style={{ fontFamily: FMONO, fontSize: 13, opacity: 0.7 }}>{cents}</span>
-        </div>
+        {heroCost(total)}
         <div style={{ fontSize: 12, color: T.inkMuted }}>
           {isPositive ? 'Overall you are owed' : 'Overall you owe'} across all groups
         </div>
       </div>
 
-      <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }}>
+      <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }} className='cursor-pointer'>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.mintInk, marginBottom: 12 }}>Owed to you</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {owedToYou.length === 0
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onClick={() => console.log(owedToYou)}>
+          {totalOwedToYou === 0
             ? <div style={{ fontSize: 13, color: T.inkFaint }}>Nothing owed to you</div>
-            : owedToYou.slice(0, 4).map(({ profile, amount }, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Avatar profile={profile} slot={(i + 1) % 4 as 0 | 1 | 2 | 3} size={28} />
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: T.ink }}>{profile?.display_name ?? profile?.name ?? '…'}</span>
-                <AmtText amount={amount} size={14} />
-              </div>
-            ))
+            : heroCost(totalOwedToYou)
           }
         </div>
       </div>
@@ -118,15 +128,9 @@ function HeroRow() {
       <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.coralInk, marginBottom: 12 }}>You owe</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {youOwe.length === 0
+          {totalYouOwe === 0
             ? <div style={{ fontSize: 13, color: T.inkFaint }}>You owe nothing</div>
-            : youOwe.slice(0, 4).map(({ profile, amount }, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Avatar profile={profile} slot={(i + 2) % 4 as 0 | 1 | 2 | 3} size={28} />
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: T.ink }}>{profile?.display_name ?? profile?.name ?? '…'}</span>
-                <AmtText amount={-amount} size={14} />
-              </div>
-            ))
+            : heroCost(totalYouOwe)
           }
         </div>
       </div>

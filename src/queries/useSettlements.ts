@@ -39,12 +39,6 @@ export function useCreateSettlement(groupId: string) {
         .single()
       if (error) throw error
 
-      await supabase.from('notifications').insert({
-        recipient_id: payload.to_user,
-        type: 'settlement_confirm',
-        settlement_id: data.id,
-      })
-
       return data as Settlement
     },
     onSuccess: () => {
@@ -57,13 +51,8 @@ export function useConfirmSettlement() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, groupId, fromUser }: { id: string; groupId: string; fromUser: string }) => {
+    mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
       await supabase.from('settlements').update({ status: 'confirmed' }).eq('id', id)
-      await supabase.from('notifications').insert({
-        recipient_id: fromUser,
-        type: 'settlement_confirmed',
-        settlement_id: id,
-      })
       return { id, groupId }
     },
     onSuccess: ({ groupId }) => {
@@ -77,12 +66,7 @@ export function useDenySettlement() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, groupId, fromUser }: { id: string; groupId: string; fromUser: string }) => {
-      await supabase.from('notifications').insert({
-        recipient_id: fromUser,
-        type: 'settlement_denied',
-        settlement_id: id,
-      })
+    mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
       await supabase.from('settlements').delete().eq('id', id)
       return { id, groupId }
     },

@@ -63,7 +63,21 @@ const queryClient = new QueryClient({
 - **Someone else's action** → they see it next time they navigate to the screen or return to the app
 - **Pull-to-refresh** → manual `queryClient.invalidateQueries` for the "I just got a text, let me check" moment
 
-Do NOT add `refetchInterval`. Do NOT add Supabase Realtime. Do NOT manually push items into the TanStack cache from a socket — it causes deduplication bugs. Invalidate and let TanStack refetch cleanly. Realtime belongs in Phase 3 (live collaborative receipt splitting). Not before.
+Do NOT add `refetchInterval` to expense/settlement/balance queries. Do NOT add Supabase Realtime. Do NOT manually push items into the TanStack cache from a socket — it causes deduplication bugs. Invalidate and let TanStack refetch cleanly. Realtime belongs in Phase 3 (live collaborative receipt splitting). Not before.
+
+**Exception — notification bell uses a light poll:**
+The unread count query is a single integer — negligible cost. Poll every 30 seconds while the tab is active so the bell badge updates without requiring navigation:
+
+```ts
+const { data: unreadCount } = useQuery({
+  queryKey: ['notifications', 'unread', userId],
+  queryFn:  () => fetchUnreadCount(userId),
+  refetchInterval: 30_000,
+  refetchIntervalInBackground: false, // only while tab is active
+})
+```
+
+Full notification list uses standard `refetchOnMount` — fetched fresh when the user navigates to the notifications screen.
 
 ---
 
@@ -81,9 +95,11 @@ app/
   page.tsx                     # / — Home (balance hero + recent activity)
   login/
     page.tsx                   # /login — Sign in with Google
+  onboarding/
+    page.tsx                   # /onboarding — Pick @handle (redirected here if handle is null)
   groups/
     page.tsx                   # /groups — Groups list
-    new/page.tsx               # /groups/new — Create group
+    new/page.tsx               # /groups/new — Create group (single page, MemberCombobox)
     [id]/
       page.tsx                 # /groups/[id] — Group detail
       add/page.tsx             # /groups/[id]/add — Add expense
@@ -100,7 +116,7 @@ app/
     ocr/route.ts               # POST /api/ocr — proxies to homelab Ollama (Phase 3)
 ```
 
-**Auth middleware** — protects all routes except `/login` and `/invite/[token]`:
+**Auth middleware** — protects all routes, redirects to onboarding if handle is null:
 
 ```ts
 // middleware.ts
@@ -120,6 +136,20 @@ export async function middleware(request: NextRequest) {
     loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
     return NextResponse.redirect(loginUrl)
   }
+
+  // Redirect to onboarding if authenticated but handle not set
+  if (session && !request.nextUrl.pathname.startsWith('/onboarding')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('handle')
+      .eq('user_id', session.user.id)
+      .single()
+
+    if (profile && !profile.handle) {
+      return NextResponse.redirect(new URL('/onboarding', request.url))
+    }
+  }
+
   return response
 }
 ```
@@ -154,8 +184,10 @@ profiles (
   name         text NOT NULL,       -- from Google, auto-set, never changes
   display_name text,                -- user-set in profile settings, shown everywhere in UI
                                     -- UI always renders: display_name ?? name
+  handle       text UNIQUE,         -- @handle, set during onboarding, NULL until chosen
   email        text,                -- from Google, unique, used for search only — never shown to other users
   avatar_url   text,                -- from Google profile photo
+  add_code     text UNIQUE DEFAULT substr(md5(random()::text), 1, 8), -- QR/share code
   status       text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'guest')),
   claim_token  text UNIQUE,         -- guests claim via /claim/:token
   created_at   timestamptz DEFAULT now()
@@ -174,8 +206,17 @@ groups (
 group_members (
   group_id    uuid REFERENCES groups ON DELETE CASCADE,
   user_id     uuid REFERENCES profiles ON DELETE CASCADE,
+  invited_by  uuid REFERENCES profiles,               -- who sent the invite
+  status      text NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'active', 'left')),
   joined_at   timestamptz DEFAULT now(),
   PRIMARY KEY (group_id, user_id)
+  -- invite link joins → status: active immediately
+  -- added by search → status: pending until accepted
+  -- declined → row deleted, notification sent to invited_by
+  -- left → status: 'left', historical splits preserved, no longer active
+  --   'left' members: excluded from new expenses, don't see group in their list,
+  --   shown as "former member" in group detail, balance history intact
 )
 
 expenses (
@@ -184,7 +225,7 @@ expenses (
   paid_by       uuid REFERENCES profiles NOT NULL,
   description   text NOT NULL,
   amount        numeric(10,2) NOT NULL CHECK (amount > 0),
-  split_type    text NOT NULL CHECK (split_type IN ('equal', 'exact', 'itemized')),
+  split_type    text NOT NULL CHECK (split_type IN ('equal', 'exact', 'percentage', 'itemized')),
   category      text,                               -- emoji e.g. '🍽️'
   tax           numeric(10,2) DEFAULT 0,            -- itemized only, distributed proportionally
   tip           numeric(10,2) DEFAULT 0,            -- itemized only, distributed proportionally
@@ -218,6 +259,16 @@ expense_item_assignments (
   PRIMARY KEY (item_id, user_id)
 )
 
+-- Audit log — written on every expense UPDATE before the change is saved
+-- Any group member can edit any expense; this table records who changed what
+expense_history (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  expense_id   uuid REFERENCES expenses ON DELETE CASCADE NOT NULL,
+  edited_by    uuid REFERENCES profiles NOT NULL,
+  snapshot     jsonb NOT NULL,  -- full expense row state BEFORE this edit
+  edited_at    timestamptz DEFAULT now()
+)
+
 settlements (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id      uuid REFERENCES groups ON DELETE CASCADE NOT NULL,
@@ -235,14 +286,110 @@ notifications (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   recipient_id  uuid REFERENCES profiles NOT NULL,
   type          text NOT NULL CHECK (type IN (
+                  'group_invite',          -- to invitee: "Jordan added you to Big Sur Trip"
+                  'group_invite_accepted', -- to inviter: "Sam accepted your invite ✓"
+                  'group_invite_declined', -- to inviter: "Sam declined your invite"
                   'settlement_confirm',    -- to payee: "X says they paid you $N"
                   'settlement_confirmed',  -- to payer: "Y confirmed your payment ✓"
-                  'settlement_denied'      -- to payer: "Y hasn't confirmed yet"
+                  'settlement_denied'      -- to payer: "Y denied your payment"
                 )),
-  settlement_id uuid REFERENCES settlements ON DELETE CASCADE,
+  settlement_id uuid REFERENCES settlements ON DELETE CASCADE, -- set for settlement types
+  group_id      uuid REFERENCES groups ON DELETE CASCADE,      -- set for group invite types
   read          boolean DEFAULT false,
   created_at    timestamptz DEFAULT now()
 )
+```
+
+**Notification triggers** — app never writes to `notifications` directly. Triggers handle all inserts atomically:
+
+```sql
+-- Group invite created
+CREATE OR REPLACE FUNCTION notify_group_invite()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'pending' THEN
+    INSERT INTO notifications (type, recipient_id, group_id)
+    VALUES ('group_invite', NEW.user_id, NEW.group_id);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_group_member_inserted
+AFTER INSERT ON group_members
+FOR EACH ROW EXECUTE FUNCTION notify_group_invite();
+
+-- Invite accepted (pending → active)
+CREATE OR REPLACE FUNCTION notify_group_invite_accepted()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status = 'pending' AND NEW.status = 'active' AND OLD.invited_by IS NOT NULL THEN
+    INSERT INTO notifications (type, recipient_id, group_id)
+    VALUES ('group_invite_accepted', OLD.invited_by, OLD.group_id);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_group_member_updated
+AFTER UPDATE ON group_members
+FOR EACH ROW EXECUTE FUNCTION notify_group_invite_accepted();
+
+-- Invite declined (pending row deleted)
+CREATE OR REPLACE FUNCTION notify_group_invite_declined()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status = 'pending' AND OLD.invited_by IS NOT NULL THEN
+    INSERT INTO notifications (type, recipient_id, group_id)
+    VALUES ('group_invite_declined', OLD.invited_by, OLD.group_id);
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_group_member_deleted
+AFTER DELETE ON group_members
+FOR EACH ROW EXECUTE FUNCTION notify_group_invite_declined();
+
+-- Settlement created → ask payee to confirm
+CREATE OR REPLACE FUNCTION notify_settlement_created()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO notifications (type, recipient_id, settlement_id)
+  VALUES ('settlement_confirm', NEW.to_user, NEW.id);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_settlement_inserted
+AFTER INSERT ON settlements
+FOR EACH ROW EXECUTE FUNCTION notify_settlement_created();
+
+-- Settlement confirmed → notify payer
+CREATE OR REPLACE FUNCTION notify_settlement_confirmed()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'confirmed' AND OLD.status = 'pending' THEN
+    INSERT INTO notifications (type, recipient_id, settlement_id)
+    VALUES ('settlement_confirmed', NEW.from_user, NEW.id);
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_settlement_updated
+AFTER UPDATE ON settlements
+FOR EACH ROW EXECUTE FUNCTION notify_settlement_confirmed();
+
+-- Settlement denied (pending row deleted) → notify payer
+CREATE OR REPLACE FUNCTION notify_settlement_denied()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD.status = 'pending' THEN
+    INSERT INTO notifications (type, recipient_id, settlement_id)
+    VALUES ('settlement_denied', OLD.from_user, OLD.id);
+  END IF;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER on_settlement_deleted
+AFTER DELETE ON settlements
+FOR EACH ROW EXECUTE FUNCTION notify_settlement_denied();
 ```
 
 **updated_at trigger** — add to expenses so edits surface in the activity feed:
@@ -295,23 +442,30 @@ Same add expense form, same flow. The scan button is just a shortcut to pre-fill
 
 `share_token` — `NULL` by default, generated only when the organiser explicitly taps "Share" on an expense. A public Next.js Server Component page fetches the expense using the Supabase service role key (bypasses RLS — access is controlled by the token itself). Shows: expense description, each person's items and total, who paid. Optionally a "Track your expenses with Tally" CTA. Use this for the restaurant moment — assign items, tap Share, drop the link in the group chat. Nobody needs an account to see what they owe.
 
-**User discovery — three identifiers, one search.**
-Users are found by name, display_name, or add_code. Name and display_name are fuzzy; add_code is exact:
+**User discovery — three identifiers, one search field, three modes.**
+The `MemberCombobox` detects input type and switches search mode automatically:
+- `@` prefix → fuzzy handle search
+- 8-char alphanumeric → exact `add_code` match (QR code scan destination)
+- anything else → name + handle fuzzy
 
-```sql
-SELECT id, name, display_name, avatar_url, add_code
-FROM profiles
-WHERE (
-  name         ILIKE '%' || :query || '%'
-  OR display_name ILIKE '%' || :query || '%'
-  OR add_code  = upper(:query)          -- exact, case-insensitive
-)
-AND status = 'active'
-AND id != :current_user_id
-LIMIT 10
-```
+Search results display `@handle` alongside name and avatar. Never return email to the client.
 
-Never return `email` to the client — it's a search key only, never displayed.
+**Group invite flow — confirmation required for search-based adds.**
+- **Added by search**: INSERT `group_members` with `status: 'pending'` → trigger creates `group_invite` notification for invitee → invitee accepts (UPDATE to `active` → trigger creates `group_invite_accepted` for `invited_by`) or declines (DELETE row → trigger creates `group_invite_declined` for `invited_by`)
+- **Invite link** (`/invite/:token`): clicked deliberately → `status: 'active'` immediately, no confirmation needed
+- **Spam prevention**: PRIMARY KEY on `(group_id, user_id)` prevents duplicate pending invites
+- **Pending members**: excluded from expense splits, balance calculations, and activity feed until accepted. Show with ⏳ badge in group member list for organiser.
+- **All `group_members` queries must filter** `AND status = 'active'` except where explicitly showing pending invites
+
+**Group creation — single page with MemberCombobox.**
+`/groups/new` is a single form: group name, emoji picker, and a `MemberCombobox` to search and add members inline before saving. On submit: INSERT group → INSERT group_members (creator as active) → INSERT group_members (others as pending, triggers fire notifications) → redirect to `/groups/:id`.
+
+**Notifications — triggers only, bell polls every 30s.**
+App code never writes to `notifications` directly. All notification inserts happen via Postgres triggers (see schema). The bell icon badge uses a 30-second `refetchInterval` (active tab only). Full notification list uses `refetchOnMount`.
+
+Two distinct systems — do not conflate:
+- **Notifications** (`notifications` table): action-required items — group invites, settlement confirmations. Drives the bell badge.
+- **Activity feed** (derived from `expenses` + `settlements`): history log. Not stored separately.
 
 **Recents — derived from shared groups, no extra table.**
 People you've most recently shared expenses with, surfaced at the top of the add member flow:
@@ -331,10 +485,39 @@ LIMIT 8
 ```
 
 **QR code flow.**
-Each user has an `add_code` (8-char unique slug, displayed on their profile). QR encodes `tally.app/add/:add_code`. Scanning from camera → navigates to `app/add/[add_code]/page.tsx`. Scanning in-app → `router.push('/add/' + code)`. The route fetches the profile by add_code, shows "Add [Name] to a group." Auth middleware redirects unauthenticated scanners to `/login?redirect=/add/:add_code` and restores the route post-sign-in.
+Each user has an `add_code` (8-char unique slug, displayed on their profile). QR encodes `tally.app/add/:add_code`. `add_code` is permanent and never changes — this means QR codes remain valid even if the user changes their `handle`. Scanning from camera → navigates to `app/add/[add_code]/page.tsx`. Scanning in-app → `router.push('/add/' + code)`. The route fetches the profile by add_code, shows "Add [Name] to a group." Auth middleware redirects unauthenticated scanners to `/login?redirect=/add/:add_code` and restores the route post-sign-in.
+
+**Expense editing — any member can edit, all edits are audited.**
+Any active group member can edit any expense. Before saving an edit, a trigger writes the full previous state to `expense_history` as a JSON snapshot. The activity feed shows "(edited)" on any expense where `updated_at != created_at`. Users can view edit history from the expense detail screen.
+
+```sql
+CREATE OR REPLACE FUNCTION log_expense_edit()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO expense_history (expense_id, edited_by, snapshot)
+  VALUES (OLD.id, auth.uid(), to_jsonb(OLD));
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER expense_before_update
+BEFORE UPDATE ON expenses
+FOR EACH ROW EXECUTE FUNCTION log_expense_edit();
+```
+
+**Leaving a group.**
+When a member leaves: `UPDATE group_members SET status = 'left'`. The row is preserved so historical expense_splits remain intact and balance history is accurate. Left members are excluded from all queries using `AND status = 'active'`, do not see the group in their groups list, cannot add new expenses, and appear as "former member" in the group detail view. Their outstanding balance (if any) remains visible to other group members.
+
+**Group settings and permissions.**
+The group `created_by` is the admin. Phase 2 adds a settings page with toggleable permissions (e.g. who can add/remove members, rename the group). For MVP: creator has all permissions, all active members can add and edit expenses.
 
 **Auth — Google OAuth only.**
-Sign in with Google → Supabase creates `auth.users` row → trigger auto-creates `profiles` row with name, email, avatar_url from Google metadata. No onboarding screen, no handle selection, no extra steps. Users land directly in the app.
+Sign in with Google → Supabase creates `auth.users` row → trigger auto-creates `profiles` row with name, email, avatar_url from Google metadata. `handle` is left NULL. Middleware detects `handle === null` and redirects to `/onboarding`.
+
+**Onboarding screen** (`/onboarding`) — single screen shown once after first Google sign-in:
+- Name field pre-filled from Google (read-only)
+- Handle input — auto-suggested from first name as user types, real-time availability check
+- Continue button writes handle to DB → redirected to home (or original `?redirect` URL)
 
 ```sql
 CREATE OR REPLACE FUNCTION handle_new_user()
@@ -359,26 +542,41 @@ FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 **Identity model.**
 Three identifiers, three jobs:
 - `id` (UUID) — internal only, used for all foreign keys, never shown to users
-- `email` — unique, from Google, used for member search only, never displayed to other users
-- `display_name` — not unique, user-set in profile settings, shown everywhere in the UI. Falls back to `name` (Google name) if null. Two users can share a display name — that's fine. Profile photo distinguishes them.
+- `handle` — unique, user-chosen during onboarding, shown in search results as `@handle`
+- `email` — unique, from Google, used for search only, never displayed to other users
+- `display_name` — not unique, user-set in profile settings, shown everywhere in UI. Falls back to `name` (Google name) if null. Two users can share a display name — that's fine. Profile photo distinguishes them.
 
 Always render names as: `profile.display_name ?? profile.name`
 
-**Member search query.**
-Search hits name, display_name, and email so users can be found any way:
+**Member search — three modes based on input:**
 ```sql
-SELECT id, name, display_name, avatar_url
+-- @handle prefix → fuzzy handle search
+SELECT id, name, display_name, handle, avatar_url
+FROM profiles
+WHERE handle ILIKE '%' || :query || '%'
+AND status = 'active' AND id != :me
+LIMIT 10
+
+-- 8-char alphanumeric → exact add_code match
+SELECT id, name, display_name, handle, avatar_url
+FROM profiles
+WHERE add_code = upper(:query)
+AND status = 'active' AND id != :me
+LIMIT 1
+
+-- anything else → name + handle fuzzy
+SELECT id, name, display_name, handle, avatar_url
 FROM profiles
 WHERE (
   name         ILIKE '%' || :query || '%' OR
   display_name ILIKE '%' || :query || '%' OR
-  email        ILIKE '%' || :query || '%'
+  handle       ILIKE '%' || :query || '%'
 )
-AND status = 'active'
-AND id != :current_user_id
+AND status = 'active' AND id != :me
 LIMIT 10
 ```
-Return name and display_name only — never return email to the client (it's the search key, not a display field).
+
+Search results show `@handle` alongside name and avatar. Never return email to the client.
 
 **Balances are computed, never stored.**
 Always calculate from `expense_splits` and `settlements`. Never cache a balance in the DB.
@@ -441,6 +639,27 @@ const { data: confirmations } = useQuery(['confirmations', userId],
     .eq('read', false)
 )
 ```
+
+**Cross-group settlements — UI aggregation, not a data model change.**
+Settlements are always group-scoped (`settlements.group_id` is never null). The "cross-group" concept exists only in the UI as a convenience for users who share balances across multiple groups with the same person.
+
+The home screen aggregates total owed/owing per person across all groups:
+
+```ts
+// Computed client-side from existing group balance data — no extra queries
+const netPerPerson = allGroupBalances
+  .flatMap(group => simplifyDebts(calcNetBalances(group)))
+  .reduce((acc, debt) => {
+    if (debt.from === currentUserId)
+      acc[debt.to] = (acc[debt.to] || 0) + debt.amount
+    return acc
+  }, {} as Record<string, number>)
+// → "You owe Sam $50" (tap to see: Apartment $30, Big Sur $20)
+```
+
+"Settle all with [person]" creates multiple settlement records in one action — one per group with an outstanding balance. Each lands cleanly in its own group. Each generates its own confirmation notification to the payee.
+
+For partial cross-group payments: let the user choose which group(s) to apply the payment to. Default suggestion: apply to largest balance first. Do not auto-distribute proportionally — users know which context the payment is for.
 
 **Partial settlements just work.**
 Settlements are not tied to specific expenses. Recording a $10 settlement against a $15 balance leaves a $5 balance. Multiple settlements stack. No special handling needed.
