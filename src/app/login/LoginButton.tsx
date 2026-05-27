@@ -67,21 +67,10 @@ function LoginButtonInner() {
 
   return (
     <div style={{
-      padding: '0 20px 40px',
-      flexShrink: 0,
-      position: 'relative',
-      zIndex: 1,
       display: 'flex',
       flexDirection: 'column',
       gap: 10,
     }}>
-      {/* fade gradient above */}
-      <div style={{
-        position: 'absolute', bottom: '100%', left: 0, right: 0, height: 56,
-        background: `linear-gradient(to bottom, transparent, ${T.bg})`,
-        pointerEvents: 'none',
-      }}/>
-
       {/* Google OAuth — primary CTA */}
       <button
         onClick={signInWithGoogle}

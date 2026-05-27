@@ -194,6 +194,24 @@ export default function NewGroupPage() {
               onChange={setMembers}
               placeholder="Add by name…"
             />
+            <ul className='text-sm text-ink-muted flex flex-col'>
+              {members.map((m) => (
+                <li className='flex items-center gap-2' key={m.type === 'user' ? m.profile.id : m.tempId}>
+                  {m.type === 'user' ? (
+                    <>
+                      <Avatar profile={m.profile} size={20} />
+                      {' '}
+                      {m.profile.handle ?? m.profile.name}
+                    </>
+                  ) : (
+                    <>
+                      {/* guest row (no m.profile) */}
+                      {m.name}
+                    </>
+                  )}
+                </li>
+              ))}            
+            </ul>
           </section>
 
           {/* Right — preview */}

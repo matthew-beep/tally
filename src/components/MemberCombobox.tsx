@@ -183,6 +183,13 @@ export function MemberCombobox({ value, onChange, excludeIds = [], placeholder =
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
                   {p.display_name ?? p.name}
                 </div>
+                {p.handle ? (
+                  <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, letterSpacing: 0.8 }}>
+                    {p.handle}
+                  </div>
+                ) : <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, letterSpacing: 0.8 }}>
+                    no handle found
+                  </div>}
                 {p.add_code && (
                   <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, letterSpacing: 0.8 }}>
                     {p.add_code}

@@ -22,7 +22,7 @@ export function useCurrentProfile() {
   })
 }
 
-export type ProfileSnippet = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code'>
+export type ProfileSnippet = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code' | 'handle'>
 
 export function useSearchProfiles(query: string) {
   const supabase = createClient()
@@ -34,7 +34,7 @@ export function useSearchProfiles(query: string) {
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, display_name, avatar_url, add_code')
+        .select('id, name, display_name, avatar_url, add_code, handle')
         .or(`name.ilike.%${query}%,display_name.ilike.%${query}%,email.ilike.%${query}%,add_code.eq.${query.toUpperCase()}`)
         .eq('status', 'active')
         .neq('id', session.user.id)
