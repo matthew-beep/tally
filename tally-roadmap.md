@@ -82,6 +82,7 @@ Everything needed for real day-to-day use.
 **Groups**
 - [ ] Group settings page — rename group, change emoji, leave group
 - [ ] "Former member" display for users who left (balance history preserved)
+- [ ] Fix founding member flow — `addMembersToGroup` currently inserts with `status: 'pending'` (the DB default), triggering invite notifications immediately. Members added during group creation should be inserted with `status: 'active'` so no notification fires. The pending/notification flow should only apply when adding someone to an existing group. Also fix `invited_by` — it is never set, so accept/decline notifications back to the inviter are silently dropped.
 
 **Activity**
 - [ ] Activity tab — full cross-group feed with confirmation requests pinned at top

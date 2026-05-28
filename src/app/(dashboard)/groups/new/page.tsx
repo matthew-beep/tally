@@ -9,8 +9,85 @@ import type { MemberEntry } from '@/components/MemberCombobox'
 import { useCreateGroup } from '@/queries/useGroups'
 import { addMembersToGroup, createGuestProfile } from '@/queries/useMembers'
 import { useCurrentProfile } from '@/queries/useProfile'
+import type { Profile } from '@/types'
 
 const EMOJIS = ['💸', '🏖️', '🍕', '✈️', '🏠', '🎉', '🛒', '🚗', '🍽️', '💪', '🎮', '❤️']
+
+function MemberRow({
+  displayName,
+  handle,
+  avatarProfile,
+  slot,
+  isYou,
+  isLast,
+  onRemove,
+}: {
+  displayName: string
+  handle?: string | null
+  avatarProfile: Profile | { id: string; name: string; display_name: null; avatar_url: null; add_code: null }
+  slot: 0 | 1 | 2 | 3
+  isYou?: boolean
+  isLast: boolean
+  onRemove?: () => void
+}) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      padding: '12px 18px',
+      borderBottom: isLast ? 'none' : `0.5px solid ${T.line}`,
+    }}>
+      <Avatar profile={avatarProfile as Profile} slot={slot} size={40} isYou={isYou} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {isYou ? 'You' : displayName}
+        </div>
+        {handle && (
+          <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 2, fontWeight: 500, letterSpacing: 0.2 }}>
+            @{handle}
+          </div>
+        )}
+      </div>
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        padding: '4px 10px', borderRadius: 999,
+        fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4,
+        textTransform: 'uppercase' as const,
+        background: isYou ? T.sunSoft : T.surfaceAlt,
+        color: isYou ? T.sunInk : T.inkMuted,
+        flexShrink: 0,
+      }}>
+        {isYou ? (
+          <>
+            <svg width="9" height="9" viewBox="0 0 12 12">
+              <path d="M2 9L1 4l3 2 2-4 2 4 3-2-1 5H2z" fill={T.sunInk} />
+            </svg>
+            Organizer
+          </>
+        ) : (
+          <>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.inkFaint }} />
+            Pending
+          </>
+        )}
+      </span>
+      {!isYou && onRemove && (
+        <button
+          onClick={onRemove}
+          style={{
+            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+            background: 'transparent', color: T.inkMuted,
+            border: 0, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 14 14">
+            <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
 
 const labelStyle = {
   fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
@@ -186,7 +263,7 @@ export default function NewGroupPage() {
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={labelStyle}>Members</div>
               <div style={{ fontSize: 11, color: T.inkFaint, fontWeight: 600 }}>
-                {members.length > 0 ? `${members.length} added` : 'search Tally or add as guest'}
+                name · @handle · 8-char code
               </div>
             </div>
             <MemberCombobox
@@ -194,24 +271,82 @@ export default function NewGroupPage() {
               onChange={setMembers}
               placeholder="Add by name…"
             />
-            <ul className='text-sm text-ink-muted flex flex-col'>
-              {members.map((m) => (
-                <li className='flex items-center gap-2' key={m.type === 'user' ? m.profile.id : m.tempId}>
-                  {m.type === 'user' ? (
-                    <>
-                      <Avatar profile={m.profile} size={20} />
-                      {' '}
-                      {m.profile.handle ?? m.profile.name}
-                    </>
-                  ) : (
-                    <>
-                      {/* guest row (no m.profile) */}
-                      {m.name}
-                    </>
-                  )}
-                </li>
-              ))}            
-            </ul>
+            {/* Members card */}
+            <div style={{
+              background: T.surface, borderRadius: 18,
+              boxShadow: T.shadowSm, overflow: 'hidden', marginTop: 14,
+            }}>
+              {/* header */}
+              <div style={{
+                padding: '14px 18px',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                borderBottom: `0.5px solid ${T.line}`,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 700, letterSpacing: -0.2 }}>
+                  <span>In this group</span>
+                  <span style={{
+                    fontFamily: FMONO, fontSize: 11, fontWeight: 700,
+                    padding: '2px 8px', borderRadius: 999,
+                    background: T.bg, color: T.inkMuted,
+                  }}>{totalMembers}</span>
+                </div>
+              </div>
+
+              {/* You — always first */}
+              {profile && (
+                <MemberRow
+                  displayName={profile.display_name ?? profile.name}
+                  handle={profile.handle}
+                  avatarProfile={profile}
+                  slot={0}
+                  isYou
+                  isLast={members.length === 0}
+                />
+              )}
+
+              {/* Invited members */}
+              {members.map((entry, i) => {
+                const isLast = i === members.length - 1
+                if (entry.type === 'user') {
+                  return (
+                    <MemberRow
+                      key={entry.profile.id}
+                      displayName={entry.profile.display_name ?? entry.profile.name}
+                      handle={entry.profile.handle}
+                      avatarProfile={entry.profile}
+                      slot={(i + 1) % 4 as 0 | 1 | 2 | 3}
+                      isLast={isLast}
+                      onRemove={() => setMembers(prev => prev.filter((_, j) => j !== i))}
+                    />
+                  )
+                }
+                return (
+                  <MemberRow
+                    key={entry.tempId}
+                    displayName={entry.name}
+                    avatarProfile={{ id: entry.tempId, name: entry.name, display_name: null, avatar_url: null, add_code: null }}
+                    slot={(i + 1) % 4 as 0 | 1 | 2 | 3}
+                    isLast={isLast}
+                    onRemove={() => setMembers(prev => prev.filter((_, j) => j !== i))}
+                  />
+                )
+              })}
+            </div>
+
+            {/* hint */}
+            {members.length > 0 && (
+              <div style={{
+                marginTop: 10, padding: '0 4px',
+                fontSize: 11.5, color: T.inkMuted, lineHeight: 1.55,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <svg width="11" height="11" viewBox="0 0 12 12">
+                  <circle cx="6" cy="6" r="5" stroke={T.inkFaint} strokeWidth="1" fill="none" />
+                  <path d="M6 3.5v3M6 8.2v.4" stroke={T.inkFaint} strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                Found through search? They'll get a notification — they can accept or decline.
+              </div>
+            )}
           </section>
 
           {/* Right — preview */}
