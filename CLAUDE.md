@@ -83,9 +83,7 @@ Full notification list uses standard `refetchOnMount` — fetched fresh when the
 
 ## Navigation
 
-Tab bar + FAB. Four persistent tabs: **Home · Groups · Activity · Me**. The FAB opens a mode sheet branching into "Add to group" or "Split a bill" (which auto-creates a group).
-
-Everything is a group. There is no separate quick_splits table. "Split a bill" silently creates a group named "Dinner · May 21", adds an itemized expense, and lets the user invite people.
+Tab bar + FAB. Four persistent tabs: **Home · Groups · Activity · Me**. The FAB creates a new group or adds an expense to an existing group. Everything is a group — there is no separate quick split flow.
 
 **Route structure (Next.js App Router):**
 
@@ -180,14 +178,20 @@ Everything else is Phase 2+. Do not build itemized splits, guest profiles, activ
 -- user_id is NULL for guest profiles (Phase 2)
 profiles (
   id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      uuid REFERENCES auth.users UNIQUE,  -- NULL for guests
+  user_id      uuid UNIQUE REFERENCES auth.users ON DELETE SET NULL,
+                             -- ON DELETE SET NULL not CASCADE — auth is just a login provider.
+                             -- Profiles are permanent business entities and must outlive auth records.
+                             -- Deleting an auth account (account cleanup, provider unlinking) must
+                             -- never cascade-destroy financial history.
   name         text NOT NULL,       -- from Google, auto-set, never changes
   display_name text,                -- user-set in profile settings, shown everywhere in UI
                                     -- UI always renders: display_name ?? name
   handle       text UNIQUE,         -- @handle, set during onboarding, NULL until chosen
+                                    -- always stored lowercase — enforce at app layer before write
+                                    -- search with ILIKE or LOWER() for case-insensitive match
   email        text,                -- from Google, unique, used for search only — never shown to other users
   avatar_url   text,                -- from Google profile photo
-  add_code     text UNIQUE DEFAULT substr(md5(random()::text), 1, 8), -- QR/share code
+  add_code     text UNIQUE DEFAULT substr(md5(random()::text), 1, 8), -- QR/share code, permanent
   status       text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'guest')),
   claim_token  text UNIQUE,         -- guests claim via /claim/:token
   created_at   timestamptz DEFAULT now()
@@ -225,6 +229,7 @@ expenses (
   paid_by       uuid REFERENCES profiles NOT NULL,
   description   text NOT NULL,
   amount        numeric(10,2) NOT NULL CHECK (amount > 0),
+  currency_code text NOT NULL DEFAULT 'USD',        -- ISO 4217. Always store even if USD-only for now.
   split_type    text NOT NULL CHECK (split_type IN ('equal', 'exact', 'percentage', 'itemized')),
   category      text,                               -- emoji e.g. '🍽️'
   tax           numeric(10,2) DEFAULT 0,            -- itemized only, distributed proportionally
@@ -232,6 +237,9 @@ expenses (
   expense_date  date NOT NULL DEFAULT CURRENT_DATE,
   created_at    timestamptz DEFAULT now(),
   updated_at    timestamptz DEFAULT now(),          -- set by trigger on every UPDATE
+  deleted_at    timestamptz,                        -- soft delete — NULL means active
+                                                    -- deleted expenses are EXCLUDED from balance calculations
+                                                    -- all balance queries must filter WHERE deleted_at IS NULL
   share_token   text UNIQUE                         -- null until user taps Share
                              -- /expense/:token → public read-only view, no auth required
 )
@@ -474,11 +482,18 @@ People you've most recently shared expenses with, surfaced at the top of the add
 SELECT DISTINCT p.id, p.name, p.display_name, p.avatar_url,
   MAX(e.created_at) as last_shared
 FROM profiles p
-JOIN group_members gm ON gm.user_id = p.id AND gm.group_id IN (
-  SELECT group_id FROM group_members WHERE user_id = :me
-)
+JOIN group_members gm ON gm.user_id = p.id
+  AND gm.status = 'active'                          -- active members only
+  AND gm.group_id IN (
+    SELECT gm2.group_id FROM group_members gm2
+    JOIN profiles me ON me.id = gm2.user_id
+    WHERE me.user_id = auth.uid()
+    AND gm2.status = 'active'
+  )
 LEFT JOIN expenses e ON e.group_id = gm.group_id
-WHERE p.id != :me AND p.status = 'active'
+  AND e.deleted_at IS NULL
+WHERE p.id != (SELECT id FROM profiles WHERE user_id = auth.uid())
+AND p.status = 'active'
 GROUP BY p.id, p.name, p.display_name, p.avatar_url
 ORDER BY last_shared DESC NULLS LAST
 LIMIT 8
@@ -579,10 +594,11 @@ LIMIT 10
 Search results show `@handle` alongside name and avatar. Never return email to the client.
 
 **Balances are computed, never stored.**
-Always calculate from `expense_splits` and `settlements`. Never cache a balance in the DB.
+Always calculate from `expense_splits` and `settlements`. Never cache a balance in the DB. The caller must pre-filter expenses to exclude soft-deleted rows (`WHERE deleted_at IS NULL`) before passing to this function.
 
 ```ts
 function calcNetBalances(groupId, expenses, settlements, memberIds) {
+  // expenses must already be filtered: deleted_at IS NULL
   const net = Object.fromEntries(memberIds.map(id => [id, 0]));
   expenses.filter(e => e.group_id === groupId).forEach(e => {
     e.splits.forEach(s => {
@@ -682,13 +698,23 @@ owed       = subtotal + tax_share + tip_share
 Always recompute `expense_splits` from `expense_item_assignments` on save. Never cache.
 
 **RLS from day one.**
+`group_members.user_id` references `profiles.id` — not `auth.users.id`. RLS policies must join through `profiles` to get from `auth.uid()` to group membership. Apply this pattern to all protected tables:
+
 ```sql
+-- expenses
 CREATE POLICY "group members only" ON expenses
   USING (group_id IN (
-    SELECT group_id FROM group_members WHERE user_id = auth.uid()
+    SELECT gm.group_id FROM group_members gm
+    JOIN profiles p ON p.id = gm.user_id
+    WHERE p.user_id = auth.uid()
+    AND gm.status = 'active'
   ));
+
+-- expense_splits, expense_items, expense_item_assignments, settlements
+-- same pattern — replace expenses with each table name
 ```
-Apply same pattern to `expense_splits`, `settlements`, `expense_items`, `expense_item_assignments`.
+
+Never write `WHERE user_id = auth.uid()` against a table where `user_id` references `profiles.id`. It will silently return no rows because profile UUIDs never equal auth UUIDs.
 
 **Guest participants (Phase 2).**
 Not in MVP. When added: `profiles` row with `user_id = NULL` and `status = 'guest'`. All expense/settlement records reference `profiles.id` and work identically. Claiming = one UPDATE setting `user_id` and `status = 'active'`. Three claim paths: auto via email match, manual link by group member, or shared claim token URL.
@@ -823,12 +849,54 @@ npx supabase gen types typescript --local > types/supabase.ts
 
 ---
 
+## Invariants
+
+These are the system truths. Schema alone does not enforce them — every query and mutation must respect them.
+
+**Balance invariant**
+```
+A user's balance in a group =
+  SUM of expense_splits.owed_amount
+    for expenses WHERE deleted_at IS NULL
+    and group_id = :group
+    and user_id = :user
+  MINUS
+  SUM of settlements.amount
+    WHERE (from_user = :user OR to_user = :user)
+    and group_id = :group
+    and status IN ('pending', 'confirmed')
+  for active group members only (status = 'active')
+```
+
+Deleted expenses are excluded. Pending settlements count (optimistic — balance reflects reality the moment payment is recorded, ⏳ indicator shows confirmation is outstanding). Left members' historical splits are included but they do not appear in the live balance UI.
+
+**Soft delete invariant**
+Deleted expenses (`deleted_at IS NOT NULL`) must be invisible to all balance calculations, debt simplification, and activity feed queries. They are never hard deleted. Every query against `expenses` that feeds into balances or the feed must include `WHERE deleted_at IS NULL`.
+
+**Split sum invariant**
+`expense_splits` amounts must sum exactly to `expenses.amount`. Rounding remainder is assigned to `paid_by`. This must hold before the INSERT — enforce in `lib/splits.ts`, not in the DB.
+
+**Handle invariant**
+Handles are stored lowercase and are case-insensitively unique. Enforce lowercase at the app layer before every write (`handle.toLowerCase()`). Search with `ILIKE` or `LOWER()` to match regardless of input case.
+
+**Auth invariant**
+`profiles` are permanent business entities. `auth.users` is a login provider. Deleting an auth account sets `profiles.user_id = NULL` — it never cascades to the profile or any downstream records. Financial history is preserved regardless of auth state.
+
+**Snapshot invariant**
+`expense_history` snapshots the `expenses` row state BEFORE each edit. For equal/exact splits this is sufficient. For itemized splits (Phase 2), the snapshot does not include `expense_items` or `expense_item_assignments` — this is a known gap. Document as summary-only history for itemized expenses until Phase 2 revisits it.
+
+---
+
 ## Conventions
 
 - Balance math: `Math.round(x * 100) / 100` everywhere. Never let floats hit the UI.
-- Split amounts must sum exactly to expense total. Assign rounding remainder to first person.
+- Split amounts must sum exactly to expense total. Assign rounding remainder to `paid_by`.
 - Expenses: soft delete (`deleted_at timestamptz`). Everything else: hard delete.
 - Monetary amounts: `numeric(10,2)` always, never `float`.
+- Currency: always store `currency_code` on expenses. Default `'USD'`. Never assume currency from context.
+- Handles: always store and compare lowercase. `handle.toLowerCase()` before every write and search.
 - Current user: always `supabase.auth.getUser()`. Never hardcode a user ID.
 - `updated_at` ≠ `created_at` means an expense was edited. Show "(edited)" in activity feed.
 - `settled_date` = when payment happened (user-set). `created_at` = when recorded (sort activity by this).
+- All `group_members` queries filter `AND status = 'active'` unless explicitly showing pending or left members.
+- All expense queries feeding balances or activity filter `AND deleted_at IS NULL`.

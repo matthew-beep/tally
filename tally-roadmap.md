@@ -1,7 +1,7 @@
 # Tally — Build Roadmap
 
 ## What it is
-A free expense-splitting app. Groups of people log shared costs, the app tracks who paid what, and calculates the minimum transfers needed to zero everyone out. Two entry points: ongoing **Groups** for regular splits (roommates, trips), and **Split a bill** for a quick one-time receipt split that auto-creates a group behind the scenes.
+A free expense-splitting app. Groups of people log shared costs, the app tracks who paid what, and calculates the minimum transfers needed to zero everyone out. Like Splitwise, but free with no paywalled features.
 
 ---
 
@@ -10,186 +10,137 @@ A free expense-splitting app. Groups of people log shared costs, the app tracks 
 ### Frontend
 | Tool | Why |
 |---|---|
-| **Next.js 14+ (App Router)** | File-based routing, middleware auth, API routes for Ollama proxy. Deploys natively to Vercel. |
+| **Next.js 16+ (App Router)** | File-based routing, proxy auth, API routes. Deploys natively to Vercel. |
 | **Zustand** | Lightweight client state (active group, open modals) |
 | **TanStack Query** | Server state — fetch, cache, optimistic updates, auto-refetch on invalidation |
-| **Custom CSS tokens** | Tally design system (T object). No Tailwind needed. |
+| **Tailwind v4 + design tokens** | Tally design system (T object + CSS variables wired into Tailwind) |
 
 ### Backend
 | Tool | Why |
 |---|---|
-| **Supabase** | Postgres + Auth + Realtime + Storage. Free tier is generous. |
+| **Supabase** | Postgres + Auth. Free tier is generous. |
 | **Row Level Security** | Enforced at DB level — users only see groups they belong to |
-| **Supabase Edge Functions** | Email sending (Phase 3), any server-side logic |
 
 ### Hosting
-- **Frontend**: Vercel — free tier, auto-deploys from GitHub
-- **Backend**: Supabase Cloud — free up to 500MB DB, 2GB bandwidth
+- **Frontend**: Vercel — auto-deploys from GitHub
+- **Backend**: Supabase Cloud
 
 ---
 
-## Database Schema
+## Phase 1 — MVP ✅ Complete
 
-```sql
-profiles        -- auth.users extension. user_id nullable for guest profiles (Phase 2).
-groups          -- id, name, emoji, created_by, created_at
-group_members   -- group_id, user_id, joined_at
-expenses        -- id, group_id, paid_by, description, amount,
-                -- split_type (equal | exact | itemized),
-                -- category (emoji), tax, tip,
-                -- expense_date, created_at, updated_at
-expense_splits  -- id, expense_id, user_id, owed_amount (final computed amount)
-expense_items   -- id, expense_id, name, price (for split_type = itemized)
-expense_item_assignments -- item_id, user_id (many-to-many — empty = unassigned/shared)
-settlements     -- id, group_id, from_user, to_user, amount, note,
-                -- settled_date (user-set), created_at (recorded), status (pending | confirmed)
-notifications   -- settlement_confirm, settlement_confirmed, settlement_denied
-```
+The minimum loop: create a group, add a friend, split an expense, see who owes what, settle up, confirm it.
 
-Full schema with constraints lives in `CLAUDE.md`.
-
-**Core rule**: Balances are computed at runtime from `expense_splits` and `settlements`. Never stored.
-
----
-
-## MVP Definition
-
-The minimum that makes the app genuinely useful. Two people should be able to:
-
-1. Create accounts
-2. Create a group and add each other
-3. Log a shared expense (equal split)
-4. See who owes what
-5. Record a settlement and confirm it
-
-That's it. Everything else is Phase 2+.
-
----
-
-## Build Phases
-
-### Phase 0 — Foundation (3–5 days)
-Stand up the project before writing any features.
-- [ ] Vite + React + TypeScript scaffold
-- [ ] Supabase project — schema migrations + RLS policies
-- [ ] Auth — email/password (Google OAuth can come later)
-- [ ] GitHub → Vercel deploy pipeline
-- [ ] Design tokens, fonts, and base components wired in
-
-### Phase 1 — MVP (2–3 weeks)
-Equal split only. Existing Tally users only (no guests yet).
+**Auth & onboarding**
+- [x] Google OAuth sign-in
+- [x] Dev email/password login (local only)
+- [x] Auth proxy — protects all routes, session refresh on every request
+- [x] Onboarding — pick @handle after first sign-in, real-time availability check
 
 **Groups**
-- [ ] Create group (name + emoji)
-- [ ] Group list with balance badges
-- [ ] Group detail — member balances, simplified "who pays who", expense list
-- [ ] Add members by searching existing users
+- [x] Create group — name, emoji picker, add members inline, live preview panel
+- [x] Group list with balance badges
+- [x] Group detail — balance hero, "who pays who", activity feed
+- [x] Add members to existing group (search by handle/name/add_code)
+- [x] Invite link (`/invite/:token`) — auto-joins group after sign-in
 
 **Expenses**
-- [ ] Add expense — description, amount, paid by, equal split, date
-- [ ] Category auto-detection from description (keyword matching, no API call)
-- [ ] Expense list in group detail (newest first)
+- [x] Add expense — description, amount, paid by, equal split, date
+- [x] Category auto-detection from description (keyword matching, no API call)
+- [x] Activity feed in group detail (expenses + settlements merged, date-grouped)
 
 **Balances**
-- [ ] `calcNetBalances` — computed from expense_splits + settlements
-- [ ] `simplifyDebts` — greedy min-transfer algorithm
-- [ ] Balance badges (mint = owed, coral = owes, neutral = settled)
+- [x] `calcNetBalances` — computed from expense_splits + settlements, never stored
+- [x] `simplifyDebts` — greedy min-transfer algorithm
+- [x] Balance badges (mint = owed, coral = owes, neutral = settled)
+- [x] Home screen net balance hero (aggregated across all groups)
 
 **Settle up**
-- [ ] Record a settlement (pre-fills with outstanding balance)
-- [ ] Settlement confirmation — pending ⏳ → confirmed ✓ or denied
-- [ ] In-app notifications for settlement confirm requests (bell icon, pinned in activity)
+- [x] Record a settlement (pre-fills with outstanding balance)
+- [x] Settlement confirmation — pending ⏳ → confirmed ✓ or denied ✗
+- [x] In-app notifications (Me tab) with confirm/deny actions
+- [x] Notification bell polling every 30s (active tab only)
 
-**Milestone**: Create a group, add a friend, split a dinner, see the balance, settle up, confirm it. The full loop works.
+**User discovery**
+- [x] QR code / add by code (`/add/:add_code`) — add a user to a group by scanning their code
+- [x] Member search — three modes: @handle, add_code exact match, name fuzzy
+- [x] Public share view (`/expense/:share_token`) — no auth required
+
+**Milestone**: ✅ Full loop works end to end.
 
 ---
 
-### Phase 2 — Full Features (2–3 weeks)
+## Phase 2 — Full Features
+
 Everything needed for real day-to-day use.
 
-**Splits**
-- [ ] Exact split — manually set each person's amount
-- [ ] Itemized split — enter line items, assign to members, tax/tip distributed proportionally
-- [ ] Expense edit (with `updated_at` tracking so edits surface in activity feed)
-- [ ] Expense delete (soft delete, creator only)
+**Expenses**
+- [ ] Exact split — manually set each person's share
+- [ ] Expense edit — any member can edit, audit trail written to `expense_history`
+- [ ] Expense delete — soft delete, show "(deleted)" in activity feed
 
-**"Split a bill" flow**
-- [ ] FAB → mode sheet ("Add to group" or "Split a bill")
-- [ ] "Split a bill" silently creates a group named "Dinner · May 21"
-- [ ] Goes straight to itemized expense flow
-- [ ] User can rename the auto-created group later
+**Groups**
+- [ ] Group settings page — rename group, change emoji, leave group
+- [ ] "Former member" display for users who left (balance history preserved)
 
-**Guest profiles**
-- [ ] Add person by name only (no email required)
-- [ ] Guest shows in group with ⏳ badge, balance tracks normally
-- [ ] Organiser marks guest as paid directly (no confirmation flow for guests)
-- [ ] Share invite link via any channel (iMessage, WhatsApp, etc.)
-- [ ] Claim paths: auto via email match, manual link by group member, claim token URL
+**Activity**
+- [ ] Activity tab — full cross-group feed with confirmation requests pinned at top
+- [ ] "(edited)" label on expenses where `updated_at != created_at`
 
-**Activity feed**
-- [ ] Home screen — recent activity across all groups, last ~10 items
-- [ ] Activity tab — full chronological feed (expenses + settlements merged, sorted by created_at)
-- [ ] Two sections: confirmation requests pinned at top, everything else below
-- [ ] Realtime updates via Supabase subscriptions
+**Notifications**
+- [ ] Group invite notifications — accept/decline pending membership from Me tab
+- [ ] Unread count badge on bell icon
 
-**Polish**
-- [ ] Expense category picker (manual override of auto-detected category)
-- [ ] Realtime balance updates
-- [ ] Group settings — rename, add/remove members, leave group
-
-**Milestone**: Use this for a real trip with mixed Tally/non-Tally friends and trust it completely.
+**Milestone**: Use this for a real trip and trust it completely.
 
 ---
 
-### Phase 3 — Differentiation
+## Phase 3 — Differentiation
+
 Where Tally pulls ahead of free Splitwise.
 
-- [ ] Receipt scanning — Gemini Vision API (free tier 1,500 req/day)
-  - Photo → structured JSON (merchant, line items, tax, tip) in one call
-  - Pre-fills the itemized expense form
-- [ ] Email notifications — Resend or Brevo (free tier sufficient)
-  - Settlement confirmation requests
-  - Group invite emails (when email provided for guest)
-  - Triggered via Supabase Edge Functions on notification insert
-- [ ] Dark mode (token system already designed for it)
+- [ ] Receipt scanning — homelab Ollama OCR proxy (`/api/ocr`)
+  - Photo → structured JSON (merchant, line items, tax, tip)
+  - Pre-fills the itemized expense form, inside add expense (not a separate flow)
+- [ ] Itemized split — line items, assign to members, tax/tip distributed proportionally
+- [ ] "Split a bill" quick flow — FAB → silently creates a group, goes straight to itemized expense
+- [ ] Email notifications — settlement confirm requests, group invites (Resend or Brevo)
+- [ ] Dark mode (token system already supports it)
 - [ ] PWA manifest + offline expense entry (queue + sync)
-- [ ] CSV export
 
 **Milestone**: Receipt scanner + no paywalls = clear reason to switch from Splitwise.
 
 ---
 
-### Phase 4 — Polish
-- [ ] Onboarding flow for first-time users
+## Phase 4 — Polish
+
+- [ ] Guest profiles — add someone by name only, no account required
+  - Organiser marks guest as paid directly (no confirmation flow)
+  - Claim paths: auto via email match, manual link, claim token URL
 - [ ] Multi-currency display
+- [ ] CSV export
 - [ ] Performance audit (bundle size, LCP, JS parse time)
 - [ ] Accessibility pass (keyboard nav, screen readers, colour contrast)
-- [ ] Analytics — Plausible (privacy-friendly, $9/mo)
+- [ ] Analytics — Plausible
 
 ---
 
 ## Key Technical Decisions
 
 **Balances computed at runtime, never stored.**
-Load group page → fetch expenses + settlements in parallel → run `calcNetBalances` in JS → render. The calculation is O(n) and runs in microseconds for any realistic group size. Adding/editing/deleting an expense just invalidates the TanStack Query cache, which triggers a refetch and recompute automatically.
+Load group page → fetch expenses + settlements in parallel → run `calcNetBalances` in JS → render. The calculation is O(n) and runs in microseconds for any realistic group size.
 
-**TanStack Query is the data layer.**
-Two hooks per page (`useQuery` for reads, `useMutation` for writes). Mutations use optimistic updates — the UI updates immediately, rolls back on failure. `invalidateQueries` after a mutation keeps everything in sync without manual state management.
+**No Realtime until Phase 3.**
+TanStack Query's `refetchOnWindowFocus` + `refetchOnMount` cover the async use case (people log expenses and check later). Realtime belongs in itemized receipt splitting where multiple people are on the same screen simultaneously.
 
 **Activity feed is derived, not stored.**
-No separate events table. The activity feed is a merged + time-sorted query over `expenses` and `settlements`. `created_at DEFAULT now()` on every table is the event log. Edited expenses surface via `updated_at`. No extra writes, nothing to get out of sync.
+No separate events table. Merged + sorted query over `expenses` and `settlements`. `created_at` on every table is the event log.
 
 **Settlement confirmation is optimistic.**
-A pending settlement counts toward balances immediately. The ⏳ indicator is UI only. Confirmation locks it in, denial deletes the row and reverts the balance. Guest profiles skip confirmation — organiser is the source of truth.
-
-**Partial settlements just work.**
-Settlements are not tied to specific expenses. A $10 payment against a $15 balance leaves a $5 balance. Multiple settlements stack. `calcNetBalances` sums them all.
+A pending settlement counts toward balances immediately. Confirmation locks it in, denial deletes the row and reverts the balance.
 
 **Everything is a group.**
-There is no separate quick-split data model. "Split a bill" silently creates a group, adds an itemized expense, and invites participants. The distinction is UX only — the data model is identical.
-
-**Guest profiles are a profile variant, not a separate system.**
-`profiles.user_id` is nullable. `expense_splits`, `settlements`, and `group_members` all reference `profiles.id` and work identically for guests. Claiming = one UPDATE. Zero downstream changes.
+No separate quick-split data model. "Split a bill" silently creates a group and adds an itemized expense. The distinction is UX only.
 
 **RLS from day one.**
 ```sql
@@ -198,7 +149,4 @@ CREATE POLICY "group members only" ON expenses
     SELECT group_id FROM group_members WHERE user_id = auth.uid()
   ));
 ```
-Apply same pattern to `expense_splits`, `settlements`, `expense_items`, `expense_item_assignments`.
-
-**No email service in MVP.**
-Supabase handles auth emails. Everything else is in-app only. Add Resend/Brevo in Phase 3 when real users ask for it.
+Same pattern on `expense_splits`, `settlements`, `expense_items`, `expense_item_assignments`.

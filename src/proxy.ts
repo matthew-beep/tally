@@ -1,51 +1,71 @@
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Auth guard disabled while Supabase is being configured.
-// Real guard (Google OAuth + session check) is preserved in the block below — re-enable by
-// swapping this function body back in once NEXT_PUBLIC_SUPABASE_URL is set.
-export function proxy(_request: NextRequest) {
-  return NextResponse.next()
-}
-
-/*
-import { createServerClient } from '@supabase/ssr'
-
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request })
+  // Supabase SSR requires a mutable response so it can write
+  // refreshed session cookies back to the browser on every request.
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) => {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          // Write into the request first (needed by Supabase internals),
+          // then rebuild the response so it carries the updated cookies.
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2])
+            supabaseResponse.cookies.set(name, value, options)
           )
         },
       },
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  // getUser() validates the session with the Supabase server on every call.
+  // Do NOT use getSession() here — it trusts the local JWT without re-validating.
+  const { data: { user } } = await supabase.auth.getUser()
 
-  const isPublic = ['/login', '/invite', '/expense'].some(p =>
-    request.nextUrl.pathname.startsWith(p)
+  const { pathname } = request.nextUrl
+
+  const isPublic = ['/login', '/invite', '/expense', '/auth'].some(p =>
+    pathname.startsWith(p)
   )
 
-  if (!session && !isPublic) {
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', request.nextUrl.pathname)
-    return NextResponse.redirect(loginUrl)
+  // Unauthenticated → send to login, preserving the intended destination.
+  if (!user && !isPublic) {
+    const url = new URL('/login', request.url)
+    url.searchParams.set('redirect', pathname)
+    return NextResponse.redirect(url)
   }
 
-  return response
+  // Authenticated but no handle → force onboarding.
+  if (user && !isPublic && !pathname.startsWith('/onboarding')) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('handle')
+      .eq('id', user.id)
+      .single()
+
+    if (profile && !profile.handle) {
+      return NextResponse.redirect(new URL('/onboarding', request.url))
+    }
+  }
+
+  // Always return the supabaseResponse — it carries any refreshed cookies.
+  return supabaseResponse
 }
-*/
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // Run on all routes except Next.js internals and static assets.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }
