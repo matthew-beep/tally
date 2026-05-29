@@ -132,7 +132,8 @@ The existing form is a dev convenience. Google OAuth is the production auth path
 
 ## 8. Dashboard balance cards
 
-- [ ] **Simplify cards** — single total number per card ("You are owed $47.50" / "You owe $23.00"), not per-person breakdown
+- [x] **Simplify cards** — single total number per card. "Owed to you" and "You owe" show gross amounts (not pairwise-netted) so both sides of a relationship are visible even when net balance swings negative. Computed via `grossOwedToMe` / `grossIOwe` in `useGlobalBalances`.
+- [x] **Balance invalidation** — `useAddExpense`, `useCreateSettlement`, `useConfirmSettlement`, `useDenySettlement` all now invalidate `['global-balances']` on success.
 - [ ] **Add expand button** — opens modal with full per-person breakdown (who owes what, across which groups)
 
 ---

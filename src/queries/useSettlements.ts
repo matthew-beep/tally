@@ -11,6 +11,7 @@ export function useSettlements(groupId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('settlements')
+        // FK hints required: two FKs from settlements to profiles (from_user + to_user)
         .select('*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*)')
         .eq('group_id', groupId)
         .order('created_at', { ascending: false })
@@ -34,6 +35,8 @@ export function useCreateSettlement(groupId: string) {
     }) => {
       const { data, error } = await supabase
         .from('settlements')
+        // Pending settlements count toward balance immediately (optimistic).
+        // DB trigger fires settlement_confirm notification to to_user.
         .insert({ ...payload, group_id: groupId, status: 'pending' })
         .select()
         .single()
@@ -43,6 +46,7 @@ export function useCreateSettlement(groupId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
     },
   })
 }
@@ -52,11 +56,13 @@ export function useConfirmSettlement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
+      // UPDATE fires notify_settlement_confirmed trigger → notifies payer
       await supabase.from('settlements').update({ status: 'confirmed' }).eq('id', id)
       return { id, groupId }
     },
     onSuccess: ({ groupId }) => {
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
       qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
@@ -67,11 +73,13 @@ export function useDenySettlement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
+      // DELETE (not a status update) — balance reverts, trigger notifies payer
       await supabase.from('settlements').delete().eq('id', id)
       return { id, groupId }
     },
     onSuccess: ({ groupId }) => {
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
       qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })

@@ -12,7 +12,9 @@ export function useExpenses(groupId: string) {
       const { data, error } = await supabase
         .from('expenses')
         .select('*, splits:expense_splits(*), payer:profiles!paid_by(*)')
+        // FK hint: expenses.paid_by → profiles (avoids ambiguity if other FKs are added)
         .eq('group_id', groupId)
+        // Soft-delete invariant: deleted expenses must never reach balance calculations
         .is('deleted_at', null)
         .order('expense_date', { ascending: false })
         .order('created_at', { ascending: false })
@@ -44,6 +46,8 @@ export function useAddExpense(groupId: string) {
         .single()
       if (error) throw error
 
+      // Split sum invariant: caller (lib/splits.ts) must ensure amounts sum to
+      // expense total before this point — not re-validated here.
       const splitsToInsert = splitData.map(s => ({
         expense_id: expense.id,
         user_id: s.user_id,
@@ -59,6 +63,10 @@ export function useAddExpense(groupId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', groupId] })
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      // Invalidate home page aggregates so balance hero and activity feed
+      // reflect the new expense immediately on navigation back.
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
+      qc.invalidateQueries({ queryKey: ['recent-activity'] })
     },
   })
 }

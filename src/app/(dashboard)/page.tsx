@@ -97,12 +97,8 @@ function HeroRow() {
   const cents      = (Math.abs(total) % 1).toFixed(2).slice(1)
   const sign       = total >= 0 ? '+' : '−'
 
-  const owedToYou = gb.transfers.filter(t => t.to === myId).map(t => ({ profile: gb.profileMap[t.from], amount: t.amount }))
-  const youOwe    = gb.transfers.filter(t => t.from === myId).map(t => ({ profile: gb.profileMap[t.to], amount: t.amount }))
-
-
-  const totalOwedToYou = owedToYou.reduce((sum, { amount }) => sum + amount, 0)
-  const totalYouOwe = youOwe.reduce((sum, { amount }) => sum + amount, 0)
+  const totalOwedToYou = gb.grossOwedToMe
+  const totalYouOwe    = gb.grossIOwe
 
   return (
     <div className="home-hero">
@@ -117,7 +113,7 @@ function HeroRow() {
 
       <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }} className='cursor-pointer'>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.mintInk, marginBottom: 12 }}>Owed to you</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} onClick={() => console.log(owedToYou)}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {totalOwedToYou === 0
             ? <div style={{ fontSize: 13, color: T.inkFaint }}>Nothing owed to you</div>
             : heroCost(totalOwedToYou)

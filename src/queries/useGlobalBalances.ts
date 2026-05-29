@@ -10,6 +10,11 @@ export interface GlobalBalances {
   net: Record<string, number>
   profileMap: Record<string, Profile>
   transfers: DebtTransfer[]
+  // Gross amounts before pairwise netting — used for the "Owed to you" / "You owe"
+  // dashboard cards. Net balance can be -$12 while you still have $88 owed to you
+  // and $100 you owe; showing only the net hides both sides of the relationship.
+  grossOwedToMe: number
+  grossIOwe: number
 }
 
 export function useGlobalBalances() {
@@ -25,11 +30,12 @@ export function useGlobalBalances() {
         .from('group_members')
         .select('group_id')
         .eq('user_id', user.id)
+        // Balances only consider groups where the user is fully active
         .eq('status', 'active')
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) {
-        return { myId: user.id, net: {}, profileMap: {}, transfers: [] }
+        return { myId: user.id, net: {}, profileMap: {}, transfers: [], grossOwedToMe: 0, grossIOwe: 0 }
       }
 
       const [expRes, settleRes, memberRes] = await Promise.all([
@@ -37,6 +43,7 @@ export function useGlobalBalances() {
           .from('expenses')
           .select('paid_by, splits:expense_splits(user_id, owed_amount)')
           .in('group_id', groupIds)
+          // Soft-delete invariant: deleted expenses excluded from all balance math
           .is('deleted_at', null),
         supabase
           .from('settlements')
@@ -44,6 +51,8 @@ export function useGlobalBalances() {
           .in('group_id', groupIds),
         supabase
           .from('group_members')
+          // profiles join is unambiguous here (no invited_by join), but keep explicit
+          // for consistency with useGroupMembers which requires the FK hint.
           .select('user_id, profile:profiles(*)')
           .in('group_id', groupIds)
           .eq('status', 'active'),
@@ -55,6 +64,7 @@ export function useGlobalBalances() {
         if (m.profile) profileMap[m.user_id] = m.profile as unknown as Profile
       }
 
+      // Balances are always computed from raw splits + settlements — never stored.
       const net: Record<string, number> = Object.fromEntries(memberIds.map(id => [id, 0]))
       for (const e of expRes.data ?? []) {
         for (const s of (e.splits as any[]) ?? []) {
@@ -72,11 +82,32 @@ export function useGlobalBalances() {
         Object.entries(net).map(([k, v]) => [k, Math.round(v * 100) / 100])
       )
 
+      // Gross amounts: walk splits and settlements independently for the current user.
+      // Settlements are applied directionally — a settlement FROM someone reduces what
+      // they owe me; a settlement BY me reduces what I owe someone else.
+      let grossOwedToMe = 0
+      let grossIOwe = 0
+      const myId = user.id
+
+      for (const e of expRes.data ?? []) {
+        for (const s of (e.splits as any[]) ?? []) {
+          if (s.user_id === e.paid_by) continue
+          if (e.paid_by === myId) grossOwedToMe += Number(s.owed_amount)
+          if (s.user_id === myId) grossIOwe     += Number(s.owed_amount)
+        }
+      }
+      for (const s of settleRes.data ?? []) {
+        if (s.to_user   === myId) grossOwedToMe = Math.max(0, grossOwedToMe - Number(s.amount))
+        if (s.from_user === myId) grossIOwe     = Math.max(0, grossIOwe     - Number(s.amount))
+      }
+
       return {
-        myId: user.id,
+        myId,
         net: rounded,
         profileMap,
         transfers: simplifyDebts(rounded),
+        grossOwedToMe: Math.round(grossOwedToMe * 100) / 100,
+        grossIOwe:     Math.round(grossIOwe     * 100) / 100,
       }
     },
   })
@@ -115,6 +146,7 @@ export function useRecentActivity() {
 
       const { data, error } = await supabase
         .from('expenses')
+        // FK hint on payer: expenses has paid_by → profiles (explicit to match pattern)
         .select('id, description, category, amount, expense_date, created_at, group_id, group:groups(name, emoji), payer:profiles!paid_by(name, display_name)')
         .in('group_id', groupIds)
         .is('deleted_at', null)

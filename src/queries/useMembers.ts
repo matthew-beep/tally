@@ -11,6 +11,7 @@ export function useAddGroupMember(groupId: string) {
     mutationFn: async (profileId: string) => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) throw new Error('Not authenticated')
+      // Upsert prevents duplicate pending rows — PK on (group_id, user_id) is the guard.
       const { error } = await supabase
         .from('group_members')
         .upsert({ group_id: groupId, user_id: profileId, status: 'pending', invited_by: session.user.id })
@@ -41,6 +42,8 @@ export function useAcceptGroupInvite() {
           .update({ read: true })
           .eq('id', notificationId),
       ])
+      // UPDATE pending→active fires notify_group_invite_accepted trigger,
+      // which notifies invited_by — no manual notification write needed here.
     },
     onSuccess: (_, { groupId }) => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
@@ -58,8 +61,10 @@ export function useDeclineGroupInvite() {
     mutationFn: async ({ groupId, notificationId }: { groupId: string; notificationId: string }) => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) throw new Error('Not authenticated')
-      // Delete fires notify_group_invite_declined trigger automatically
       await Promise.all([
+        // DELETE fires notify_group_invite_declined trigger automatically.
+        // The full guest-profile conversion + expense_splits transfer happens in
+        // POST /api/invite/decline (needs service role to bypass RLS on splits).
         supabase
           .from('group_members')
           .delete()
@@ -87,6 +92,8 @@ export function useRecentCollaborators() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return []
 
+      // Two-step: first get the user's groups, then fetch co-members.
+      // A single join would pull all group data unnecessarily.
       const { data: myGroups } = await supabase
         .from('group_members')
         .select('group_id')
@@ -100,6 +107,7 @@ export function useRecentCollaborators() {
         .select('user_id, profile:profiles(id, name, display_name, avatar_url, add_code)')
         .in('group_id', myGroups.map(g => g.group_id))
         .neq('user_id', session.user.id)
+        // Exclude pending members — they haven't consented to being in the group yet
         .eq('status', 'active')
 
       const seen = new Set<string>()
@@ -115,6 +123,9 @@ export function useRecentCollaborators() {
   })
 }
 
+// Standalone (non-hook) version used during group creation where there's no
+// React component to call a hook from. Fetches its own session to keep the
+// public API at two args — callers don't need to thread invited_by through.
 export async function addMembersToGroup(groupId: string, profileIds: string[]) {
   if (!profileIds.length) return
   const supabase = createClient()

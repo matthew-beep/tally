@@ -32,6 +32,8 @@ export function useSearchProfiles(query: string) {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return []
 
+      // Single .or() covers name fuzzy, display_name fuzzy, and exact add_code match.
+      // Email is included for search but never returned to the client (select omits it).
       const { data, error } = await supabase
         .from('profiles')
         .select('id, name, display_name, avatar_url, add_code, handle')
@@ -69,8 +71,13 @@ export function useNotifications() {
     queryFn: async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return []
+      // Unread only — the bell badge and notification list both show unread items.
+      // This query uses refetchOnMount (standard default); the unread count badge
+      // uses refetchInterval: 30_000 in its own query (not defined here).
       const { data, error } = await supabase
         .from('notifications')
+        // FK hints required: notifications has both settlement_id and group_id FKs,
+        // and settlements itself has two FKs to profiles.
         .select('*, settlement:settlements(*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*)), group:groups(id, name, emoji)')
         .eq('recipient_id', session.user.id)
         .eq('read', false)

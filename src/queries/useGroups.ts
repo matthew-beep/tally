@@ -16,6 +16,7 @@ export function useGroups() {
         .from('group_members')
         .select('group_id, groups(*)')
         .eq('user_id', user.id)
+        // Pending and left groups must not appear in the user's group list
         .eq('status', 'active')
         .order('joined_at', { ascending: false })
       if (error) throw error
@@ -48,7 +49,11 @@ export function useGroupMembers(groupId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('group_members')
+        // Include pending so the creator can split with members before they accept.
+        // Pending = visibility/consent gate, not a block on expense creation.
         .select('*, profile:profiles!group_members_user_id_fkey(*)')
+        // FK hint required: group_members has two FKs to profiles (user_id + invited_by)
+        // and PostgREST can't infer which to follow without it.
         .eq('group_id', groupId)
         .in('status', ['pending', 'active'])
       if (error) throw error
@@ -91,6 +96,8 @@ export function useCreateGroup() {
         .single()
       if (error) throw error
 
+      // Creator must be active immediately — without this the DB default lands
+      // them as pending, which would lock them out of their own group.
       await supabase
         .from('group_members')
         .insert({ group_id: group.id, user_id: user.id, status: 'active' })
