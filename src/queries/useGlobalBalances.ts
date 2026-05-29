@@ -25,6 +25,7 @@ export function useGlobalBalances() {
         .from('group_members')
         .select('group_id')
         .eq('user_id', user.id)
+        .eq('status', 'active')
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) {
@@ -44,7 +45,8 @@ export function useGlobalBalances() {
         supabase
           .from('group_members')
           .select('user_id, profile:profiles(*)')
-          .in('group_id', groupIds),
+          .in('group_id', groupIds)
+          .eq('status', 'active'),
       ])
 
       const profileMap: Record<string, Profile> = {}
@@ -106,6 +108,7 @@ export function useRecentActivity() {
         .from('group_members')
         .select('group_id')
         .eq('user_id', user.id)
+        .eq('status', 'active')
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) return []

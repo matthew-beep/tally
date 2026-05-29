@@ -482,7 +482,7 @@ export function AddMemberModal({ open, onClose, group, existingMemberIds, contex
               </button>
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: T.inkMuted }}>Tap to add instantly</div>
+            <div style={{ fontSize: 11, color: T.inkMuted }}>They'll get a notification to accept or decline</div>
           )}
         </div>
       </div>

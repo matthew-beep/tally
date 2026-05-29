@@ -71,7 +71,7 @@ export function useNotifications() {
       if (!session?.user) return []
       const { data, error } = await supabase
         .from('notifications')
-        .select('*, settlement:settlements(*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*))')
+        .select('*, settlement:settlements(*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*)), group:groups(id, name, emoji)')
         .eq('recipient_id', session.user.id)
         .eq('read', false)
         .order('created_at', { ascending: false })

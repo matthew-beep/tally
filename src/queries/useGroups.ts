@@ -16,6 +16,7 @@ export function useGroups() {
         .from('group_members')
         .select('group_id, groups(*)')
         .eq('user_id', user.id)
+        .eq('status', 'active')
         .order('joined_at', { ascending: false })
       if (error) throw error
       return (data?.map(row => (row as any).groups).filter(Boolean) ?? []) as Group[]
@@ -47,8 +48,9 @@ export function useGroupMembers(groupId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('group_members')
-        .select('*, profile:profiles(*)')
+        .select('*, profile:profiles!group_members_user_id_fkey(*)')
         .eq('group_id', groupId)
+        .in('status', ['pending', 'active'])
       if (error) throw error
       return data ?? []
     },
@@ -65,6 +67,7 @@ export function useProfileGroups(profileId: string | undefined) {
         .from('group_members')
         .select('group_id')
         .eq('user_id', profileId!)
+        .eq('status', 'active')
       if (error) throw error
       return (data?.map(r => r.group_id) ?? []) as string[]
     },
@@ -90,7 +93,7 @@ export function useCreateGroup() {
 
       await supabase
         .from('group_members')
-        .insert({ group_id: group.id, user_id: user.id })
+        .insert({ group_id: group.id, user_id: user.id, status: 'active' })
 
       return group as Group
     },

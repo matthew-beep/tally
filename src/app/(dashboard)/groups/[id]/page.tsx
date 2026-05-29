@@ -213,6 +213,59 @@ export default function GroupDetailPage() {
         </div>
       )}
 
+      {/* Members */}
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 8 }}>
+          Members
+        </div>
+        <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
+          {members.map((m, i) => {
+            const p = (m as any).profile as Profile
+            const isYou     = p?.id === profile?.id
+            const isPending = m.status === 'pending'
+            const isGuest   = p?.status === 'guest'
+            const name      = p?.display_name ?? p?.name ?? '…'
+            return (
+              <div key={m.user_id} style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '11px 14px',
+                borderBottom: i < members.length - 1 ? `1px solid ${T.line}` : 'none',
+              }}>
+                <Avatar profile={p} slot={slotFor(members, m.user_id)} size={34} isYou={isYou} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {isYou ? 'You' : name}
+                  </div>
+                  {p?.handle && !isGuest && (
+                    <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: FMONO, marginTop: 1 }}>@{p.handle}</div>
+                  )}
+                </div>
+                {isPending && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '3px 8px', borderRadius: 999,
+                    fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' as const,
+                    background: T.sunSoft, color: T.sunInk, flexShrink: 0,
+                  }}>
+                    ⏳ Pending
+                  </span>
+                )}
+                {isGuest && (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '3px 8px', borderRadius: 999,
+                    fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' as const,
+                    background: T.surfaceAlt, color: T.inkMuted, flexShrink: 0,
+                  }}>
+                    👤 Guest
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Balance hero */}
       <div style={{ padding: '22px 20px', background: T.surface, borderRadius: T.r.xl, boxShadow: T.shadowSm, marginBottom: 14 }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 8 }}>

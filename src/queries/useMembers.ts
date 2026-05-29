@@ -9,13 +9,72 @@ export function useAddGroupMember(groupId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (profileId: string) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) throw new Error('Not authenticated')
       const { error } = await supabase
         .from('group_members')
-        .upsert({ group_id: groupId, user_id: profileId })
+        .upsert({ group_id: groupId, user_id: profileId, status: 'pending', invited_by: session.user.id })
       if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['group_members', groupId] })
+    },
+  })
+}
+
+export function useAcceptGroupInvite() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ groupId, notificationId }: { groupId: string; notificationId: string }) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) throw new Error('Not authenticated')
+      await Promise.all([
+        supabase
+          .from('group_members')
+          .update({ status: 'active' })
+          .eq('group_id', groupId)
+          .eq('user_id', session.user.id)
+          .eq('status', 'pending'),
+        supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('id', notificationId),
+      ])
+    },
+    onSuccess: (_, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+      qc.invalidateQueries({ queryKey: ['groups'] })
+      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
+    },
+  })
+}
+
+export function useDeclineGroupInvite() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ groupId, notificationId }: { groupId: string; notificationId: string }) => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) throw new Error('Not authenticated')
+      // Delete fires notify_group_invite_declined trigger automatically
+      await Promise.all([
+        supabase
+          .from('group_members')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', session.user.id)
+          .eq('status', 'pending'),
+        supabase
+          .from('notifications')
+          .update({ read: true })
+          .eq('id', notificationId),
+      ])
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['notifications'] })
+      qc.invalidateQueries({ queryKey: ['groups'] })
     },
   })
 }
@@ -32,6 +91,7 @@ export function useRecentCollaborators() {
         .from('group_members')
         .select('group_id')
         .eq('user_id', session.user.id)
+        .eq('status', 'active')
 
       if (!myGroups?.length) return []
 
@@ -40,6 +100,7 @@ export function useRecentCollaborators() {
         .select('user_id, profile:profiles(id, name, display_name, avatar_url, add_code)')
         .in('group_id', myGroups.map(g => g.group_id))
         .neq('user_id', session.user.id)
+        .eq('status', 'active')
 
       const seen = new Set<string>()
       const result: ProfileSnippet[] = []
@@ -57,7 +118,14 @@ export function useRecentCollaborators() {
 export async function addMembersToGroup(groupId: string, profileIds: string[]) {
   if (!profileIds.length) return
   const supabase = createClient()
-  const rows = profileIds.map(user_id => ({ group_id: groupId, user_id }))
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) throw new Error('Not authenticated')
+  const rows = profileIds.map(user_id => ({
+    group_id: groupId,
+    user_id,
+    status: 'pending',
+    invited_by: session.user.id,
+  }))
   const { error } = await supabase.from('group_members').upsert(rows)
   if (error) throw error
 }

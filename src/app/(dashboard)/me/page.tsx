@@ -6,6 +6,7 @@ import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { useCurrentProfile, useNotifications } from '@/queries/useProfile'
 import { useConfirmSettlement, useDenySettlement } from '@/queries/useSettlements'
+import { useAcceptGroupInvite, useDeclineGroupInvite } from '@/queries/useMembers'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import type { Notification } from '@/types'
@@ -38,7 +39,22 @@ export default function MePage() {
           </Card>
         )}
 
-        {/* Notifications */}
+        {/* Group invites */}
+        {notifications.filter(n => n.type === 'group_invite').length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10 }}>
+              Group invites
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {notifications
+                .filter(n => n.type === 'group_invite')
+                .map(n => <GroupInviteCard key={n.id} notification={n} />)
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Settlement confirmations */}
         {notifications.filter(n => n.type === 'settlement_confirm').length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10 }}>
@@ -82,6 +98,41 @@ export default function MePage() {
           Sign out
         </button>
     </DashboardPage>
+  )
+}
+
+function GroupInviteCard({ notification }: { notification: Notification }) {
+  const accept = useAcceptGroupInvite()
+  const decline = useDeclineGroupInvite()
+  const g = notification.group
+  if (!g || !notification.group_id) return null
+
+  return (
+    <Card style={{ padding: '14px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+        <div style={{ fontSize: 24, lineHeight: 1 }}>{g.emoji}</div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>You've been invited to {g.name}</div>
+          <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 2 }}>Accept to join and see expenses</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => accept.mutate({ groupId: notification.group_id!, notificationId: notification.id })}
+          disabled={accept.isPending || decline.isPending}
+          style={{ flex: 1, background: T.mintSoft, color: T.mintInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
+        >
+          ✓ Accept
+        </button>
+        <button
+          onClick={() => decline.mutate({ groupId: notification.group_id!, notificationId: notification.id })}
+          disabled={accept.isPending || decline.isPending}
+          style={{ flex: 1, background: T.coralSoft, color: T.coralInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
+        >
+          ✗ Decline
+        </button>
+      </div>
+    </Card>
   )
 }
 

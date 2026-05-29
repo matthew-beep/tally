@@ -23,6 +23,8 @@ export interface Group {
 export interface GroupMember {
   group_id: string
   user_id: string
+  status: 'pending' | 'active' | 'left'
+  invited_by: string | null
   joined_at: string
   profile?: Profile
 }
@@ -94,6 +96,7 @@ export interface Notification {
   read: boolean
   created_at: string
   settlement?: Settlement
+  group?: Pick<Group, 'id' | 'name' | 'emoji'>
 }
 
 export interface DebtTransfer {

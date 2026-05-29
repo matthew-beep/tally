@@ -31,10 +31,7 @@
 
 - [x] **`src/app/login/LoginButton.tsx`** — email/password form implemented with dev auto-login button (dev-only, Google OAuth is the production auth path)
 - [ ] **Google OAuth** — restore `signInWithOAuth` once appeal is approved
-- [ ] **`src/middleware.ts`** — doesn't exist yet. Create using pattern from CLAUDE.md:
-  - Protect all routes except `/login`, `/invite`, `/expense`
-  - After auth check: if `profile.handle === null` redirect to `/onboarding`
-  - Exclude `/onboarding` itself from the handle-null redirect check
+- [x] **`src/middleware.ts`** — created. Protects all routes, redirects to onboarding if handle is null, carries `?redirect` through the onboarding hop so deep links survive sign-up
 
 ---
 
@@ -67,10 +64,10 @@ The flow was built before the `group_members.status` model was decided. Direct i
 - [ ] Backfill existing rows: `UPDATE group_members SET status = 'active'`
 
 ### 4b. Fix insert/upsert calls
-- [ ] `useCreateGroup` (`useGroups.ts:92`) — add `status: 'active'` to creator insert
-- [ ] `useAddGroupMember` (`useMembers.ts:11`) — add `status: 'pending'`, `invited_by` (current user's profile id)
-- [ ] `addMembersToGroup` (`useMembers.ts:57`) — add `status: 'pending'`, `invited_by`
-- [ ] `invite/[token]/page.tsx:30` — upsert with `status: 'active'` (invite-link join = immediately active, no confirmation)
+- [x] `useCreateGroup` (`useGroups.ts:92`) — add `status: 'active'` to creator insert
+- [x] `useAddGroupMember` (`useMembers.ts:11`) — add `status: 'pending'`, `invited_by` (current user's profile id)
+- [x] `addMembersToGroup` (`useMembers.ts:57`) — add `status: 'pending'`, `invited_by`
+- [x] `invite/[token]/page.tsx:30` — upsert with `status: 'active'` (invite-link join = immediately active, no confirmation)
 
 ### 4c. Fix read queries (see also §10)
 - [ ] `useGroupMembers` — add `.eq('status', 'active')` (show pending separately for organiser view, tagged ⏳)
@@ -81,14 +78,14 @@ The flow was built before the `group_members.status` model was decided. Direct i
 - [ ] `useRecentActivity` — memberships query needs `.eq('status', 'active')` (see §10)
 
 ### 4d. Accept/decline flow (not built yet)
-- [ ] `useAcceptGroupInvite(groupId)` — `UPDATE group_members SET status = 'active'` where `group_id = X AND user_id = me`; trigger fires `group_invite_accepted` to `invited_by`
-- [ ] `useDeclineGroupInvite(groupId)` — `DELETE` row where `group_id = X AND user_id = me AND status = 'pending'`; trigger fires `group_invite_declined` to `invited_by`
-- [ ] Pending invites surface in notifications (bell) and Me page — show "Jordan added you to Big Sur Trip · Accept / Decline"
-- [ ] ⏳ badge in group member list for organiser view
+- [x] `useAcceptGroupInvite(groupId)` — `UPDATE group_members SET status = 'active'` where `group_id = X AND user_id = me`; trigger fires `group_invite_accepted` to `invited_by`
+- [x] `useDeclineGroupInvite(groupId)` — `DELETE` row where `group_id = X AND user_id = me AND status = 'pending'`; trigger fires `group_invite_declined` to `invited_by`
+- [x] Pending invites surface in Me page — show group invite card with Accept / Decline
+- [x] ⏳ Pending and 👤 Guest badges in group member list
 
 ### 4e. Invite link
 - [x] Copy invite link + QR code in `AddMemberModal` right panel
-- [ ] Fix: invite-link join (`invite/[token]/page.tsx`) must set `status: 'active'` (see §4b)
+- [x] Invite page rewritten — accept/decline UI, handles pending/new/already-active cases. Decline converts pending member to guest profile.
 
 ---
 
@@ -159,20 +156,45 @@ Every `group_members` query missing `status = 'active'` will silently include pe
 
 | File | Function | Line | Issue |
 |---|---|---|---|
-| `src/queries/useGroups.ts` | `useGroups` | 16 | No status filter — left/pending groups appear in user's list |
-| `src/queries/useGroups.ts` | `useGroupMembers` | 49 | No status filter — pending/left members appear as active |
-| `src/queries/useGroups.ts` | `useProfileGroups` | 65 | No status filter |
-| `src/queries/useGroups.ts` | `useCreateGroup` | 92 | Creator inserted without `status: 'active'` — creator would be pending in own group |
-| `src/queries/useGlobalBalances.ts` | `useGlobalBalances` | 25 | Memberships query — no status filter, includes left groups in balance calc |
-| `src/queries/useGlobalBalances.ts` | `useGlobalBalances` | 45 | All group members query — no status filter, pending/left included in balance calc |
-| `src/queries/useGlobalBalances.ts` | `useRecentActivity` | 106 | Memberships query — no status filter, shows activity from left groups |
-| `src/queries/useMembers.ts` | `useRecentCollaborators` | 32 | My groups sub-query — no status filter |
-| `src/queries/useMembers.ts` | `useRecentCollaborators` | 39 | Collaborators sub-query — no status filter, shows pending members as recents |
-| `src/app/invite/[token]/page.tsx` | InvitePage | 30 | Upserts without `status: 'active'` — invite-link joins must skip pending state |
+| `src/queries/useGroups.ts` | `useGroups` | 16 | ✅ Fixed |
+| `src/queries/useGroups.ts` | `useGroupMembers` | 49 | ✅ Fixed |
+| `src/queries/useGroups.ts` | `useProfileGroups` | 65 | ✅ Fixed |
+| `src/queries/useGroups.ts` | `useCreateGroup` | 92 | ✅ Fixed |
+| `src/queries/useGlobalBalances.ts` | `useGlobalBalances` | 25 | ✅ Fixed |
+| `src/queries/useGlobalBalances.ts` | `useGlobalBalances` | 45 | ✅ Fixed |
+| `src/queries/useGlobalBalances.ts` | `useRecentActivity` | 106 | ✅ Fixed |
+| `src/queries/useMembers.ts` | `useRecentCollaborators` | 32 | ✅ Fixed |
+| `src/queries/useMembers.ts` | `useRecentCollaborators` | 39 | ✅ Fixed |
+| `src/app/invite/[token]/page.tsx` | InvitePage | 30 | ✅ Fixed |
 
 ---
 
-## 11. Later (Phase 2+, don't build yet)
+## 11. Hooks extraction
+
+Extract business logic out of fat components into `src/hooks/`. Goal: components contain only JSX, event wiring, and presentational UI state. Hooks contain queries, mutations, derived values, and form state.
+
+**Convention:**
+- Navigation via `onSuccess` callback — never import `next/navigation` inside a hook
+- Never write to `notifications` in a hook — DB triggers handle all notification inserts
+- Naming: `queries/` holds raw fetching hooks; `hooks/` composes them with local state
+- `category` in add-expense is `useState` seeded from `detectCategory`, not a pure derived value (user can override)
+
+**Extract these — they have real form/interaction state worth isolating:**
+
+- [ ] `useAddExpense` — 9 `useState`, split-building logic, category override. Extract alongside §9 (split modes) since you'll be in that file anyway. Lives in `hooks/useAddExpense.ts`.
+- [ ] `useSettleUp` — pre-fill from debt simplification, amount/payee state, validation. Lives in `hooks/useSettleUp.ts`.
+- [ ] `useCreateGroup` — name/emoji form state + mutation. Lives in `hooks/useCreateGroup.ts`.
+- [ ] `useMemberSearch` — debounce, three input modes (@handle / add_code / fuzzy), query gating. Extract alongside §7d (search overhaul). Lives in `hooks/useMemberSearch.ts`.
+
+**Write hooks-first for new flows (don't retrofit, just build correctly from the start):**
+- `useAcceptGroupInvite` / `useDeclineGroupInvite` — already listed in §4d
+
+**Skip — pure query composition, no second consumer yet:**
+- `useGroupDetail`, `useGroupsList`, `useHome` — call query hooks directly in the component, `useMemo` the derived values. Add a screen hook only if a second consumer appears.
+
+---
+
+## 12. Later (Phase 2+, don't build yet)
 
 - Public expense share page (`/expense/[share_token]`) — skeleton exists, needs service-role fetch
 - QR code / add by code (`/add/[add_code]`) — skeleton exists

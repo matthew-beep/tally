@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
           // Write into the request first (needed by Supabase internals),
           // then rebuild the response so it carries the updated cookies.
           cookiesToSet.forEach(({ name, value }) =>
@@ -55,7 +55,9 @@ export async function proxy(request: NextRequest) {
       .single()
 
     if (profile && !profile.handle) {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
+      const onboardingUrl = new URL('/onboarding', request.url)
+      onboardingUrl.searchParams.set('redirect', pathname + request.nextUrl.search)
+      return NextResponse.redirect(onboardingUrl)
     }
   }
 
