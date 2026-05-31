@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { Profile, Notification } from '@/types'
 
@@ -22,6 +22,26 @@ export function useCurrentProfile() {
   })
 }
 
+export function useUpdateProfile() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ profileId, updates }: {
+      profileId: string
+      updates: { display_name?: string; handle?: string }
+    }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', profileId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['profile', 'me'] })
+    },
+  })
+}
+
 export type ProfileSnippet = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code' | 'handle'>
 
 export function useSearchProfiles(query: string) {
@@ -32,15 +52,25 @@ export function useSearchProfiles(query: string) {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user) return []
 
-      // Single .or() covers name fuzzy, display_name fuzzy, and exact add_code match.
-      // Email is included for search but never returned to the client (select omits it).
-      const { data, error } = await supabase
+      let q = supabase
         .from('profiles')
         .select('id, name, display_name, avatar_url, add_code, handle')
-        .or(`name.ilike.%${query}%,display_name.ilike.%${query}%,email.ilike.%${query}%,add_code.eq.${query.toUpperCase()}`)
         .eq('status', 'active')
         .neq('id', session.user.id)
         .limit(10)
+
+      if (query.startsWith('@')) {
+        // @prefix → fuzzy handle search
+        q = q.ilike('handle', `%${query.slice(1)}%`)
+      } else if (/^[a-z0-9]{8}$/i.test(query)) {
+        // 8-char alphanumeric → exact add_code match (QR code destination)
+        q = q.eq('add_code', query.toUpperCase())
+      } else {
+        // Anything else → name + display_name + handle fuzzy
+        q = q.or(`name.ilike.%${query}%,display_name.ilike.%${query}%,handle.ilike.%${query}%`)
+      }
+
+      const { data, error } = await q
       if (error) throw error
       return (data ?? []) as ProfileSnippet[]
     },

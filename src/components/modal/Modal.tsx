@@ -2,7 +2,7 @@
 
 import { createPortal } from 'react-dom'
 import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { ModalContext } from './ModalContext'
 import { ModalOverlay } from './ModalOverlay'
 import { ModalMenu } from './ModalMenu'
@@ -20,6 +20,10 @@ interface ModalProps {
   maxWidth?: number
   /** Clicking the dimmed backdrop calls onClose */
   closeOnOverlayClick?: boolean
+  /** Full-screen on mobile, centered card on desktop */
+  sheet?: boolean
+  panelClassName?: string
+  panelStyle?: CSSProperties
 }
 
 function ModalRoot({
@@ -28,6 +32,9 @@ function ModalRoot({
   children,
   maxWidth = 440,
   closeOnOverlayClick = true,
+  sheet = false,
+  panelClassName,
+  panelStyle,
 }: ModalProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -48,8 +55,13 @@ function ModalRoot({
   return createPortal(
     <ModalContext.Provider value={{ onClose }}>
       <ModalOverlay onClick={closeOnOverlayClick ? onClose : undefined} />
-      <ModalMenu maxWidth={maxWidth}>
-        <ModalPanel>{children}</ModalPanel>
+      <ModalMenu maxWidth={maxWidth} className={sheet ? 'modal-sheet-menu' : undefined}>
+        <ModalPanel
+          className={[sheet ? 'modal-sheet-panel' : undefined, panelClassName].filter(Boolean).join(' ') || undefined}
+          style={panelStyle}
+        >
+          {children}
+        </ModalPanel>
       </ModalMenu>
     </ModalContext.Provider>,
     document.body,

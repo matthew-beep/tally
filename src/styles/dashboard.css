@@ -51,6 +51,49 @@
   grid-template-columns: 1fr;
 }
 
+/* Mobile + tablet: net balance on top, owed/owing side by side below */
+.home-hero-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* Hero balance amounts — font-size on wrapper, children scale via em */
+.home-balance {
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.home-balance--hero {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+}
+
+.home-balance--compact {
+  font-size: clamp(1.25rem, 4.5vw, 1.75rem);
+}
+
+.home-balance-whole {
+  font-family: var(--font-display);
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-balance-sign {
+  font-family: var(--font-display);
+  font-size: 0.5em;
+  font-weight: 500;
+  opacity: 0.7;
+}
+
+.home-balance-cents {
+  font-family: var(--font-mono);
+  font-size: 0.3em;
+  opacity: 0.7;
+}
+
 .home-panels {
   display: flex;
   flex-direction: column;
@@ -77,14 +120,6 @@
 
 /* Tablet */
 @media (min-width: 640px) {
-  .home-hero {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .home-hero-balance {
-    grid-column: 1 / -1;
-  }
-
   .home-groups-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -107,15 +142,10 @@
   .home-topbar-search {
     display: none;
   }
-}
 
-@media (max-width: 639px) {
-  .home-hero-balance .home-balance-whole {
-    font-size: 36px !important;
-  }
-
-  .home-hero-balance .home-balance-sign {
-    font-size: 18px !important;
+  /* Groups panel has its own New group button — hide the topbar duplicate on mobile */
+  .home-topbar-add {
+    display: none !important;
   }
 }
 
@@ -125,8 +155,8 @@
     grid-template-columns: repeat(3, 1fr);
   }
 
-  .home-hero-balance {
-    grid-column: auto;
+  .home-hero-split {
+    display: contents;
   }
 
   .home-panels {

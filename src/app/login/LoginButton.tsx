@@ -38,9 +38,12 @@ function LoginButtonInner() {
   const [error, setError]         = useState('')
   const [loading, setLoading]     = useState(false)
 
-  const redirect   = searchParams.get('redirect') ?? '/'
-  const devEmail   = process.env.NEXT_PUBLIC_DEV_EMAIL
+  const redirect    = searchParams.get('redirect') ?? '/'
+  const devEmail    = process.env.NEXT_PUBLIC_DEV_EMAIL
   const devPassword = process.env.NEXT_PUBLIC_DEV_PASSWORD
+  // Show dev login in local dev, or in any environment where NEXT_PUBLIC_DEV_EMAIL is set.
+  // NODE_ENV is inlined at build time — the block is dead code in production builds.
+  const showDevLogin = process.env.NODE_ENV === 'development' || !!devEmail
 
   async function signInWithGoogle() {
     const supabase   = createClient()
@@ -94,8 +97,8 @@ function LoginButtonInner() {
         By continuing you agree to our <u>Terms</u> and <u>Privacy Policy</u>.
       </div>
 
-      {/* dev section — only shown when NEXT_PUBLIC_DEV_EMAIL is set */}
-      {devEmail && (
+      {/* dev section — shown in development or when NEXT_PUBLIC_DEV_EMAIL is set */}
+      {showDevLogin && (
         <div style={{ marginTop: 4 }}>
           <button
             onClick={() => setDevOpen(o => !o)}

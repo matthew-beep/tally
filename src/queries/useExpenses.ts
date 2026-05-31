@@ -33,7 +33,7 @@ export function useAddExpense(groupId: string) {
       description: string
       amount: number
       paid_by: string
-      split_type: 'equal' | 'exact'
+      split_type: 'equal' | 'percentage' | 'exact'
       splits: { user_id: string; owed_amount: number }[]
       category: string
       expense_date: string

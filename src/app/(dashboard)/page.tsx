@@ -5,27 +5,35 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { BalanceBadge } from '@/components/BalanceBadge'
+import { HeroSkeleton, GroupsSkeleton, ActivitySkeleton } from '@/components/HomeScreenSkeleton'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { useGroups, useGroupMembers } from '@/queries/useGroups'
-import { useExpenses } from '@/queries/useExpenses'
-import { useSettlements } from '@/queries/useSettlements'
 import { useGlobalBalances, useRecentActivity } from '@/queries/useGlobalBalances'
-import { calcNetBalances } from '@/lib/balance'
 import type { Profile } from '@/types'
-import { useUIStore } from '@/store/ui'
 
-function AmtText({ amount, size = 15 }: { amount: number; size?: number }) {
-  const sign  = amount >= 0 ? '+' : '−'
-  const abs   = Math.abs(amount)
-  const whole = Math.floor(abs).toLocaleString()
-  const cents = (abs % 1).toFixed(2).slice(1)
-  const color = amount >= 0 ? T.mintInk : T.coralInk
+type HeroCostTone = 'auto' | 'owedToYou' | 'youOwe'
+type HeroCostSize = 'hero' | 'compact'
+
+function heroCost(amount: number, tone: HeroCostTone = 'auto', size: HeroCostSize = 'hero') {
+  const signed =
+    tone === 'owedToYou' ? Math.abs(amount) :
+    tone === 'youOwe'    ? -Math.abs(amount) :
+    amount
+
+  const isPositive = signed >= 0
+  const whole      = Math.floor(Math.abs(signed)).toLocaleString()
+  const cents      = (Math.abs(signed) % 1).toFixed(2).slice(1)
+  const sign       = signed >= 0 ? '+' : '−'
+
   return (
-    <span style={{ fontFamily: FH, fontWeight: 700, fontSize: size, color, letterSpacing: -0.5 }}>
-      <span style={{ opacity: 0.6 }}>{sign}$</span>
-      {whole}
-      <span style={{ fontFamily: FMONO, fontSize: size * 0.72, opacity: 0.7 }}>{cents}</span>
-    </span>
+    <div
+      className={`home-balance home-balance--${size}`}
+      style={{ color: isPositive ? T.mintInk : T.coralInk }}
+    >
+      <span className="home-balance-sign">{sign}$</span>
+      <span className="home-balance-whole">{whole}</span>
+      <span className="home-balance-cents">{cents}</span>
+    </div>
   )
 }
 
@@ -60,48 +68,19 @@ function TopBar() {
   )
 }
 
-function heroCost(total: number) {
-  const isPositive = total >= 0
-  const whole      = Math.floor(Math.abs(total)).toLocaleString()
-  const cents      = (Math.abs(total) % 1).toFixed(2).slice(1)
-  const sign       = total >= 0 ? '+' : '−'
-
-  return (
-    <div style={{ lineHeight: 1, marginBottom: 6, color: isPositive ? T.mintInk : T.coralInk }}>
-      <span className="home-balance-sign" style={{ fontFamily: FH, fontSize: 22, fontWeight: 500, opacity: 0.7 }}>{sign}$</span>
-      <span className="home-balance-whole" style={{ fontFamily: FH, fontSize: 44, fontWeight: 700, letterSpacing: -1.5, fontVariantNumeric: 'tabular-nums' }}>{whole}</span>
-      <span style={{ fontFamily: FMONO, fontSize: 13, opacity: 0.7 }}>{cents}</span>
-    </div>
-  )
-
-}
-
 function HeroRow() {
-  const { data: gb, isLoading } = useGlobalBalances()
+  const { data: gb, isLoading, isFetching } = useGlobalBalances()
   const myId = gb?.myId
 
-  if (isLoading || !gb || !myId) {
-    return (
-      <div className="home-hero">
-        <div className="home-hero-balance" style={{ background: T.surface, borderRadius: T.r.xl, padding: '22px 22px 20px', boxShadow: T.shadowSm, minHeight: 100 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted }}>Net balance</div>
-          <div style={{ marginTop: 10, color: T.inkFaint, fontSize: 13 }}>Loading…</div>
-        </div>
-      </div>
-    )
-  }
+  if (isLoading) return <HeroSkeleton />
+
+  if (!gb || !myId) return null
 
   const total      = Math.round((gb.net[myId] ?? 0) * 100) / 100
   const isPositive = total >= 0
-  const whole      = Math.floor(Math.abs(total)).toLocaleString()
-  const cents      = (Math.abs(total) % 1).toFixed(2).slice(1)
-  const sign       = total >= 0 ? '+' : '−'
-
-  const totalOwedToYou = gb.grossOwedToMe
-  const totalYouOwe    = gb.grossIOwe
 
   return (
-    <div className="home-hero">
+    <div className="home-hero" style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 0.2s' }}>
       <div className="home-hero-balance" style={{ background: T.surface, borderRadius: T.r.xl, padding: '22px 22px 20px', boxShadow: T.shadowSm, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', right: -20, top: -20, width: 120, height: 120, borderRadius: '50%', background: isPositive ? T.mintSoft : T.coralSoft, opacity: 0.6 }} />
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 10 }}>Net balance</div>
@@ -111,38 +90,39 @@ function HeroRow() {
         </div>
       </div>
 
-      <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }} className='cursor-pointer'>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.mintInk, marginBottom: 12 }}>Owed to you</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {totalOwedToYou === 0
-            ? <div style={{ fontSize: 13, color: T.inkFaint }}>Nothing owed to you</div>
-            : heroCost(totalOwedToYou)
-          }
+      <div className="home-hero-split">
+        <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }} className="cursor-pointer min-w-0">
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.mintInk, marginBottom: 12 }}>Owed to you</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {gb.grossOwedToMe === 0
+              ? <div style={{ fontSize: 13, color: T.inkFaint }}>Nothing owed to you</div>
+              : heroCost(gb.grossOwedToMe, 'owedToYou', 'compact')
+            }
+          </div>
         </div>
-      </div>
-
-      <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.coralInk, marginBottom: 12 }}>You owe</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {totalYouOwe === 0
-            ? <div style={{ fontSize: 13, color: T.inkFaint }}>You owe nothing</div>
-            : heroCost(totalYouOwe)
-          }
+        <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }} className="min-w-0">
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.coralInk, marginBottom: 12 }}>You owe</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {gb.grossIOwe === 0
+              ? <div style={{ fontSize: 13, color: T.inkFaint }}>You owe nothing</div>
+              : heroCost(gb.grossIOwe, 'youOwe', 'compact')
+            }
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function GroupCard({ group, myId }: { group: { id: string; name: string; emoji: string }; myId?: string }) {
+function GroupCard({ group, myId, netPerGroup }: {
+  group: { id: string; name: string; emoji: string }
+  myId?: string
+  netPerGroup?: Record<string, Record<string, number>>
+}) {
   const router = useRouter()
-  const { data: members     = [] } = useGroupMembers(group.id)
-  const { data: expenses    = [] } = useExpenses(group.id)
-  const { data: settlements = [] } = useSettlements(group.id)
+  const { data: members = [] } = useGroupMembers(group.id)
 
-  const memberIds = members.map(m => m.user_id)
-  const net   = myId ? calcNetBalances(group.id, expenses, settlements, memberIds) : {}
-  const myBal = myId ? (net[myId] ?? 0) : 0
+  const myBal = myId && netPerGroup ? (netPerGroup[group.id]?.[myId] ?? 0) : 0
 
   return (
     <Card hoverable onClick={() => router.push(`/groups/${group.id}`)} style={{ padding: '16px 18px', cursor: 'pointer' }}>
@@ -182,19 +162,22 @@ function GroupsPanel() {
         </button>
       </div>
 
-      {isLoading && <div style={{ fontSize: 13, color: T.inkFaint }}>Loading…</div>}
-
-      {!isLoading && groups.length === 0 && (
-        <div style={{ borderRadius: T.r.lg, padding: '24px 20px', border: `2px dashed ${T.lineStrong}`, textAlign: 'center', color: T.inkMuted }}>
-          <div style={{ fontSize: 24, marginBottom: 8 }}>👥</div>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>No groups yet</div>
-          <div style={{ fontSize: 12, color: T.inkFaint }}>Create a group and start splitting expenses.</div>
-        </div>
+      {isLoading ? <GroupsSkeleton /> : (
+        <>
+          {groups.length === 0 && (
+            <div style={{ borderRadius: T.r.lg, padding: '32px 20px', border: `2px dashed ${T.lineStrong}`, textAlign: 'center', color: T.inkMuted }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>👥</div>
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 6, color: T.ink }}>No groups yet</div>
+              <div style={{ fontSize: 13, color: T.inkFaint, maxWidth: 220, margin: '0 auto' }}>Create a group to start splitting expenses with friends.</div>
+            </div>
+          )}
+          <div className="home-groups-grid">
+            {groups.map(g => (
+              <GroupCard key={g.id} group={g} myId={gb?.myId} netPerGroup={gb?.netPerGroup} />
+            ))}
+          </div>
+        </>
       )}
-
-      <div className="home-groups-grid">
-        {groups.map(g => <GroupCard key={g.id} group={g} myId={gb?.myId} />)}
-      </div>
     </div>
   )
 }
@@ -207,24 +190,32 @@ function ActivityPanel() {
       <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted, marginBottom: 12 }}>
         Recent activity
       </div>
-      {isLoading && <div style={{ fontSize: 13, color: T.inkFaint }}>Loading…</div>}
-      {!isLoading && items.length === 0 && (
-        <div style={{ fontSize: 13, color: T.inkFaint }}>No activity yet.</div>
-      )}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {items.map(e => (
-          <div key={e.id} style={{ background: T.surface, borderRadius: T.r.md, padding: '11px 14px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: T.shadowSm }}>
-            <div style={{ width: 34, height: 34, borderRadius: T.r.sm, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
-              {e.category ?? '💸'}
+
+      {isLoading ? <ActivitySkeleton /> : (
+        <>
+          {items.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '32px 16px', color: T.inkFaint }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>💸</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: T.inkMuted, marginBottom: 4 }}>No activity yet</div>
+              <div style={{ fontSize: 13 }}>Add an expense to get started.</div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</div>
-              <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{e.payerName} · {e.groupEmoji} {e.groupName}</div>
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 600, fontFamily: FMONO, color: T.ink, flexShrink: 0 }}>${e.amount.toFixed(2)}</div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {items.map(e => (
+              <div key={e.id} style={{ background: T.surface, borderRadius: T.r.md, padding: '11px 14px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: T.shadowSm }}>
+                <div style={{ width: 34, height: 34, borderRadius: T.r.sm, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
+                  {e.category ?? '💸'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</div>
+                  <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{e.payerName} · {e.groupEmoji} {e.groupName}</div>
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, fontFamily: FMONO, color: T.ink, flexShrink: 0 }}>${e.amount.toFixed(2)}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </>
+      )}
     </div>
   )
 }

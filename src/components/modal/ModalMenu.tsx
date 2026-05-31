@@ -8,6 +8,7 @@ interface ModalMenuProps {
   children: ReactNode
   maxWidth?: number
   style?: CSSProperties
+  className?: string
   /** Stop clicks inside the panel from reaching the overlay */
   onPanelClick?: (e: React.MouseEvent) => void
 }
@@ -16,10 +17,12 @@ export function ModalMenu({
   children,
   maxWidth = 440,
   style,
+  className,
   onPanelClick,
 }: ModalMenuProps) {
   return (
     <div
+      className={className}
       style={{
         position: 'fixed',
         inset: 0,

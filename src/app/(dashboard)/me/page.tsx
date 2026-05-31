@@ -1,15 +1,114 @@
 'use client'
 
-import { T, FH, F } from '@/design/tokens'
+import { useState } from 'react'
+import { T, FH, F, FMONO } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
-import { useCurrentProfile, useNotifications } from '@/queries/useProfile'
+import { HandleInput } from '@/components/HandleInput'
+import type { HandleState } from '@/components/HandleInput'
+import { useCurrentProfile, useNotifications, useUpdateProfile } from '@/queries/useProfile'
 import { useConfirmSettlement, useDenySettlement } from '@/queries/useSettlements'
 import { useAcceptGroupInvite, useDeclineGroupInvite } from '@/queries/useMembers'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import type { Notification } from '@/types'
+
+function ProfileSettings() {
+  const { data: profile } = useCurrentProfile()
+  const updateProfile = useUpdateProfile()
+
+  const [displayName,  setDisplayName]  = useState('')
+  const [handle,       setHandle]       = useState('')
+  const [handleState,  setHandleState]  = useState<HandleState>('available')
+  const [initialized,  setInitialized]  = useState(false)
+
+  // Seed fields once profile loads
+  if (profile && !initialized) {
+    setDisplayName(profile.display_name ?? profile.name)
+    setHandle(profile.handle ?? '')
+    setInitialized(true)
+  }
+
+  if (!profile) return null
+
+  const displayNameChanged = displayName.trim() !== (profile.display_name ?? profile.name)
+  const handleChanged      = handle !== (profile.handle ?? '')
+  const canSave = (displayNameChanged || handleChanged) &&
+    (!handleChanged || handleState === 'available') &&
+    !updateProfile.isPending
+
+  async function handleSave() {
+    if (!canSave || !profile) return
+    const updates: { display_name?: string; handle?: string } = {}
+    if (displayNameChanged) updates.display_name = displayName.trim()
+    if (handleChanged)      updates.handle        = handle
+    await updateProfile.mutateAsync({ profileId: profile.id, updates })
+  }
+
+  return (
+    <Card style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted }}>
+        Edit profile
+      </div>
+
+      {/* Display name */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted, marginBottom: 8 }}>
+          Display name
+        </div>
+        <input
+          value={displayName}
+          onChange={e => setDisplayName(e.target.value)}
+          placeholder={profile.name}
+          style={{
+            width: '100%', padding: '12px 14px',
+            borderRadius: T.r.md, border: `1.5px solid ${T.lineStrong}`,
+            background: T.surfaceAlt, fontSize: 15, fontFamily: F,
+            color: T.ink, outline: 'none',
+          }}
+        />
+      </div>
+
+      {/* Handle */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted, marginBottom: 8 }}>
+          Handle
+        </div>
+        <HandleInput
+          value={handle}
+          onChange={setHandle}
+          currentProfileId={profile.id}
+          currentHandle={profile.handle}
+          profileName={profile.name}
+          onStateChange={setHandleState}
+        />
+      </div>
+
+      <button
+        onClick={handleSave}
+        disabled={!canSave}
+        style={{
+          width: '100%', padding: '13px',
+          borderRadius: T.r.md, border: 'none',
+          background: canSave ? T.ink : T.surfaceAlt,
+          color: canSave ? T.bg : T.inkMuted,
+          fontFamily: FH, fontSize: 15, fontWeight: 600,
+          cursor: canSave ? 'pointer' : 'default',
+          transition: 'background 0.15s',
+        }}
+      >
+        {updateProfile.isPending ? 'Saving…' : 'Save changes'}
+      </button>
+
+      {updateProfile.isSuccess && (
+        <div style={{ fontSize: 12, color: T.mintInk, fontWeight: 600, textAlign: 'center', marginTop: -8 }}>
+          Saved ✓
+        </div>
+      )}
+    </Card>
+  )
+}
 
 export default function MePage() {
   const router = useRouter()
@@ -32,12 +131,18 @@ export default function MePage() {
             <Avatar profile={profile} slot={0} size={52} isYou />
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 17, fontWeight: 700, fontFamily: FH }}>{profile.display_name ?? profile.name}</div>
+              {profile.handle && (
+                <div style={{ fontSize: 12, color: T.inkMuted, fontFamily: FMONO, marginTop: 2 }}>@{profile.handle}</div>
+              )}
               {profile.add_code && (
-                <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 3 }}>Code: {profile.add_code}</div>
+                <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 2 }}>Code: {profile.add_code}</div>
               )}
             </div>
           </Card>
         )}
+
+        {/* Profile editing */}
+        <ProfileSettings />
 
         {/* Group invites */}
         {notifications.filter(n => n.type === 'group_invite').length > 0 && (

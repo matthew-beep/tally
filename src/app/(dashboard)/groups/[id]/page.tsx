@@ -7,6 +7,8 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
+import { ModalOrSheet } from '@/components/modal'
+import { AddExpenseForm } from '@/components/AddExpenseForm'
 import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
@@ -14,6 +16,7 @@ import { useCurrentProfile } from '@/queries/useProfile'
 import { addMembersToGroup, createGuestProfile } from '@/queries/useMembers'
 import { calcNetBalances, simplifyDebts } from '@/lib/balance'
 import type { Profile, Expense, Settlement } from '@/types'
+
 
 function slotFor(members: { user_id: string }[], id: string): 0 | 1 | 2 | 3 {
   const idx = members.findIndex(m => m.user_id === id)
@@ -35,6 +38,7 @@ export default function GroupDetailPage() {
   const groupId  = params.id as string
   const router   = useRouter()
   const qc       = useQueryClient()
+  const [addExpenseOpen, setAddExpenseOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [pendingMembers, setPendingMembers] = useState<MemberEntry[]>([])
   const [adding, setAdding] = useState(false)
@@ -143,7 +147,7 @@ export default function GroupDetailPage() {
           ←
         </button>
         <button
-          onClick={() => router.push(`/groups/${groupId}/add`)}
+          onClick={() => setAddExpenseOpen(true)}
           style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '8px 16px', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
         >
           + Add expense
@@ -293,7 +297,7 @@ export default function GroupDetailPage() {
             </button>
           )}
           <button
-            onClick={() => router.push(`/groups/${groupId}/add`)}
+            onClick={() => setAddExpenseOpen(true)}
             style={{ flex: 1, padding: '11px 0', background: settled ? T.ink : T.surface, color: settled ? T.bg : T.ink, border: settled ? 'none' : `1.5px solid ${T.lineStrong}`, borderRadius: T.r.md, fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
           >
             + Add expense
@@ -346,6 +350,24 @@ export default function GroupDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Add expense — Vaul sheet on mobile, modal on desktop */}
+      <ModalOrSheet
+        open={addExpenseOpen}
+        onClose={() => setAddExpenseOpen(false)}
+        title={group ? `Add expense — ${group.name}` : 'Add expense'}
+        maxWidth={740}
+        sheetContentClassName="add-expense-panel-root"
+        sheetContentStyle={{ padding: 0, overflow: 'hidden' }}
+        panelClassName="add-expense-panel-root"
+        panelStyle={{ background: T.bg, padding: 0, overflow: 'hidden' }}
+      >
+        <AddExpenseForm
+          groupId={groupId}
+          onSuccess={() => setAddExpenseOpen(false)}
+          onCancel={() => setAddExpenseOpen(false)}
+        />
+      </ModalOrSheet>
 
       {/* Activity feed */}
       <div style={{ marginTop: 4 }}>

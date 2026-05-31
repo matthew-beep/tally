@@ -1,4 +1,6 @@
 export { Modal } from './Modal'
+export { Sheet } from './Sheet'
+export { ModalOrSheet } from './ModalOrSheet'
 export { ModalOverlay } from './ModalOverlay'
 export { ModalMenu } from './ModalMenu'
 export { ModalPanel } from './ModalPanel'

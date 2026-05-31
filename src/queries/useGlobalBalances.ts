@@ -8,6 +8,8 @@ import type { Profile, DebtTransfer } from '@/types'
 export interface GlobalBalances {
   myId: string
   net: Record<string, number>
+  // Per-group net balance for each user — used by GroupCard badges without extra queries.
+  netPerGroup: Record<string, Record<string, number>>
   profileMap: Record<string, Profile>
   transfers: DebtTransfer[]
   // Gross amounts before pairwise netting — used for the "Owed to you" / "You owe"
@@ -35,19 +37,19 @@ export function useGlobalBalances() {
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) {
-        return { myId: user.id, net: {}, profileMap: {}, transfers: [], grossOwedToMe: 0, grossIOwe: 0 }
+        return { myId: user.id, net: {}, netPerGroup: {}, profileMap: {}, transfers: [], grossOwedToMe: 0, grossIOwe: 0 }
       }
 
       const [expRes, settleRes, memberRes] = await Promise.all([
         supabase
           .from('expenses')
-          .select('paid_by, splits:expense_splits(user_id, owed_amount)')
+          .select('group_id, paid_by, splits:expense_splits(user_id, owed_amount)')
           .in('group_id', groupIds)
           // Soft-delete invariant: deleted expenses excluded from all balance math
           .is('deleted_at', null),
         supabase
           .from('settlements')
-          .select('from_user, to_user, amount')
+          .select('group_id, from_user, to_user, amount')
           .in('group_id', groupIds),
         supabase
           .from('group_members')
@@ -66,21 +68,40 @@ export function useGlobalBalances() {
 
       // Balances are always computed from raw splits + settlements — never stored.
       const net: Record<string, number> = Object.fromEntries(memberIds.map(id => [id, 0]))
+      const netPerGroup: Record<string, Record<string, number>> = {}
+      for (const gid of groupIds) netPerGroup[gid] = {}
+
       for (const e of expRes.data ?? []) {
+        const gid = (e as any).group_id as string
         for (const s of (e.splits as any[]) ?? []) {
           if (s.user_id === e.paid_by) continue
           net[e.paid_by] = (net[e.paid_by] ?? 0) + Number(s.owed_amount)
           net[s.user_id] = (net[s.user_id] ?? 0) - Number(s.owed_amount)
+          if (gid) {
+            netPerGroup[gid][e.paid_by] = (netPerGroup[gid][e.paid_by] ?? 0) + Number(s.owed_amount)
+            netPerGroup[gid][s.user_id] = (netPerGroup[gid][s.user_id] ?? 0) - Number(s.owed_amount)
+          }
         }
       }
       for (const s of settleRes.data ?? []) {
+        const gid = (s as any).group_id as string
         net[s.from_user] = (net[s.from_user] ?? 0) + Number(s.amount)
         net[s.to_user]   = (net[s.to_user]   ?? 0) - Number(s.amount)
+        if (gid) {
+          netPerGroup[gid][s.from_user] = (netPerGroup[gid][s.from_user] ?? 0) + Number(s.amount)
+          netPerGroup[gid][s.to_user]   = (netPerGroup[gid][s.to_user]   ?? 0) - Number(s.amount)
+        }
       }
 
       const rounded = Object.fromEntries(
         Object.entries(net).map(([k, v]) => [k, Math.round(v * 100) / 100])
       )
+      const roundedNetPerGroup: Record<string, Record<string, number>> = {}
+      for (const [gid, balances] of Object.entries(netPerGroup)) {
+        roundedNetPerGroup[gid] = Object.fromEntries(
+          Object.entries(balances).map(([k, v]) => [k, Math.round(v * 100) / 100])
+        )
+      }
 
       // Gross amounts: walk splits and settlements independently for the current user.
       // Settlements are applied directionally — a settlement FROM someone reduces what
@@ -104,6 +125,7 @@ export function useGlobalBalances() {
       return {
         myId,
         net: rounded,
+        netPerGroup: roundedNetPerGroup,
         profileMap,
         transfers: simplifyDebts(rounded),
         grossOwedToMe: Math.round(grossOwedToMe * 100) / 100,

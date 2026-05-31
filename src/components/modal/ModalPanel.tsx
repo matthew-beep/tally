@@ -7,11 +7,13 @@ import type { CSSProperties, ReactNode } from 'react'
 interface ModalPanelProps {
   children: ReactNode
   style?: CSSProperties
+  className?: string
 }
 
-export function ModalPanel({ children, style }: ModalPanelProps) {
+export function ModalPanel({ children, style, className }: ModalPanelProps) {
   return (
     <div
+      className={className}
       style={{
         background: T.surface,
         borderRadius: T.r.panel,
