@@ -727,7 +727,9 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
             fontSize: 52, lineHeight: 1,
             color: amt > 0 ? T.ink : T.inkFaint,
             display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2,
-          }}>
+          }}
+          className="border-2"
+          >
             <span style={{ fontSize: 26, color: T.inkMuted, marginRight: 4, fontWeight: 500 }}>$</span>
             <input
               type="number"

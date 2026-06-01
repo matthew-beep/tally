@@ -164,6 +164,42 @@ Extract business logic out of fat components into `src/hooks/`. Goal: components
 
 ---
 
+## 13. Add expense form polish
+
+- [ ] Center the amount display on mobile (the `$0.00` hero is left-aligned after recent changes)
+- [ ] End-to-end add expense flow — open sheet → enter amount → fill description → pick paid by → save → confirm expense appears in feed
+- [ ] Keypad "00" behavior — verify it doesn't overflow the max cents guard
+- [ ] Date field — confirm it appears and saves correctly on mobile (currently desktop-only tile)
+
+---
+
+## 14. Mobile group view
+
+- [ ] Group detail page on mobile — layout, spacing, scroll behavior
+- [ ] Balance hero on mobile — size and legibility at small viewport
+- [ ] Who pays who rows — confirm tap targets and avatar sizing
+- [ ] Activity feed — date group headers, item density on small screens
+- [ ] Add member inline — `MemberCombobox` keyboard + chip layout on mobile
+
+---
+
+## 15. Mobile nav redesign
+
+- [ ] Tab bar — review active state, icon set, label sizing, and safe area handling
+- [ ] FAB — placement, tap target, and whether it still belongs as a standalone button vs. inline in the tab bar
+- [ ] Active route highlighting — ensure current tab is visually distinct across all four routes
+
+---
+
+## 16. Group creation redesign
+
+- [ ] `/groups/new` page — review layout on mobile (currently full-page form, may need bottom-sheet treatment)
+- [ ] Emoji picker — evaluate current implementation, consider a scrollable grid sheet
+- [ ] Member search inline — `MemberCombobox` flow on mobile; confirm keyboard dismiss + chip layout work at small sizes
+- [ ] Success state — after creation, confirm redirect to group detail feels right
+
+---
+
 ## 12. Later (Phase 2+, don't build yet)
 
 - Public expense share page (`/expense/[share_token]`) — skeleton exists, needs service-role fetch
