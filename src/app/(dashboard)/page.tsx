@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
@@ -7,8 +8,9 @@ import { Card } from '@/components/Card'
 import { BalanceBadge } from '@/components/BalanceBadge'
 import { HeroSkeleton, GroupsSkeleton, ActivitySkeleton } from '@/components/HomeScreenSkeleton'
 import { useCurrentProfile } from '@/queries/useProfile'
-import { useGroups, useGroupMembers } from '@/queries/useGroups'
+import { useGroups } from '@/queries/useGroups'
 import { useGlobalBalances, useRecentActivity } from '@/queries/useGlobalBalances'
+import { BalanceBreakdownModal } from '@/components/BalanceBreakdownModal'
 import type { Profile } from '@/types'
 
 type HeroCostTone = 'auto' | 'owedToYou' | 'youOwe'
@@ -70,57 +72,85 @@ function TopBar() {
 
 function HeroRow() {
   const { data: gb, isLoading, isFetching } = useGlobalBalances()
+  const [owedOpen, setOwedOpen] = useState(false)
+  const [iOweOpen, setIOweOpen] = useState(false)
   const myId = gb?.myId
 
   if (isLoading) return <HeroSkeleton />
-
   if (!gb || !myId) return null
 
   const total      = Math.round((gb.net[myId] ?? 0) * 100) / 100
   const isPositive = total >= 0
+  const hasBalances = gb.transfers.length > 0
 
   return (
-    <div className="home-hero" style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 0.2s' }}>
-      <div className="home-hero-balance" style={{ background: T.surface, borderRadius: T.r.xl, padding: '22px 22px 20px', boxShadow: T.shadowSm, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', right: -20, top: -20, width: 120, height: 120, borderRadius: '50%', background: isPositive ? T.mintSoft : T.coralSoft, opacity: 0.6 }} />
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 10 }}>Net balance</div>
-        {heroCost(total)}
-        <div style={{ fontSize: 12, color: T.inkMuted }}>
-          {isPositive ? 'Overall you are owed' : 'Overall you owe'} across all groups
-        </div>
-      </div>
-
-      <div className="home-hero-split">
-        <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }} className="cursor-pointer min-w-0">
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.mintInk, marginBottom: 12 }}>Owed to you</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {gb.grossOwedToMe === 0
-              ? <div style={{ fontSize: 13, color: T.inkFaint }}>Nothing owed to you</div>
-              : heroCost(gb.grossOwedToMe, 'owedToYou', 'compact')
-            }
+    <>
+      <div className="home-hero" style={{ opacity: isFetching ? 0.6 : 1, transition: 'opacity 0.2s' }}>
+        <div className="home-hero-balance" style={{ background: T.surface, borderRadius: T.r.xl, padding: '22px 22px 20px', boxShadow: T.shadowSm, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', right: -20, top: -20, width: 120, height: 120, borderRadius: '50%', background: isPositive ? T.mintSoft : T.coralSoft, opacity: 0.6 }} />
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 10 }}>Net balance</div>
+          {heroCost(total)}
+          <div style={{ fontSize: 12, color: T.inkMuted }}>
+            {isPositive ? 'Overall you are owed' : 'Overall you owe'} across all groups
           </div>
         </div>
-        <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px', boxShadow: T.shadowSm }} className="min-w-0">
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.coralInk, marginBottom: 12 }}>You owe</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+        <div className="home-hero-split">
+          <button
+            onClick={() => gb.grossOwedToMe > 0 && setOwedOpen(true)}
+            style={{
+              background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px',
+              boxShadow: T.shadowSm, border: 'none', textAlign: 'left',
+              cursor: gb.grossOwedToMe > 0 ? 'pointer' : 'default',
+              display: 'flex', flexDirection: 'column', width: '100%',
+            }}
+            className="min-w-0"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.mintInk }}>Owed to you</div>
+              {gb.grossOwedToMe > 0 && <span style={{ fontSize: 11, color: T.inkFaint, fontFamily: F }}>Details →</span>}
+            </div>
+            {gb.grossOwedToMe === 0
+              ? <div style={{ fontSize: 13, color: T.inkFaint }}>Nothing owed</div>
+              : heroCost(gb.grossOwedToMe, 'owedToYou', 'compact')
+            }
+          </button>
+          <button
+            onClick={() => gb.grossIOwe > 0 && setIOweOpen(true)}
+            style={{
+              background: T.surface, borderRadius: T.r.lg, padding: '20px 20px 16px',
+              boxShadow: T.shadowSm, border: 'none', textAlign: 'left',
+              cursor: gb.grossIOwe > 0 ? 'pointer' : 'default',
+              display: 'flex', flexDirection: 'column', width: '100%',
+            }}
+            className="min-w-0"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.coralInk }}>You owe</div>
+              {gb.grossIOwe > 0 && <span style={{ fontSize: 11, color: T.inkFaint, fontFamily: F }}>Details →</span>}
+            </div>
             {gb.grossIOwe === 0
               ? <div style={{ fontSize: 13, color: T.inkFaint }}>You owe nothing</div>
               : heroCost(gb.grossIOwe, 'youOwe', 'compact')
             }
-          </div>
+          </button>
         </div>
       </div>
-    </div>
+
+      <BalanceBreakdownModal open={owedOpen}  onClose={() => setOwedOpen(false)}  gb={gb} direction="owedToMe" />
+      <BalanceBreakdownModal open={iOweOpen}  onClose={() => setIOweOpen(false)}  gb={gb} direction="iOwe" />
+    </>
   )
 }
 
-function GroupCard({ group, myId, netPerGroup }: {
+function GroupCard({ group, myId, netPerGroup, membersPerGroup }: {
   group: { id: string; name: string; emoji: string }
   myId?: string
   netPerGroup?: Record<string, Record<string, number>>
+  membersPerGroup?: Record<string, Array<{ user_id: string; profile: Profile }>>
 }) {
   const router = useRouter()
-  const { data: members = [] } = useGroupMembers(group.id)
+  const members = membersPerGroup?.[group.id] ?? []
 
   const myBal = myId && netPerGroup ? (netPerGroup[group.id]?.[myId] ?? 0) : 0
 
@@ -137,7 +167,7 @@ function GroupCard({ group, myId, netPerGroup }: {
       <div style={{ display: 'flex', marginTop: 12 }}>
         {members.slice(0, 4).map((m, i) => (
           <div key={m.user_id} style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
-            <Avatar profile={(m as any).profile as Profile} slot={i % 4 as 0 | 1 | 2 | 3} size={22} />
+            <Avatar profile={m.profile} slot={i % 4 as 0 | 1 | 2 | 3} size={22} />
           </div>
         ))}
       </div>
@@ -173,7 +203,7 @@ function GroupsPanel() {
           )}
           <div className="home-groups-grid">
             {groups.map(g => (
-              <GroupCard key={g.id} group={g} myId={gb?.myId} netPerGroup={gb?.netPerGroup} />
+              <GroupCard key={g.id} group={g} myId={gb?.myId} netPerGroup={gb?.netPerGroup} membersPerGroup={gb?.membersPerGroup} />
             ))}
           </div>
         </>

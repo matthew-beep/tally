@@ -14,11 +14,13 @@ import type { Profile } from '@/types'
 type SplitMode = 'equal' | 'percentage' | 'exact' | 'itemized'
 
 const TILE_LABEL: React.CSSProperties = {
-  fontSize: 10,
-  fontWeight: 700,
-  letterSpacing: 0.8,
-  textTransform: 'uppercase',
-  color: T.inkMuted,
+  fontSize: 10, fontWeight: 700, letterSpacing: 0.8,
+  textTransform: 'uppercase', color: T.inkMuted,
+}
+
+const TILE: React.CSSProperties = {
+  background: T.surface, borderRadius: 16,
+  border: `0.5px solid ${T.line}`, padding: '12px 14px',
 }
 
 function shortName(p: Profile | undefined, youId?: string) {
@@ -37,8 +39,7 @@ function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMo
   return (
     <div style={{
       display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4,
-      padding: 4, borderRadius: 14,
-      background: T.surfaceAlt,
+      padding: 4, borderRadius: 14, background: T.surfaceAlt,
       boxShadow: `inset 0 0 0 0.5px ${T.line}`,
     }}>
       {tabs.map(tab => {
@@ -60,9 +61,7 @@ function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMo
 }
 
 function SectionHeader({ label }: { label: string }) {
-  return (
-    <div style={{ ...TILE_LABEL, padding: '0 4px 8px' }}>{label}</div>
-  )
+  return <div style={{ ...TILE_LABEL, padding: '0 4px 8px' }}>{label}</div>
 }
 
 function RemainderCounter({ label, value, valid }: { label: string; value: string; valid: boolean }) {
@@ -87,7 +86,7 @@ function RemainderCounter({ label, value, valid }: { label: string; value: strin
 }
 
 function ModeEqual({
-  total, memberIds, profileById, included, onToggle, youId,
+  total, memberIds, profileById, included, onToggle, youId, interactive = true,
 }: {
   total: number
   memberIds: string[]
@@ -95,6 +94,7 @@ function ModeEqual({
   included: Set<string>
   onToggle: (id: string) => void
   youId?: string
+  interactive?: boolean
 }) {
   const count = included.size || 1
   const share = Math.round((total / count) * 100) / 100
@@ -109,13 +109,12 @@ function ModeEqual({
           return (
             <div
               key={id}
-              onClick={() => onToggle(id)}
+              onClick={() => { if (interactive) onToggle(id) }}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 14px',
                 borderTop: i === 0 ? 'none' : `0.5px solid ${T.line}`,
-                opacity: on ? 1 : 0.4,
-                cursor: 'pointer',
+                opacity: on ? 1 : 0.4, cursor: interactive ? 'pointer' : 'default',
               }}
             >
               <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={32} isYou={p?.id === youId} />
@@ -177,20 +176,16 @@ function ModePercent({
               <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={30} isYou={p?.id === youId} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(p, youId)}</div>
-                <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>
-                  ${dollars.toFixed(2)}
-                </div>
+                <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>${dollars.toFixed(2)}</div>
               </div>
               <div style={{
                 display: 'inline-flex', alignItems: 'baseline', gap: 1,
-                padding: '8px 12px', borderRadius: 10,
-                background: T.bg,
+                padding: '8px 12px', borderRadius: 10, background: T.bg,
                 boxShadow: isFocus ? `inset 0 0 0 1.5px ${T.sun}` : `inset 0 0 0 1px ${T.line}`,
                 minWidth: 88, justifyContent: 'flex-end',
               }}>
                 <input
-                  type="number"
-                  inputMode="decimal"
+                  type="number" inputMode="decimal"
                   value={percents[id] ?? ''}
                   onChange={e => onChange(id, e.target.value)}
                   onFocus={() => onFocus(id)}
@@ -254,21 +249,17 @@ function ModeExact({
               <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={30} isYou={p?.id === youId} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(p, youId)}</div>
-                <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>
-                  {pct}% of total
-                </div>
+                <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{pct}% of total</div>
               </div>
               <div style={{
                 display: 'inline-flex', alignItems: 'baseline', gap: 2,
-                padding: '8px 12px', borderRadius: 10,
-                background: T.bg,
+                padding: '8px 12px', borderRadius: 10, background: T.bg,
                 boxShadow: isFocus ? `inset 0 0 0 1.5px ${T.sun}` : `inset 0 0 0 1px ${T.line}`,
                 minWidth: 108, justifyContent: 'flex-end',
               }}>
                 <span style={{ fontSize: 14, color: T.inkMuted }}>$</span>
                 <input
-                  type="number"
-                  inputMode="decimal"
+                  type="number" inputMode="decimal"
                   value={amounts[id] ?? ''}
                   onChange={e => onChange(id, e.target.value)}
                   onFocus={() => onFocus(id)}
@@ -309,57 +300,18 @@ function ModeItemizedPlaceholder() {
   )
 }
 
-function AmountHero({
-  amount, onChange, variant,
-}: {
-  amount: string
-  onChange: (v: string) => void
-  variant: 'mobile' | 'desktop-tile'
-}) {
-  if (variant === 'mobile') {
-    return (
-      <div className="add-expense-amount-hero">
-        <div style={{
-          fontFamily: FH, fontWeight: 600, letterSpacing: -2,
-          fontSize: 52, lineHeight: 1, color: T.ink,
-          display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2,
-        }}>
-          <span style={{ fontSize: 26, color: T.inkMuted, marginRight: 4, fontWeight: 500 }}>$</span>
-          <input
-            type="number"
-            inputMode="decimal"
-            value={amount}
-            onChange={e => onChange(e.target.value)}
-            placeholder="0.00"
-            className="add-expense-amount-input"
-            style={{
-              width: Math.max(80, (amount.length || 4) * 28),
-              maxWidth: '70vw',
-              border: 'none', outline: 'none', background: 'transparent',
-              fontFamily: FH, fontSize: 52, fontWeight: 600, letterSpacing: -2,
-              color: T.ink, textAlign: 'center',
-            }}
-          />
-        </div>
-      </div>
-    )
-  }
-
+function AmountTile({ amount, onChange }: { amount: string; onChange: (v: string) => void }) {
   return (
-    <div style={{
-      background: T.surface, borderRadius: 16,
-      border: `0.5px solid ${T.line}`, padding: '14px 16px',
-    }}>
+    <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '14px 16px' }}>
       <div style={TILE_LABEL}>Amount</div>
       <div style={{
-        marginTop: 4,
-        fontFamily: FH, fontSize: 38, fontWeight: 600, letterSpacing: -1.4, lineHeight: 1,
+        marginTop: 4, fontFamily: FH, fontSize: 38, fontWeight: 600,
+        letterSpacing: -1.4, lineHeight: 1,
         display: 'flex', alignItems: 'baseline', gap: 2,
       }}>
         <span style={{ fontSize: 20, color: T.inkMuted, fontWeight: 500 }}>$</span>
         <input
-          type="number"
-          inputMode="decimal"
+          type="number" inputMode="decimal"
           value={amount}
           onChange={e => onChange(e.target.value)}
           placeholder="0.00"
@@ -388,7 +340,6 @@ function PaidByChips({
       {members.map((m, i) => {
         const p = profileById[m.user_id]
         const on = paidById === m.user_id
-        const name = shortName(p, youId)
         return (
           <button
             key={m.user_id}
@@ -402,11 +353,11 @@ function PaidByChips({
               color: on ? T.bg : T.ink,
               boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
               border: 'none', cursor: 'pointer',
-              fontSize: compact ? 12 : 12, fontWeight: 600, fontFamily: F,
+              fontSize: 12, fontWeight: 600, fontFamily: F,
             }}
           >
-            <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={compact ? 22 : 22} isYou={p?.id === youId} />
-            {(!compact || on) && <span>{name}</span>}
+            <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={22} isYou={p?.id === youId} />
+            {(!compact || on) && <span>{shortName(p, youId)}</span>}
           </button>
         )
       })}
@@ -414,12 +365,7 @@ function PaidByChips({
   )
 }
 
-function CategoryChips({
-  category, onSelect,
-}: {
-  category: string
-  onSelect: (emoji: string) => void
-}) {
+function CategoryChips({ category, onSelect }: { category: string; onSelect: (emoji: string) => void }) {
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {CATEGORIES.map(cat => {
@@ -448,12 +394,48 @@ function CategoryChips({
   )
 }
 
+function SplitBetweenChips({
+  members, profileById, included, onToggle, youId,
+}: {
+  members: { user_id: string }[]
+  profileById: Record<string, Profile>
+  included: Set<string>
+  onToggle: (id: string) => void
+  youId?: string
+}) {
+  return (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {members.map((m, i) => {
+        const p = profileById[m.user_id]
+        const on = included.has(m.user_id)
+        return (
+          <button
+            key={m.user_id}
+            type="button"
+            onClick={() => onToggle(m.user_id)}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '4px 11px 4px 4px', borderRadius: 999,
+              border: 'none', cursor: 'pointer',
+              background: on ? T.ink : 'transparent',
+              color: on ? T.bg : T.inkMuted,
+              boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
+              fontSize: 12.5, fontWeight: 600, fontFamily: F,
+            }}
+          >
+            <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={22} isYou={p?.id === youId} />
+            {shortName(p, youId)}
+            <span style={{ fontSize: 12, lineHeight: 1, opacity: 0.9 }}>{on ? '✓' : '+'}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function DateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div style={{
-      background: T.surface, borderRadius: 16,
-      border: `0.5px solid ${T.line}`, padding: '12px 14px',
-    }}>
+    <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px' }}>
       <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Date</div>
       <input
         type="date"
@@ -465,70 +447,6 @@ function DateField({ value, onChange }: { value: string; onChange: (v: string) =
           fontSize: 14, fontFamily: F, color: T.ink, outline: 'none',
         }}
       />
-    </div>
-  )
-}
-
-function DescriptionPaidByCard({
-  category, description, onDescriptionChange,
-  members, profileById, paidById, onPaidBySelect, youId,
-}: {
-  category: string
-  description: string
-  onDescriptionChange: (v: string) => void
-  members: { user_id: string }[]
-  profileById: Record<string, Profile>
-  paidById: string | null
-  onPaidBySelect: (id: string) => void
-  youId?: string
-}) {
-  return (
-    <div style={{
-      background: T.surface, borderRadius: 16,
-      border: `0.5px solid ${T.line}`,
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '10px 14px', borderBottom: `0.5px solid ${T.line}`,
-      }}>
-        <span style={{
-          width: 30, height: 30, borderRadius: 9,
-          background: T.sunSoft,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, flexShrink: 0,
-        }}>{category}</span>
-        <input
-          value={description}
-          onChange={e => onDescriptionChange(e.target.value)}
-          placeholder="What was this for?"
-          style={{
-            flex: 1, border: 'none', outline: 'none', background: 'transparent',
-            fontSize: 14, fontWeight: 600, fontFamily: F, color: T.ink,
-          }}
-        />
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
-        <span style={{
-          width: 30, height: 30, borderRadius: 9,
-          background: T.mintSoft,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 13, fontWeight: 700, color: T.mintInk, flexShrink: 0,
-        }}>💸</span>
-        <span style={{
-          fontSize: 12, color: T.inkMuted, fontWeight: 600,
-          letterSpacing: 0.3, textTransform: 'uppercase', flexShrink: 0,
-        }}>Paid by</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <PaidByChips
-            members={members}
-            profileById={profileById}
-            paidById={paidById}
-            onSelect={onPaidBySelect}
-            youId={youId}
-            compact
-          />
-        </div>
-      </div>
     </div>
   )
 }
@@ -549,6 +467,7 @@ function FooterStatusHint({
       <span>
         Each pays{' '}
         <b style={{ color: T.ink, fontFamily: FMONO }}>${share.toFixed(2)}</b>
+        {' · '}{included.size} {included.size === 1 ? 'person' : 'people'}
       </span>
     )
   }
@@ -569,7 +488,7 @@ function FooterStatusHint({
 }
 
 function SaveFooter({
-  onCancel, onSave, canSave, saveLabel, isPending, showStatus, statusHint, mobile,
+  onCancel, onSave, canSave, saveLabel, isPending, showStatus, statusHint,
 }: {
   onCancel: () => void
   onSave: () => void
@@ -578,41 +497,7 @@ function SaveFooter({
   isPending: boolean
   showStatus: boolean
   statusHint: ReactNode
-  mobile?: boolean
 }) {
-  if (mobile) {
-    return (
-      <div className="add-expense-mobile-footer">
-        <button
-          type="button"
-          onClick={onCancel}
-          style={{
-            padding: '14px 16px', borderRadius: 14,
-            background: 'transparent', color: T.inkMuted, border: 0, cursor: 'pointer',
-            fontFamily: F, fontSize: 14, fontWeight: 700,
-          }}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!canSave || isPending}
-          style={{
-            flex: 1, height: 52, borderRadius: 14,
-            background: canSave ? T.sun : T.lineStrong,
-            color: canSave ? T.sunInk : T.inkFaint,
-            border: 0, cursor: canSave && !isPending ? 'pointer' : 'default',
-            fontFamily: FH, fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
-            boxShadow: canSave ? '0 8px 20px rgba(242,192,74,0.32)' : 'none',
-          }}
-        >
-          {saveLabel}
-        </button>
-      </div>
-    )
-  }
-
   return (
     <footer className="add-expense-desktop-footer">
       {showStatus && (
@@ -622,19 +507,15 @@ function SaveFooter({
       )}
       <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
         <button
-          type="button"
-          onClick={onCancel}
+          type="button" onClick={onCancel}
           style={{
             padding: '10px 16px', borderRadius: 10,
             background: 'transparent', color: T.inkMuted, border: 0, cursor: 'pointer',
             fontFamily: F, fontSize: 13, fontWeight: 700,
           }}
-        >
-          Cancel
-        </button>
+        >Cancel</button>
         <button
-          type="button"
-          onClick={onSave}
+          type="button" onClick={onSave}
           disabled={!canSave || isPending}
           style={{
             padding: '10px 20px', borderRadius: 10,
@@ -644,9 +525,7 @@ function SaveFooter({
             fontFamily: FH, fontSize: 14, fontWeight: 600, letterSpacing: -0.2,
             boxShadow: canSave ? '0 6px 16px rgba(242,192,74,0.32)' : 'none',
           }}
-        >
-          {saveLabel}
-        </button>
+        >{saveLabel}</button>
       </div>
     </footer>
   )
@@ -665,8 +544,9 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
   const { data: profile }      = useCurrentProfile()
   const addExpense             = useAddExpense(groupId)
 
-  const [description,    setDescription]    = useState('')
+  // Shared amount input (native numeric keyboard on mobile).
   const [amount,         setAmount]         = useState('')
+  const [description,    setDescription]    = useState('')
   const [category,       setCategory]       = useState('💸')
   const [manualCategory, setManualCategory] = useState(false)
   const [splitMode,      setSplitMode]      = useState<SplitMode>('equal')
@@ -691,7 +571,7 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
 
   useEffect(() => {
     if (!manualCategory && description) setCategory(detectCategory(description))
-    if (!description) { setManualCategory(false); setCategory('💸') }
+    // if (!description) { setManualCategory(false); setCategory('💸') }
   }, [description, manualCategory])
 
   function toggleIncluded(id: string) {
@@ -731,11 +611,8 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
 
   const statusHint = (
     <FooterStatusHint
-      splitMode={splitMode}
-      amt={amt}
-      included={included}
-      percentValid={percentValid}
-      exactValid={exactValid}
+      splitMode={splitMode} amt={amt} included={included}
+      percentValid={percentValid} exactValid={exactValid}
     />
   )
 
@@ -770,12 +647,18 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
   }
 
   function SplitZone() {
+    const equalMemberIds = isMobile ? [...included] : memberIds
     return (
       <>
         {splitMode === 'equal' && (
           <ModeEqual
-            total={amt} memberIds={memberIds} profileById={profileById}
-            included={included} onToggle={toggleIncluded} youId={youId}
+            total={amt}
+            memberIds={equalMemberIds}
+            profileById={profileById}
+            included={included}
+            onToggle={toggleIncluded}
+            youId={youId}
+            interactive={!isMobile}
           />
         )}
         {splitMode === 'percentage' && (
@@ -801,55 +684,158 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
 
   const groupLabel = group ? `${group.emoji} ${group.name}` : '…'
 
+  // ── Mobile: bottom sheet layout with native numeric keyboard ──────────────
   if (isMobile) {
     return (
       <div className="add-expense-panel add-expense-panel--mobile">
-        <header className="add-expense-mobile-header">
+        {/* header */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '6px 14px 8px', flexShrink: 0,
+        }}>
+          <button
+            type="button" onClick={onCancel}
+            style={{
+              background: 'transparent', border: 0, cursor: 'pointer',
+              fontFamily: F, fontSize: 14, fontWeight: 700,
+              color: T.inkMuted, padding: '6px 4px',
+            }}
+          >Cancel</button>
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: T.inkFaint }}>
               New expense
             </div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 2, fontFamily: F }}>{groupLabel}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginTop: 1, fontFamily: F }}>{groupLabel}</div>
           </div>
-        </header>
-
-        <AmountHero amount={amount} onChange={setAmount} variant="mobile" />
-
-        <div className="add-expense-mobile-meta">
-          <DescriptionPaidByCard
-            category={category}
-            description={description}
-            onDescriptionChange={setDescription}
-            members={members}
-            profileById={profileById}
-            paidById={paidById}
-            onPaidBySelect={setPaidById}
-            youId={youId}
-          />
+          <button
+            type="button" onClick={handleSave}
+            disabled={!canSave || addExpense.isPending}
+            style={{
+              border: 0, cursor: canSave ? 'pointer' : 'default', fontFamily: F,
+              padding: '8px 16px', borderRadius: 999,
+              background: canSave ? T.sun : T.lineStrong,
+              color: canSave ? T.sunInk : T.inkFaint,
+              fontSize: 14, fontWeight: 700,
+            }}
+          >Save</button>
         </div>
 
-        <div className="add-expense-mobile-tabs">
-          <ModeTabs value={splitMode} onChange={setSplitMode} />
+        {/* amount input */}
+        <div style={{ padding: '2px 0 10px', textAlign: 'center', flexShrink: 0 }}>
+          <div style={{
+            fontFamily: FH, fontWeight: 600, letterSpacing: -2,
+            fontSize: 52, lineHeight: 1,
+            color: amt > 0 ? T.ink : T.inkFaint,
+            display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 2,
+          }}>
+            <span style={{ fontSize: 26, color: T.inkMuted, marginRight: 4, fontWeight: 500 }}>$</span>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              placeholder="0.00"
+              className="add-expense-amount-input"
+              style={{
+                width: 180,
+                minWidth: 0,
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontFamily: FH,
+                fontSize: 52,
+                fontWeight: 600,
+                letterSpacing: -2,
+                color: T.ink,
+                textAlign: 'left',
+              }}
+            />
+          </div>
         </div>
 
-        <div className="add-expense-scroll">
-          <SplitZone />
+        {/* scrollable tiles */}
+        <div className="add-expense-scroll" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {/* description */}
+          <div style={TILE}>
+            <div style={TILE_LABEL}>Description</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 7 }}>
+              <span style={{
+                width: 30, height: 30, borderRadius: 9, background: T.sunSoft, flexShrink: 0,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
+              }}>{category}</span>
+              <input
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="What was it for?"
+                style={{
+                  flex: 1, border: 0, outline: 'none', background: 'transparent',
+                  fontFamily: F, fontSize: 15, fontWeight: 600, color: T.ink,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* paid by */}
+          <div style={TILE}>
+            <div style={TILE_LABEL}>Paid by</div>
+            <div style={{ marginTop: 9 }}>
+              <PaidByChips
+                members={members} profileById={profileById}
+                paidById={paidById} onSelect={setPaidById} youId={youId}
+              />
+            </div>
+          </div>
+
+          {/* category */}
+          <div style={TILE}>
+            <div style={TILE_LABEL}>Category</div>
+            <div style={{ marginTop: 9 }}>
+              <CategoryChips category={category} onSelect={selectCategory} />
+            </div>
+          </div>
+
+          {/* split between */}
+          <div style={TILE}>
+            <div style={{ ...TILE_LABEL, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>Split between</span>
+              <span style={{ fontSize: 10.5, fontWeight: 600, color: T.inkFaint }}>
+                {included.size} of {memberIds.length}
+              </span>
+            </div>
+            <div style={{ marginTop: 9 }}>
+              <SplitBetweenChips
+                members={members}
+                profileById={profileById}
+                included={included}
+                onToggle={toggleIncluded}
+                youId={youId}
+              />
+            </div>
+          </div>
+
+          {/* split */}
+          <div>
+            <div style={{ ...TILE_LABEL, marginBottom: 8, paddingLeft: 2 }}>Split</div>
+            <ModeTabs value={splitMode} onChange={setSplitMode} />
+            <div style={{ marginTop: 12 }}>
+              <SplitZone />
+            </div>
+          </div>
         </div>
 
-        <SaveFooter
-          mobile
-          onCancel={onCancel}
-          onSave={handleSave}
-          canSave={canSave}
-          saveLabel={saveLabel}
-          isPending={addExpense.isPending}
-          showStatus={false}
-          statusHint={statusHint}
-        />
+        <div style={{
+          flexShrink: 0, padding: '11px 18px 14px',
+          borderTop: `0.5px solid ${T.line}`, background: T.surfaceAlt,
+          fontSize: 12.5, color: T.inkMuted, fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          {statusHint}
+        </div>
       </div>
     )
   }
 
+  // ── Desktop: two-column modal layout ─────────────────────────────────────
   return (
     <div className="add-expense-panel add-expense-panel--desktop">
       <header className="add-expense-desktop-header">
@@ -858,8 +844,7 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
             New expense · {groupLabel}
           </div>
           <div style={{
-            marginTop: 3,
-            fontFamily: FH, fontSize: 20, fontWeight: 600, letterSpacing: -0.6,
+            marginTop: 3, fontFamily: FH, fontSize: 20, fontWeight: 600, letterSpacing: -0.6,
             display: 'flex', alignItems: 'center', gap: 8,
           }}>
             <input
@@ -874,42 +859,29 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
           </div>
         </div>
         <button
-          type="button"
-          onClick={onCancel}
-          aria-label="Close"
+          type="button" onClick={onCancel} aria-label="Close"
           style={{
             width: 36, height: 36, borderRadius: 12,
             background: 'transparent', border: 0, cursor: 'pointer',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 18, color: T.inkMuted, flexShrink: 0,
           }}
-        >
-          ✕
-        </button>
+        >✕</button>
       </header>
 
       <div className="add-expense-desktop-body">
         <div className="add-expense-desktop-left">
-          <AmountHero amount={amount} onChange={setAmount} variant="desktop-tile" />
+          <AmountTile amount={amount} onChange={setAmount} />
 
-          <div style={{
-            background: T.surface, borderRadius: 16,
-            border: `0.5px solid ${T.line}`, padding: '12px 14px',
-          }}>
+          <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px' }}>
             <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Paid by</div>
             <PaidByChips
-              members={members}
-              profileById={profileById}
-              paidById={paidById}
-              onSelect={setPaidById}
-              youId={youId}
+              members={members} profileById={profileById}
+              paidById={paidById} onSelect={setPaidById} youId={youId}
             />
           </div>
 
-          <div style={{
-            background: T.surface, borderRadius: 16,
-            border: `0.5px solid ${T.line}`, padding: '12px 14px',
-          }}>
+          <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px' }}>
             <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Category</div>
             <CategoryChips category={category} onSelect={selectCategory} />
           </div>
@@ -928,13 +900,10 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
       </div>
 
       <SaveFooter
-        onCancel={onCancel}
-        onSave={handleSave}
-        canSave={canSave}
-        saveLabel={saveLabel}
+        onCancel={onCancel} onSave={handleSave}
+        canSave={canSave} saveLabel={saveLabel}
         isPending={addExpense.isPending}
-        showStatus
-        statusHint={statusHint}
+        showStatus statusHint={statusHint}
       />
     </div>
   )

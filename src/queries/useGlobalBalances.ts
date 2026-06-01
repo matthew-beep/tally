@@ -11,12 +11,17 @@ export interface GlobalBalances {
   // Per-group net balance for each user — used by GroupCard badges without extra queries.
   netPerGroup: Record<string, Record<string, number>>
   profileMap: Record<string, Profile>
+  membersPerGroup: Record<string, Array<{ user_id: string; profile: Profile }>>
   transfers: DebtTransfer[]
   // Gross amounts before pairwise netting — used for the "Owed to you" / "You owe"
   // dashboard cards. Net balance can be -$12 while you still have $88 owed to you
   // and $100 you owe; showing only the net hides both sides of the relationship.
   grossOwedToMe: number
   grossIOwe: number
+  // Per-person gross amounts — used by the breakdown modals.
+  // Keyed by profile ID, value is the gross amount after applying settlements.
+  grossOwedToMeByPerson: Record<string, number>
+  grossIOweByPerson: Record<string, number>
 }
 
 export function useGlobalBalances() {
@@ -37,7 +42,7 @@ export function useGlobalBalances() {
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) {
-        return { myId: user.id, net: {}, netPerGroup: {}, profileMap: {}, transfers: [], grossOwedToMe: 0, grossIOwe: 0 }
+        return { myId: user.id, net: {}, netPerGroup: {}, profileMap: {}, membersPerGroup: {}, transfers: [], grossOwedToMe: 0, grossIOwe: 0, grossOwedToMeByPerson: {}, grossIOweByPerson: {} }
       }
 
       const [expRes, settleRes, memberRes] = await Promise.all([
@@ -53,18 +58,12 @@ export function useGlobalBalances() {
           .in('group_id', groupIds),
         supabase
           .from('group_members')
-          // profiles join is unambiguous here (no invited_by join), but keep explicit
-          // for consistency with useGroupMembers which requires the FK hint.
-          .select('user_id, profile:profiles(*)')
+          .select('group_id, user_id')
           .in('group_id', groupIds)
           .eq('status', 'active'),
       ])
 
-      const profileMap: Record<string, Profile> = {}
       const memberIds = [...new Set(memberRes.data?.map(m => m.user_id) ?? [])]
-      for (const m of memberRes.data ?? []) {
-        if (m.profile) profileMap[m.user_id] = m.profile as unknown as Profile
-      }
 
       // Balances are always computed from raw splits + settlements — never stored.
       const net: Record<string, number> = Object.fromEntries(memberIds.map(id => [id, 0]))
@@ -109,17 +108,62 @@ export function useGlobalBalances() {
       let grossOwedToMe = 0
       let grossIOwe = 0
       const myId = user.id
+      const grossOwedToMeByPerson: Record<string, number> = {}
+      const grossIOweByPerson: Record<string, number> = {}
 
       for (const e of expRes.data ?? []) {
         for (const s of (e.splits as any[]) ?? []) {
           if (s.user_id === e.paid_by) continue
-          if (e.paid_by === myId) grossOwedToMe += Number(s.owed_amount)
-          if (s.user_id === myId) grossIOwe     += Number(s.owed_amount)
+          if (e.paid_by === myId) {
+            grossOwedToMe += Number(s.owed_amount)
+            grossOwedToMeByPerson[s.user_id] = (grossOwedToMeByPerson[s.user_id] ?? 0) + Number(s.owed_amount)
+          }
+          if (s.user_id === myId) {
+            grossIOwe += Number(s.owed_amount)
+            grossIOweByPerson[e.paid_by] = (grossIOweByPerson[e.paid_by] ?? 0) + Number(s.owed_amount)
+          }
         }
       }
       for (const s of settleRes.data ?? []) {
-        if (s.to_user   === myId) grossOwedToMe = Math.max(0, grossOwedToMe - Number(s.amount))
-        if (s.from_user === myId) grossIOwe     = Math.max(0, grossIOwe     - Number(s.amount))
+        if (s.to_user === myId) {
+          grossOwedToMe = Math.max(0, grossOwedToMe - Number(s.amount))
+          grossOwedToMeByPerson[s.from_user] = Math.max(0, (grossOwedToMeByPerson[s.from_user] ?? 0) - Number(s.amount))
+        }
+        if (s.from_user === myId) {
+          grossIOwe = Math.max(0, grossIOwe - Number(s.amount))
+          grossIOweByPerson[s.to_user] = Math.max(0, (grossIOweByPerson[s.to_user] ?? 0) - Number(s.amount))
+        }
+      }
+
+      const roundGross = (r: Record<string, number>) =>
+        Object.fromEntries(
+          Object.entries(r)
+            .filter(([, v]) => v > 0.005)
+            .map(([k, v]) => [k, Math.round(v * 100) / 100])
+        )
+
+      const personIds = [...new Set([
+        ...memberIds,
+        ...Object.keys(grossOwedToMeByPerson),
+        ...Object.keys(grossIOweByPerson),
+      ])]
+
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', personIds)
+
+      const profileMap: Record<string, Profile> = {}
+      for (const p of profilesData ?? []) {
+        profileMap[p.id] = p as Profile
+      }
+
+      const membersPerGroup: Record<string, Array<{ user_id: string; profile: Profile }>> = {}
+      for (const m of memberRes.data ?? []) {
+        const gid = (m as any).group_id as string
+        if (!membersPerGroup[gid]) membersPerGroup[gid] = []
+        const profile = profileMap[m.user_id]
+        if (profile) membersPerGroup[gid].push({ user_id: m.user_id, profile })
       }
 
       return {
@@ -127,9 +171,12 @@ export function useGlobalBalances() {
         net: rounded,
         netPerGroup: roundedNetPerGroup,
         profileMap,
+        membersPerGroup,
         transfers: simplifyDebts(rounded),
-        grossOwedToMe: Math.round(grossOwedToMe * 100) / 100,
-        grossIOwe:     Math.round(grossIOwe     * 100) / 100,
+        grossOwedToMe:         Math.round(grossOwedToMe * 100) / 100,
+        grossIOwe:             Math.round(grossIOwe     * 100) / 100,
+        grossOwedToMeByPerson: roundGross(grossOwedToMeByPerson),
+        grossIOweByPerson:     roundGross(grossIOweByPerson),
       }
     },
   })

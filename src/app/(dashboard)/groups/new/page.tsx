@@ -13,6 +13,8 @@ import type { Profile } from '@/types'
 
 const EMOJIS = ['💸', '🏖️', '🍕', '✈️', '🏠', '🎉', '🛒', '🚗', '🍽️', '💪', '🎮', '❤️']
 
+type MemberRowAvatarProfile = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code' | 'handle'>
+
 function MemberRow({
   displayName,
   handle,
@@ -24,7 +26,7 @@ function MemberRow({
 }: {
   displayName: string
   handle?: string | null
-  avatarProfile: Profile | { id: string; name: string; display_name: null; avatar_url: null; add_code: null }
+  avatarProfile: MemberRowAvatarProfile
   slot: 0 | 1 | 2 | 3
   isYou?: boolean
   isLast: boolean
@@ -36,7 +38,7 @@ function MemberRow({
       padding: '12px 18px',
       borderBottom: isLast ? 'none' : `0.5px solid ${T.line}`,
     }}>
-      <Avatar profile={avatarProfile as Profile} slot={slot} size={40} isYou={isYou} />
+      <Avatar profile={avatarProfile} slot={slot} size={40} isYou={isYou} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {isYou ? 'You' : displayName}
@@ -324,7 +326,7 @@ export default function NewGroupPage() {
                   <MemberRow
                     key={entry.tempId}
                     displayName={entry.name}
-                    avatarProfile={{ id: entry.tempId, name: entry.name, display_name: null, avatar_url: null, add_code: null }}
+                    avatarProfile={{ id: entry.tempId, name: entry.name, display_name: null, avatar_url: null, add_code: null, handle: null }}
                     slot={(i + 1) % 4 as 0 | 1 | 2 | 3}
                     isLast={isLast}
                     onRemove={() => setMembers(prev => prev.filter((_, j) => j !== i))}

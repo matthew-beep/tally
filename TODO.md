@@ -115,7 +115,7 @@ Dev convenience only. `LoginButton.tsx` gates the form behind `NODE_ENV === 'dev
 
 - [x] **Simplify cards** — gross amounts per card (`grossOwedToMe` / `grossIOwe` in `useGlobalBalances`), not pairwise-netted
 - [x] **Balance invalidation** — `useAddExpense`, `useCreateSettlement`, `useConfirmSettlement`, `useDenySettlement` all invalidate `['global-balances']`
-- [ ] **Expand button** — opens modal with full per-person breakdown (who owes what, across which groups)
+- [x] **Expand button** — opens modal with full per-person breakdown (who owes what, across which groups)
 
 ---
 
