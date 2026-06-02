@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
+import { createClient, getAuthUser } from '@/lib/supabase'
 import type { Profile, Notification } from '@/types'
 
 export function useCurrentProfile() {
@@ -9,12 +9,11 @@ export function useCurrentProfile() {
   return useQuery({
     queryKey: ['profile', 'me'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return null
+      const user = await getAuthUser(supabase)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', user.id)
         .single()
       if (error) throw error
       return data as Profile
@@ -49,14 +48,13 @@ export function useSearchProfiles(query: string) {
   return useQuery({
     queryKey: ['profiles', 'search', query],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return []
+      const user = await getAuthUser(supabase)
 
       let q = supabase
         .from('profiles')
         .select('id, name, display_name, avatar_url, add_code, handle')
         .eq('status', 'active')
-        .neq('id', session.user.id)
+        .neq('id', user.id)
         .limit(10)
 
       if (query.startsWith('@')) {
@@ -99,8 +97,7 @@ export function useNotifications() {
   return useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return []
+      const user = await getAuthUser(supabase)
       // Unread only — the bell badge and notification list both show unread items.
       // This query uses refetchOnMount (standard default); the unread count badge
       // uses refetchInterval: 30_000 in its own query (not defined here).
@@ -109,7 +106,7 @@ export function useNotifications() {
         // FK hints required: notifications has both settlement_id and group_id FKs,
         // and settlements itself has two FKs to profiles.
         .select('*, settlement:settlements(*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*)), group:groups(id, name, emoji)')
-        .eq('recipient_id', session.user.id)
+        .eq('recipient_id', user.id)
         .eq('read', false)
         .order('created_at', { ascending: false })
       if (error) throw error

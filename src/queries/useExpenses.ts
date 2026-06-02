@@ -67,6 +67,7 @@ export function useAddExpense(groupId: string) {
       // reflect the new expense immediately on navigation back.
       qc.invalidateQueries({ queryKey: ['global-balances'] })
       qc.invalidateQueries({ queryKey: ['recent-activity'] })
+      qc.invalidateQueries({ queryKey: ['all-activity'] })
     },
   })
 }

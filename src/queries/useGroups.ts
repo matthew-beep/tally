@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
+import { createClient, getAuthUser } from '@/lib/supabase'
 import type { Group } from '@/types'
 
 export function useGroups() {
@@ -9,9 +9,7 @@ export function useGroups() {
   return useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const user = session?.user
-      if (!user) return []
+      const user = await getAuthUser(supabase)
       const { data, error } = await supabase
         .from('group_members')
         .select('group_id, groups(*)')
@@ -85,9 +83,7 @@ export function useCreateGroup() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ name, emoji }: { name: string; emoji: string }) => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const user = session?.user
-      if (!user) throw new Error('Not authenticated')
+      const user = await getAuthUser(supabase)
 
       const { data: group, error } = await supabase
         .from('groups')
@@ -106,6 +102,7 @@ export function useCreateGroup() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['groups'] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
     },
   })
 }

@@ -1,6 +1,6 @@
 export function DashboardPage({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
+    <div className="page-scroll" style={{
       flex: 1,
       minHeight: 0,
       overflowY: 'auto',

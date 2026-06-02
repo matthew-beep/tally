@@ -2,16 +2,17 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { T, F, FH, FMONO } from '@/design/tokens'
+import { T, F, FH } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { Card } from '@/components/Card'
 import { BalanceBadge } from '@/components/BalanceBadge'
 import { HeroSkeleton, GroupsSkeleton, ActivitySkeleton } from '@/components/HomeScreenSkeleton'
+import { ActivityRow } from '@/components/ActivityRow'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { useGroups } from '@/queries/useGroups'
 import { useGlobalBalances, useRecentActivity } from '@/queries/useGlobalBalances'
 import { BalanceBreakdownModal } from '@/components/BalanceBreakdownModal'
-import type { Profile } from '@/types'
+import type { ActivityItem, Profile } from '@/types'
 
 type HeroCostTone = 'auto' | 'owedToYou' | 'youOwe'
 type HeroCostSize = 'hero' | 'compact'
@@ -213,7 +214,21 @@ function GroupsPanel() {
 }
 
 function ActivityPanel() {
-  const { data: items = [], isLoading } = useRecentActivity()
+  const { data: recent = [], isLoading } = useRecentActivity()
+
+  const items: ActivityItem[] = recent.map(e => ({
+    type: 'expense',
+    id: e.id,
+    description: e.description,
+    category: e.category,
+    amount: e.amount,
+    date: e.expense_date,
+    createdAt: e.created_at,
+    payerName: e.payerName,
+    groupId: e.group_id,
+    groupName: e.groupName,
+    groupEmoji: e.groupEmoji,
+  }))
 
   return (
     <div className="home-activity-panel">
@@ -231,17 +246,8 @@ function ActivityPanel() {
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {items.map(e => (
-              <div key={e.id} style={{ background: T.surface, borderRadius: T.r.md, padding: '11px 14px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: T.shadowSm }}>
-                <div style={{ width: 34, height: 34, borderRadius: T.r.sm, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
-                  {e.category ?? '💸'}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</div>
-                  <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{e.payerName} · {e.groupEmoji} {e.groupName}</div>
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, fontFamily: FMONO, color: T.ink, flexShrink: 0 }}>${e.amount.toFixed(2)}</div>
-              </div>
+            {items.map(item => (
+              <ActivityRow key={item.id} item={item} showGroup />
             ))}
           </div>
         </>

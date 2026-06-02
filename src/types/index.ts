@@ -104,3 +104,35 @@ export interface DebtTransfer {
   to: string
   amount: number
 }
+
+export type ActivityItem =
+  | {
+      type: 'expense'
+      id: string
+      description: string
+      category: string | null
+      amount: number
+      date: string
+      createdAt: string
+      payerName: string
+      groupId: string
+      groupName: string
+      groupEmoji: string
+    }
+  | {
+      type: 'settlement'
+      id: string
+      amount: number
+      status: 'pending' | 'confirmed'
+      fromName: string
+      toName: string
+      createdAt: string
+      groupId: string
+      groupName: string
+      groupEmoji: string
+    }
+
+export interface ActivityGroup {
+  group: Pick<Group, 'id' | 'name' | 'emoji'>
+  items: ActivityItem[]
+}

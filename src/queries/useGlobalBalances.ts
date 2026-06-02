@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
+import { createClient, getAuthUser } from '@/lib/supabase'
 import { simplifyDebts } from '@/lib/balance'
 import type { Profile, DebtTransfer } from '@/types'
 
@@ -29,9 +29,7 @@ export function useGlobalBalances() {
   return useQuery<GlobalBalances | null>({
     queryKey: ['global-balances'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const user = session?.user
-      if (!user) return null
+      const user = await getAuthUser(supabase)
 
       const { data: memberships } = await supabase
         .from('group_members')
@@ -182,6 +180,7 @@ export function useGlobalBalances() {
   })
 }
 
+/** Flattened expense row for the home screen "Recent activity" panel. */
 export interface RecentExpense {
   id: string
   description: string
@@ -195,15 +194,19 @@ export interface RecentExpense {
   payerName: string
 }
 
+/**
+ * Latest expenses across all of the user's active groups.
+ * Home ActivityPanel only — expenses only (no settlements), no per-user share math.
+ * Two round-trips: memberships → expenses with group + payer joins.
+ */
 export function useRecentActivity() {
   const supabase = createClient()
   return useQuery<RecentExpense[]>({
     queryKey: ['recent-activity'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const user = session?.user
-      if (!user) return []
+      const user = await getAuthUser(supabase)
 
+      // Scope to groups the user belongs to (same active-only filter as balances).
       const { data: memberships } = await supabase
         .from('group_members')
         .select('group_id')
@@ -215,20 +218,22 @@ export function useRecentActivity() {
 
       const { data, error } = await supabase
         .from('expenses')
-        // FK hint on payer: expenses has paid_by → profiles (explicit to match pattern)
+        // Join group (name/emoji) and payer profile in one query.
+        // FK hint on payer: expenses.paid_by → profiles (explicit when multiple FKs exist).
         .select('id, description, category, amount, expense_date, created_at, group_id, group:groups(name, emoji), payer:profiles!paid_by(name, display_name)')
         .in('group_id', groupIds)
         .is('deleted_at', null)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }) // sort by when recorded, not expense_date
         .limit(15)
 
       if (error) throw error
 
+      // Flatten nested Supabase joins into UI-friendly fields.
       return (data ?? []).map((e: any) => ({
         id: e.id,
         description: e.description,
         category: e.category,
-        amount: Number(e.amount),
+        amount: Number(e.amount), // Postgres numeric may arrive as string
         expense_date: e.expense_date,
         created_at: e.created_at,
         group_id: e.group_id,

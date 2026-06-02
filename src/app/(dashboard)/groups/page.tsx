@@ -5,16 +5,14 @@ import { T, FH, F } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { Card } from '@/components/Card'
 import { BalanceBadge } from '@/components/BalanceBadge'
-import { useGroups, useGroupMembers } from '@/queries/useGroups'
-import { useExpenses } from '@/queries/useExpenses'
-import { useSettlements } from '@/queries/useSettlements'
-import { useCurrentProfile } from '@/queries/useProfile'
-import { calcNetBalances } from '@/lib/balance'
+import { useGroups } from '@/queries/useGroups'
+import { useGlobalBalances } from '@/queries/useGlobalBalances'
+import type { Profile } from '@/types'
 
 export default function GroupsPage() {
   const router = useRouter()
   const { data: groups = [], isLoading } = useGroups()
-  const { data: profile } = useCurrentProfile()
+  const { data: gb } = useGlobalBalances()
 
   return (
     <DashboardPage>
@@ -46,22 +44,22 @@ export default function GroupsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {groups.map(g => (
-            <GroupCard key={g.id} group={g} profileId={profile?.id} />
+            <GroupCard key={g.id} group={g} myId={gb?.myId} netPerGroup={gb?.netPerGroup} membersPerGroup={gb?.membersPerGroup} />
           ))}
         </div>
     </DashboardPage>
   )
 }
 
-function GroupCard({ group, profileId }: { group: { id: string; name: string; emoji: string }; profileId?: string }) {
+function GroupCard({ group, myId, netPerGroup, membersPerGroup }: {
+  group: { id: string; name: string; emoji: string }
+  myId?: string
+  netPerGroup?: Record<string, Record<string, number>>
+  membersPerGroup?: Record<string, Array<{ user_id: string; profile: Profile }>>
+}) {
   const router = useRouter()
-  const { data: members = [] } = useGroupMembers(group.id)
-  const { data: expenses = [] } = useExpenses(group.id)
-  const { data: settlements = [] } = useSettlements(group.id)
-
-  const memberIds = members.map(m => m.user_id)
-  const net = profileId ? calcNetBalances(group.id, expenses, settlements, memberIds) : {}
-  const myBalance = profileId ? (net[profileId] ?? 0) : 0
+  const members = membersPerGroup?.[group.id] ?? []
+  const myBalance = myId && netPerGroup ? (netPerGroup[group.id]?.[myId] ?? 0) : 0
 
   return (
     <Card

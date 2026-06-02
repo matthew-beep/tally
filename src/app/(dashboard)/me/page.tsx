@@ -10,6 +10,7 @@ import type { HandleState } from '@/components/HandleInput'
 import { useCurrentProfile, useNotifications, useUpdateProfile } from '@/queries/useProfile'
 import { useConfirmSettlement, useDenySettlement } from '@/queries/useSettlements'
 import { useAcceptGroupInvite, useDeclineGroupInvite } from '@/queries/useMembers'
+import { useTheme } from '@/lib/theme'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import type { Notification } from '@/types'
@@ -114,6 +115,7 @@ export default function MePage() {
   const router = useRouter()
   const { data: profile } = useCurrentProfile()
   const { data: notifications = [] } = useNotifications()
+  const { isDark, toggle } = useTheme()
 
   async function signOut() {
     const supabase = createClient()
@@ -195,10 +197,45 @@ export default function MePage() {
           </div>
         )}
 
+        {/* Appearance */}
+        <Card style={{ padding: '4px 8px', marginBottom: 16 }}>
+          <button
+            onClick={toggle}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: F,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>{isDark ? '🌙' : '☀️'}</span>
+              <span style={{ fontSize: 14, fontWeight: 500, color: T.ink }}>
+                {isDark ? 'Dark mode' : 'Light mode'}
+              </span>
+            </div>
+            {/* Toggle pill */}
+            <div style={{
+              width: 44, height: 26, borderRadius: 99,
+              background: isDark ? T.ink : T.lineStrong,
+              position: 'relative',
+              transition: 'background 0.2s',
+              flexShrink: 0,
+            }}>
+              <div style={{
+                position: 'absolute', top: 3,
+                left: isDark ? 21 : 3,
+                width: 20, height: 20, borderRadius: 99,
+                background: isDark ? T.bg : T.surface,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                transition: `left .25s cubic-bezier(0.34,1.56,0.64,1)`,
+              }} />
+            </div>
+          </button>
+        </Card>
+
         {/* Sign out */}
         <button
           onClick={signOut}
-          style={{ marginTop: 24, background: 'none', border: `1.5px solid ${T.lineStrong}`, borderRadius: T.r.md, padding: '11px 20px', fontSize: 14, fontWeight: 600, color: T.inkMuted, cursor: 'pointer', fontFamily: F, width: '100%' }}
+          style={{ marginTop: 8, background: 'none', border: `1.5px solid ${T.lineStrong}`, borderRadius: T.r.md, padding: '11px 20px', fontSize: 14, fontWeight: 600, color: T.inkMuted, cursor: 'pointer', fontFamily: F, width: '100%' }}
         >
           Sign out
         </button>

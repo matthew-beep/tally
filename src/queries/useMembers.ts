@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
+import { createClient, getAuthUser } from '@/lib/supabase'
 import type { ProfileSnippet } from '@/queries/useProfile'
 
 export function useAddGroupMember(groupId: string) {
@@ -9,12 +9,11 @@ export function useAddGroupMember(groupId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (profileId: string) => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) throw new Error('Not authenticated')
+      const user = await getAuthUser(supabase)
       // Upsert prevents duplicate pending rows — PK on (group_id, user_id) is the guard.
       const { error } = await supabase
         .from('group_members')
-        .upsert({ group_id: groupId, user_id: profileId, status: 'pending', invited_by: session.user.id })
+        .upsert({ group_id: groupId, user_id: profileId, status: 'pending', invited_by: user.id })
       if (error) throw error
     },
     onSuccess: () => {
@@ -28,14 +27,13 @@ export function useAcceptGroupInvite() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ groupId, notificationId }: { groupId: string; notificationId: string }) => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) throw new Error('Not authenticated')
+      const user = await getAuthUser(supabase)
       await Promise.all([
         supabase
           .from('group_members')
           .update({ status: 'active' })
           .eq('group_id', groupId)
-          .eq('user_id', session.user.id)
+          .eq('user_id', user.id)
           .eq('status', 'pending'),
         supabase
           .from('notifications')
@@ -59,8 +57,7 @@ export function useDeclineGroupInvite() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ groupId, notificationId }: { groupId: string; notificationId: string }) => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) throw new Error('Not authenticated')
+      const user = await getAuthUser(supabase)
       await Promise.all([
         // DELETE fires notify_group_invite_declined trigger automatically.
         // The full guest-profile conversion + expense_splits transfer happens in
@@ -69,7 +66,7 @@ export function useDeclineGroupInvite() {
           .from('group_members')
           .delete()
           .eq('group_id', groupId)
-          .eq('user_id', session.user.id)
+          .eq('user_id', user.id)
           .eq('status', 'pending'),
         supabase
           .from('notifications')
@@ -89,15 +86,14 @@ export function useRecentCollaborators() {
   return useQuery({
     queryKey: ['recents'],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.user) return []
+      const user = await getAuthUser(supabase)
 
       // Two-step: first get the user's groups, then fetch co-members.
       // A single join would pull all group data unnecessarily.
       const { data: myGroups } = await supabase
         .from('group_members')
         .select('group_id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .eq('status', 'active')
 
       if (!myGroups?.length) return []
@@ -106,7 +102,7 @@ export function useRecentCollaborators() {
         .from('group_members')
         .select('user_id, profile:profiles(id, name, display_name, avatar_url, add_code)')
         .in('group_id', myGroups.map(g => g.group_id))
-        .neq('user_id', session.user.id)
+        .neq('user_id', user.id)
         // Exclude pending members — they haven't consented to being in the group yet
         .eq('status', 'active')
 
@@ -129,13 +125,12 @@ export function useRecentCollaborators() {
 export async function addMembersToGroup(groupId: string, profileIds: string[]) {
   if (!profileIds.length) return
   const supabase = createClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.user) throw new Error('Not authenticated')
+  const user = await getAuthUser(supabase)
   const rows = profileIds.map(user_id => ({
     group_id: groupId,
     user_id,
     status: 'pending',
-    invited_by: session.user.id,
+    invited_by: user.id,
   }))
   const { error } = await supabase.from('group_members').upsert(rows)
   if (error) throw error

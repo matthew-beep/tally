@@ -47,6 +47,7 @@ export function useCreateSettlement(groupId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
       qc.invalidateQueries({ queryKey: ['global-balances'] })
+      qc.invalidateQueries({ queryKey: ['all-activity'] })
     },
   })
 }
@@ -63,6 +64,7 @@ export function useConfirmSettlement() {
     onSuccess: ({ groupId }) => {
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
       qc.invalidateQueries({ queryKey: ['global-balances'] })
+      qc.invalidateQueries({ queryKey: ['all-activity'] })
       qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
@@ -80,6 +82,7 @@ export function useDenySettlement() {
     onSuccess: ({ groupId }) => {
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
       qc.invalidateQueries({ queryKey: ['global-balances'] })
+      qc.invalidateQueries({ queryKey: ['all-activity'] })
       qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })

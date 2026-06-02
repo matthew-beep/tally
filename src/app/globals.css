@@ -1,6 +1,67 @@
 @import "tailwindcss";
 @import "../styles/dashboard.css";
 
+/* ── Theme tokens ── */
+:root {
+  --tally-bg:          #F4EEE3;
+  --tally-surface:     #FFFFFF;
+  --tally-surface-alt: #F1EDE4;
+  --tally-surface-hov: #F5F1E9;
+  --tally-ink:         #1F1A14;
+  --tally-ink-muted:   rgba(31,26,20,0.52);
+  --tally-ink-faint:   rgba(31,26,20,0.28);
+  --tally-line:        rgba(31,26,20,0.07);
+  --tally-line-strong: rgba(31,26,20,0.16);
+  --tally-shadow-sm:   0 1px 0 rgba(31,26,20,0.04);
+  --tally-shadow-float:0 8px 24px rgba(0,0,0,0.08);
+  --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.28);
+  --tally-skeleton-a:  rgba(31,26,20,0.06);
+  --tally-skeleton-b:  rgba(31,26,20,0.10);
+  /* Accent */
+  --tally-sun:         #F2C144;
+  --tally-sun-soft:    #FDF4D0;
+  --tally-sun-ink:     #7A5200;
+  --tally-mint:        #2DB97A;
+  --tally-mint-soft:   #D3F5E5;
+  --tally-mint-ink:    #0A5C35;
+  --tally-coral:       #EF6144;
+  --tally-coral-soft:  #FCEAE7;
+  --tally-coral-ink:   #862412;
+  --tally-lav:         #9179EF;
+  --tally-lav-soft:    #EDE9FD;
+  --tally-lav-ink:     #3C2BA8;
+}
+
+[data-theme="dark"] {
+  --tally-bg:          #181410;
+  --tally-surface:     #231D17;
+  --tally-surface-alt: #2B241D;
+  --tally-surface-hov: #322B23;
+  --tally-ink:         #F4EEE3;
+  --tally-ink-muted:   rgba(244,238,227,0.52);
+  --tally-ink-faint:   rgba(244,238,227,0.28);
+  --tally-line:        rgba(244,238,227,0.07);
+  --tally-line-strong: rgba(244,238,227,0.16);
+  --tally-shadow-sm:   0 1px 0 rgba(0,0,0,0.3);
+  --tally-shadow-float:0 8px 24px rgba(0,0,0,0.4);
+  --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.65);
+  --tally-skeleton-a:  rgba(244,238,227,0.05);
+  --tally-skeleton-b:  rgba(244,238,227,0.09);
+  /* Accent — lightened for dark bg readability */
+  --tally-sun:         #F5CB66;
+  --tally-sun-soft:    rgba(245,203,102,0.15);
+  --tally-sun-ink:     #7A5200;
+  --tally-mint:        #6FD2B0;
+  --tally-mint-soft:   rgba(111,210,176,0.15);
+  --tally-mint-ink:    #6FD2B0;
+  --tally-coral:       #F2A48A;
+  --tally-coral-soft:  rgba(242,164,138,0.15);
+  --tally-coral-ink:   #F2A48A;
+  --tally-lav:         #C3B6EB;
+  --tally-lav-soft:    rgba(195,182,235,0.15);
+  --tally-lav-ink:     #C3B6EB;
+}
+
 /* ── Tally design tokens wired into Tailwind ── */
 @theme {
   /* Surfaces */
@@ -75,8 +136,8 @@ html, body {
 }
 
 body {
-  background: #F4EEE3;
-  color: #1F1A14;
+  background: var(--tally-bg);
+  color: var(--tally-ink);
   font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
   font-size: 16px;
   line-height: 1.5;
@@ -96,6 +157,12 @@ body {
 
 button, input, textarea, select {
   font-family: inherit;
+}
+
+.ndtap {
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  user-select: none;
 }
 
 a {
@@ -177,7 +244,7 @@ a {
   width: 36px;
   height: 4px;
   border-radius: 2px;
-  background: rgba(31, 26, 20, 0.16);
+  background: var(--tally-line-strong);
   flex-shrink: 0;
 }
 
@@ -223,7 +290,7 @@ a {
     height: 95dvh;
     display: flex !important;
     flex-direction: column !important;
-    background: #F4EEE3 !important;
+    background: var(--tally-bg) !important;
     border-radius: 20px 20px 0 0 !important;
   }
 }
@@ -235,8 +302,8 @@ a {
   flex: 1;
   min-height: 0;
   height: 100%;
-  background: #F4EEE3;
-  color: #1F1A14;
+  background: var(--tally-bg);
+  color: var(--tally-ink);
   font-family: var(--font-ui), "Plus Jakarta Sans", system-ui, sans-serif;
 }
 
@@ -290,7 +357,7 @@ a {
 .add-expense-mobile-footer {
   flex-shrink: 0;
   padding: 10px 14px 28px;
-  background: linear-gradient(to top, #F4EEE3 70%, rgba(244, 238, 227, 0));
+  background: linear-gradient(to top, var(--tally-bg) 70%, transparent);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -315,11 +382,11 @@ a {
 
 .add-expense-desktop-left {
   padding: 18px 18px 18px 22px;
-  border-right: 0.5px solid rgba(31, 26, 20, 0.07);
+  border-right: 0.5px solid var(--tally-line);
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: #F1EDE4;
+  background: var(--tally-surface-alt);
   overflow-y: auto;
 }
 
@@ -334,19 +401,19 @@ a {
 .add-expense-desktop-footer {
   flex-shrink: 0;
   padding: 12px 22px;
-  border-top: 0.5px solid rgba(31, 26, 20, 0.07);
+  border-top: 0.5px solid var(--tally-line);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: #F1EDE4;
+  background: var(--tally-surface-alt);
 }
 
 @media (min-width: 768px) {
   .add-expense-panel-root {
     display: flex !important;
     flex-direction: column !important;
-    background: #F4EEE3 !important;
+    background: var(--tally-bg) !important;
     max-height: min(92dvh, 800px) !important;
   }
 }
@@ -354,9 +421,9 @@ a {
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(31,26,20,0.06) 25%,
-    rgba(31,26,20,0.10) 50%,
-    rgba(31,26,20,0.06) 75%
+    var(--tally-skeleton-a) 25%,
+    var(--tally-skeleton-b) 50%,
+    var(--tally-skeleton-a) 75%
   );
   background-size: 800px 100%;
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
