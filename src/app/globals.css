@@ -159,10 +159,17 @@ button, input, textarea, select {
   font-family: inherit;
 }
 
-.ndtap {
+.ndtap,
+.wntap {
   -webkit-tap-highlight-color: transparent;
   outline: none;
   user-select: none;
+  transition: transform .12s ease, color .18s ease;
+}
+
+.wntap:active,
+.ndtap:active {
+  transform: scale(0.94);
 }
 
 a {

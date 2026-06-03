@@ -2,174 +2,95 @@
 
 import { useRouter, usePathname } from 'next/navigation'
 import { T, F } from '@/design/tokens'
+import { SliderPill } from '@/components/nav/SliderPill'
+import { useSlider } from '@/components/nav/useSlider'
+import { WebNavIcon, type WebNavIconName } from '@/components/nav/WebNavIcon'
+import { WebNavBadge } from '@/components/nav/WebNavBadge'
 
 const NAV_TABS = [
-  { id: 'home',     label: 'Home',     href: '/' },
-  { id: 'groups',   label: 'Groups',   href: '/groups' },
+  { id: 'home', label: 'Home', href: '/' },
+  { id: 'groups', label: 'Groups', href: '/groups' },
   { id: 'activity', label: 'Activity', href: '/activity' },
-  { id: 'me',       label: 'Me',       href: '/me' },
+  { id: 'me', label: 'Me', href: '/me' },
 ] as const
 
-type TabId = typeof NAV_TABS[number]['id']
+type TabId = (typeof NAV_TABS)[number]['id']
 
-const NAV_EASE = 'cubic-bezier(0.34,1.56,0.64,1)'
+const NAV_BADGES: Partial<Record<TabId, 'dot' | number>> = {}
 
-// Placeholder — wire up notification unread count per tab when poll is implemented
-const NAV_BADGES: Record<TabId, number> = { home: 0, groups: 0, activity: 0, me: 0 }
-
-function NavIcon({ name, color, fill, size, sw }: {
-  name: TabId
-  color: string
-  fill: boolean
-  size: number
-  sw: number
-}) {
-  const svgStyle = {
-    color,
-    overflow: 'visible' as const,
-  }
-  const base = {
-    stroke: 'currentColor',
-    strokeWidth: sw,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  }
-  const f = fill ? 'currentColor' : 'none'
-
-  if (name === 'home') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={svgStyle}>
-      <path d="M3 10.5L12 3l9 7.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V10.5z" fill={f} {...base} />
-      <path d="M9 21V13h6v8" fill="none" {...base} />
-    </svg>
-  )
-
-  if (name === 'groups') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={svgStyle}>
-      <circle cx="9" cy="7" r="4" fill={f} {...base} />
-      <path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" {...base} />
-      <path d="M16 3.13a4 4 0 010 7.75" {...base} />
-      <path d="M21 21v-2a4 4 0 00-3-3.87" {...base} />
-    </svg>
-  )
-
-  if (name === 'activity') return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={svgStyle}>
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" {...base} />
-    </svg>
-  )
-
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" style={svgStyle}>
-      <circle cx="12" cy="7" r="4" fill={f} {...base} />
-      <path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2" {...base} />
-    </svg>
-  )
+function pathnameToTab(pathname: string): TabId {
+  if (pathname === '/') return 'home'
+  if (pathname.startsWith('/groups')) return 'groups'
+  if (pathname.startsWith('/activity')) return 'activity'
+  if (pathname.startsWith('/me')) return 'me'
+  return 'home'
 }
 
-function NavIconBadged({ name, color, fill, size, sw, badge, ring }: {
-  name: TabId
-  color: string
-  fill: boolean
-  size: number
-  sw: number
-  badge?: number
-  ring: string
-}) {
-  return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <NavIcon name={name} color={color} fill={fill} size={size} sw={sw} />
-      {!!badge && badge > 0 && (
-        <div style={{
-          position: 'absolute', top: -3, right: -4,
-          minWidth: 14, height: 14, borderRadius: 99,
-          background: T.coral, border: `2px solid ${ring}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 8, fontWeight: 700, color: '#fff', fontFamily: F,
-          padding: '0 2px', boxSizing: 'border-box',
-        }}>
-          {badge > 9 ? '9+' : badge}
-        </div>
-      )}
-    </div>
-  )
-}
-
-const SUB_CFG = {
-  dot:     { shape: 'circle', fill: T.sunSoft,     ai: T.sunInk, ifill: true,  label: false },
-  label:   { shape: 'pad',    fill: T.sunSoft,     ai: T.sunInk, ifill: true,  label: true  },
-  solid:   { shape: 'circle', fill: T.sun,         ai: T.sunInk, ifill: true,  label: false },
-  ink:     { shape: 'circle', fill: T.ink,         ai: T.bg,     ifill: false, label: false },
-  outline: { shape: 'circle', fill: 'transparent', ai: T.ink,    ifill: false, label: false, brd: `1.5px solid ${T.sun}` },
-  glow:    { shape: 'pad',    fill: T.sunSoft,     ai: T.sunInk, ifill: true,  label: true,  glow: true },
-} as const
-
-type Sub = keyof typeof SUB_CFG
-
-function FloatingSliding({ active, onSelect, sub = 'label' }: {
+function FloatingNav({
+  active,
+  onSelect,
+}: {
   active: TabId
   onSelect: (id: TabId) => void
-  sub?: Sub
 }) {
-  const idx = NAV_TABS.findIndex(x => x.id === active)
-  const cfg = SUB_CFG[sub]
-  const labelled = cfg.label
-  const circle = cfg.shape === 'circle'
-  const sunGlow = 'rgba(242,193,68,0.45)'
+  const { containerRef, setRef, box } = useSlider(active)
+  const glow = 'rgba(242,192,74,0.4)'
 
   return (
-    <div style={{ background: T.surface, borderRadius: 26, padding: 9, boxShadow: T.shadowFloat }}>
-      <div style={{ position: 'relative', display: 'flex', height: labelled ? 52 : 46 }}>
-
-        {/* sliding indicator */}
-        <div style={{
-          position: 'absolute', top: 0, bottom: 0,
-          left: `${idx * 25}%`, width: '25%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: `left .38s ${NAV_EASE}`,
-          pointerEvents: 'none',
-        }}>
-          <span style={{
-            display: 'block',
-            width: circle ? 46 : '84%',
-            height: circle ? 46 : '100%',
-            borderRadius: circle ? 999 : 15,
-            background: cfg.fill,
-            border: 'brd' in cfg ? cfg.brd : 'none',
-            boxSizing: 'border-box',
-            boxShadow: 'glow' in cfg && cfg.glow ? `0 5px 16px ${sunGlow}` : 'none',
-          }} />
-        </div>
-
+    <div
+      style={{
+        background: T.surface,
+        borderRadius: 999,
+        padding: 7,
+        boxShadow: T.shadowFloat,
+      }}
+    >
+      <div ref={containerRef} style={{ position: 'relative', display: 'flex', gap: 4 }}>
+        <SliderPill variant="float" box={box} glow={glow} />
         {NAV_TABS.map(tab => {
           const on = tab.id === active
-          const c = on ? cfg.ai : T.inkFaint
+          const ink = on ? T.sunInk : T.inkFaint
+          const badge = NAV_BADGES[tab.id]
           return (
             <button
               key={tab.id}
-              className="ndtap"
+              ref={setRef(tab.id)}
+              type="button"
+              className="wntap"
               onClick={() => onSelect(tab.id)}
               title={tab.label}
               style={{
-                position: 'relative', zIndex: 1, flex: 1,
-                border: 0, background: 'transparent', cursor: 'pointer', fontFamily: F,
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', justifyContent: 'center',
-                gap: labelled ? 3 : 0,
+                position: 'relative',
+                zIndex: 1,
+                border: 0,
+                background: 'transparent',
+                cursor: 'pointer',
+                fontFamily: F,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 3,
+                padding: '0 18px',
+                height: 52,
+                borderRadius: 999,
+                color: ink,
+                minWidth: 64,
               }}
             >
-              <NavIconBadged
-                name={tab.id}
-                color={c}
-                fill={false}
-                size={22}
-                sw={2}
-                badge={NAV_BADGES[tab.id]}
-                ring={T.surface}
-              />
-              {labelled && (
-                <span style={{ fontSize: 10, fontWeight: on ? 700 : 600, color: c }}>
-                  {tab.label}
-                </span>
+              <span style={{ position: 'relative', display: 'inline-flex' }}>
+                <WebNavIcon name={tab.id as WebNavIconName} color={ink} fill={on} size={20} />
+                {badge === 'dot' && (
+                  <span style={{ position: 'absolute', top: -2, right: -3 }}>
+                    <WebNavBadge badge="dot" ring={on ? T.sunSoft : T.surface} />
+                  </span>
+                )}
+              </span>
+              <span style={{ fontSize: 10, fontWeight: on ? 700 : 600, color: ink, lineHeight: 1 }}>
+                {tab.label}
+              </span>
+              {typeof badge === 'number' && (
+                <WebNavBadge badge={badge} ring={on ? T.sunSoft : T.surface} />
               )}
             </button>
           )
@@ -182,29 +103,25 @@ function FloatingSliding({ active, onSelect, sub = 'label' }: {
 export function TabBar() {
   const router = useRouter()
   const pathname = usePathname()
-
-  const active = ((): TabId => {
-    if (pathname === '/') return 'home'
-    if (pathname.startsWith('/groups')) return 'groups'
-    if (pathname.startsWith('/activity')) return 'activity'
-    if (pathname.startsWith('/me')) return 'me'
-    return 'home'
-  })()
+  const active = pathnameToTab(pathname)
 
   function onSelect(id: TabId) {
-    router.push(NAV_TABS.find(t => t.id === id)!.href)
+    const tab = NAV_TABS.find(t => t.id === id)
+    if (tab) router.push(tab.href)
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: 24,
-      left: 18,
-      right: 18,
-      zIndex: 100,
-      pointerEvents: 'auto',
-    }}>
-      <FloatingSliding active={active} onSelect={onSelect} sub="label" />
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        left: 18,
+        right: 18,
+        zIndex: 100,
+        pointerEvents: 'auto',
+      }}
+    >
+      <FloatingNav active={active} onSelect={onSelect} />
     </div>
   )
 }
