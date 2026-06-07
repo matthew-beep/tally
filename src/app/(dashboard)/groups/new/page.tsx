@@ -111,6 +111,7 @@ export default function NewGroupPage() {
   const [members, setMembers] = useState<MemberEntry[]>([])
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
   const createGroup = useCreateGroup()
@@ -139,6 +140,7 @@ export default function NewGroupPage() {
   async function handleCreate() {
     if (!name.trim() || creating) return
     setCreating(true)
+    setCreateError(null)
     try {
       const group = await createGroup.mutateAsync({ name: name.trim(), emoji })
       if (members.length > 0) {
@@ -150,7 +152,8 @@ export default function NewGroupPage() {
         await addMembersToGroup(group.id, ids)
       }
       router.push(`/groups/${group.id}`)
-    } catch {
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
       setCreating(false)
     }
   }
@@ -419,9 +422,18 @@ export default function NewGroupPage() {
           borderTop: `0.5px solid ${T.line}`, background: T.bg,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <div style={{ fontSize: 12, color: T.inkMuted, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.mint, flexShrink: 0 }} />
-            Nothing is created until you click below.
+          <div style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            {createError ? (
+              <>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.coral, flexShrink: 0 }} />
+                <span style={{ color: T.coralInk }}>{createError}</span>
+              </>
+            ) : (
+              <>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.mint, flexShrink: 0 }} />
+                <span style={{ color: T.inkMuted }}>Nothing is created until you click below.</span>
+              </>
+            )}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button

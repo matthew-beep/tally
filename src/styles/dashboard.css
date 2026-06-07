@@ -1,6 +1,7 @@
 /* Dashboard shell — sidebar desktop, tab bar mobile */
 .dashboard-sidebar {
   flex-shrink: 0;
+  /* width/background set on component — keep slot for layout hide */
 }
 
 .dashboard-mobile-nav {
