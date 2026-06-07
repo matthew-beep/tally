@@ -117,8 +117,8 @@ function FloatingSliding({ active, onSelect, sub = 'label' }: {
   const sunGlow = 'rgba(242,193,68,0.45)'
 
   return (
-    <div style={{ background: T.surface, borderRadius: 26, padding: 9, boxShadow: T.shadowFloat }}>
-      <div style={{ position: 'relative', display: 'flex', height: labelled ? 52 : 46 }}>
+    <div style={{ background: T.surface, borderRadius: 26, padding: 9, boxShadow: T.shadowFloat, width: '100%' }}>
+      <div style={{ position: 'relative', display: 'flex', width: '100%', height: labelled ? 52 : 46 }}>
 
         {/* sliding indicator */}
         <div style={{
@@ -127,7 +127,8 @@ function FloatingSliding({ active, onSelect, sub = 'label' }: {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           transition: `left .38s ${NAV_EASE}`,
           pointerEvents: 'none',
-        }}>
+        }}
+        >
           <span style={{
             display: 'block',
             width: circle ? 46 : '84%',
@@ -199,12 +200,15 @@ export function TabBar() {
     <div style={{
       position: 'fixed',
       bottom: 24,
-      left: 18,
-      right: 18,
+      left: 0,
+      right: 0,
+      padding: '0 18px',
       zIndex: 100,
-      pointerEvents: 'auto',
+      pointerEvents: 'none',
     }}>
-      <FloatingSliding active={active} onSelect={onSelect} sub="label" />
+      <div style={{ pointerEvents: 'auto' }}>
+        <FloatingSliding active={active} onSelect={onSelect} sub="label" />
+      </div>
     </div>
   )
 }
