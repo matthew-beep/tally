@@ -43,14 +43,15 @@ function FloatingNav({
         borderRadius: 999,
         padding: 7,
         boxShadow: T.shadowFloat,
+        border: `0.5px solid ${T.line}`,
         width: '100%',
       }}
     >
-      <div ref={containerRef} style={{ position: 'relative', display: 'flex', gap: 4 }}>
+      <div ref={containerRef} style={{ position: 'relative', display: 'flex', width: '100%' }}>
         <SliderPill variant="float" box={box} glow={glow} />
         {NAV_TABS.map(tab => {
           const on = tab.id === active
-          const ink = on ? T.sunInk : T.inkFaint
+          const ink = on ? T.sunInk : T.inkMuted
           const badge = NAV_BADGES[tab.id]
           return (
             <button
@@ -61,6 +62,7 @@ function FloatingNav({
               onClick={() => onSelect(tab.id)}
               title={tab.label}
               style={{
+                flex: 1,
                 position: 'relative',
                 zIndex: 1,
                 border: 0,
@@ -72,11 +74,9 @@ function FloatingNav({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 3,
-                padding: '0 18px',
                 height: 52,
                 borderRadius: 999,
                 color: ink,
-                minWidth: 64,
               }}
             >
               <span style={{ position: 'relative', display: 'inline-flex' }}>

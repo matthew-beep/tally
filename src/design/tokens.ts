@@ -39,7 +39,7 @@ export const FH    = 'var(--font-bricolage), "Bricolage Grotesque", system-ui, s
 export const FMONO = 'var(--font-jetbrains), "JetBrains Mono", monospace'
 
 export const AVATAR_SLOTS = [
-  { bg: T.sun,  fg: T.sunInk },
+  { bg: T.sun,  fg: '#7A5200' },
   { bg: T.mint, fg: '#fff'   },
   { bg: T.coral,fg: '#fff'   },
   { bg: T.lav,  fg: '#fff'   },
