@@ -15,11 +15,12 @@ export function Card({ children, style, onClick, hoverable = false }: CardProps)
     <div
       onClick={onClick}
       style={{
-        background: T.surface,
+        background: T.cardBg,
+        border: T.cardBorder,
         borderRadius: T.r.lg,
-        boxShadow: T.shadow,
+        boxShadow: T.cardShadow,
         cursor: onClick || hoverable ? 'pointer' : undefined,
-        transition: 'background 0.1s',
+        transition: 'background 0.15s, box-shadow 0.15s',
         ...style,
       }}
     >

@@ -7,7 +7,7 @@ import { TabBar } from '@/components/TabBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', background: T.bg, fontFamily: F }}>
+    <div style={{ display: 'flex', height: '100dvh', overflow: 'hidden', background: 'var(--tally-page-bg)', fontFamily: F }}>
       <aside className="dashboard-sidebar">
         <Sidebar />
       </aside>

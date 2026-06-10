@@ -21,6 +21,7 @@
   --tally-sun:         #F2C144;
   --tally-sun-soft:    #FDF4D0;
   --tally-sun-ink:     #7A5200;
+  --tally-sun-on:      #7A5200;
   --tally-mint:        #2DB97A;
   --tally-mint-soft:   #D3F5E5;
   --tally-mint-ink:    #0A5C35;
@@ -30,36 +31,57 @@
   --tally-lav:         #9179EF;
   --tally-lav-soft:    #EDE9FD;
   --tally-lav-ink:     #3C2BA8;
+  /* Lifted card surface */
+  --tally-card-bg:     #FFFFFF;
+  --tally-card-border: none;
+  --tally-card-shadow: 0 2px 16px rgba(31,26,20,0.10), 0 1px 3px rgba(31,26,20,0.06);
+  /* Page background — mesh gradient blobs */
+  --tally-page-bg:
+    radial-gradient(ellipse 320px 260px at 92% 0%,   rgba(245,203,102,0.38) 0%, transparent 100%),
+    radial-gradient(ellipse 280px 240px at 0%  96%,  rgba(111,210,176,0.30) 0%, transparent 100%),
+    radial-gradient(ellipse 220px 200px at 18% 38%,  rgba(242,164,138,0.18) 0%, transparent 100%),
+    #F4EEE3;
 }
 
 [data-theme="dark"] {
-  --tally-bg:          #181410;
-  --tally-surface:     #231D17;
-  --tally-surface-alt: #2B241D;
-  --tally-surface-hov: #322B23;
-  --tally-ink:         #F4EEE3;
-  --tally-ink-muted:   rgba(244,238,227,0.52);
-  --tally-ink-faint:   rgba(244,238,227,0.28);
-  --tally-line:        rgba(244,238,227,0.07);
-  --tally-line-strong: rgba(244,238,227,0.16);
-  --tally-shadow-sm:   0 1px 0 rgba(0,0,0,0.3);
-  --tally-shadow-float:0 8px 24px rgba(0,0,0,0.4);
-  --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.65);
-  --tally-skeleton-a:  rgba(244,238,227,0.05);
-  --tally-skeleton-b:  rgba(244,238,227,0.09);
-  /* Accent — lightened for dark bg readability */
+  /* Void — OLED black base */
+  --tally-bg:          #0C0C0C;
+  --tally-surface:     #191919;
+  --tally-surface-alt: #252525;
+  --tally-surface-hov: #2E2E2E;
+  --tally-ink:         #F2F2F2;
+  --tally-ink-muted:   rgba(242,242,242,0.62);
+  --tally-ink-faint:   rgba(242,242,242,0.38);
+  --tally-line:        rgba(255,255,255,0.07);
+  --tally-line-strong: rgba(255,255,255,0.13);
+  --tally-shadow-sm:   0 1px 0 rgba(0,0,0,0.4);
+  --tally-shadow-float:0 8px 24px rgba(0,0,0,0.55);
+  --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.75);
+  --tally-skeleton-a:  rgba(242,242,242,0.05);
+  --tally-skeleton-b:  rgba(242,242,242,0.09);
+  /* Accent — tuned for Void dark readability */
   --tally-sun:         #F5CB66;
-  --tally-sun-soft:    rgba(245,203,102,0.22);
-  --tally-sun-ink:     #7A5200;
+  --tally-sun-soft:    rgba(245,203,102,0.16);
+  --tally-sun-ink:     #FAE7B0;
+  --tally-sun-on:      #7A5200;
   --tally-mint:        #6FD2B0;
-  --tally-mint-soft:   rgba(111,210,176,0.15);
-  --tally-mint-ink:    #6FD2B0;
+  --tally-mint-soft:   rgba(111,210,176,0.14);
+  --tally-mint-ink:    #9FE6CB;
   --tally-coral:       #F2A48A;
-  --tally-coral-soft:  rgba(242,164,138,0.15);
-  --tally-coral-ink:   #F2A48A;
+  --tally-coral-soft:  rgba(242,164,138,0.14);
+  --tally-coral-ink:   #F7BBA6;
   --tally-lav:         #C3B6EB;
-  --tally-lav-soft:    rgba(195,182,235,0.15);
+  --tally-lav-soft:    rgba(195,182,235,0.13);
   --tally-lav-ink:     #C3B6EB;
+  /* Lifted card surface */
+  --tally-card-bg:     #272727;
+  --tally-card-border: 0.5px solid rgba(255,255,255,0.10);
+  --tally-card-shadow: 0 4px 18px rgba(0,0,0,0.55);
+  /* Page background — mesh gradient blobs on OLED black */
+  --tally-page-bg:
+    radial-gradient(ellipse 300px 240px at 88% 0%,   rgba(111,210,176,0.14) 0%, transparent 100%),
+    radial-gradient(ellipse 260px 220px at 8%  94%,  rgba(242,164,138,0.12) 0%, transparent 100%),
+    #0C0C0C;
 }
 
 /* ── Tally design tokens wired into Tailwind ── */
@@ -136,7 +158,7 @@ html, body {
 }
 
 body {
-  background: var(--tally-bg);
+  background: var(--tally-page-bg);
   color: var(--tally-ink);
   font-family: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
   font-size: 16px;

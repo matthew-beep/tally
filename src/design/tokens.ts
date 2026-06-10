@@ -10,6 +10,7 @@ export const T = {
   lineStrong: 'var(--tally-line-strong)',
 
   sun:      'var(--tally-sun)',  sunSoft:   'var(--tally-sun-soft)',  sunInk:   'var(--tally-sun-ink)',
+  sunOn:    'var(--tally-sun-on)',
   mint:     'var(--tally-mint)', mintSoft:  'var(--tally-mint-soft)', mintInk:  'var(--tally-mint-ink)',
   coral:    'var(--tally-coral)',coralSoft: 'var(--tally-coral-soft)',coralInk: 'var(--tally-coral-ink)',
   lav:      'var(--tally-lav)', lavSoft:   'var(--tally-lav-soft)', lavInk:   'var(--tally-lav-ink)',
@@ -32,6 +33,10 @@ export const T = {
   shadowModal: 'var(--tally-shadow-modal)',
   shadowFab:   '0 8px 20px rgba(242,192,74,0.5)',
   shadow:      'var(--tally-shadow-sm)',
+
+  cardBg:     'var(--tally-card-bg)',
+  cardBorder: 'var(--tally-card-border)',
+  cardShadow: 'var(--tally-card-shadow)',
 } as const
 
 export const F     = 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif'

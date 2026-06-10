@@ -22,6 +22,11 @@ export interface GlobalBalances {
   // Keyed by profile ID, value is the gross amount after applying settlements.
   grossOwedToMeByPerson: Record<string, number>
   grossIOweByPerson: Record<string, number>
+  // Pairwise balance between the current user and each other person, broken down by group.
+  // pairwisePerGroup[personId][groupId]: positive = person owes me, negative = I owe person.
+  pairwisePerGroup: Record<string, Record<string, number>>
+  // Group metadata needed for per-group balance breakdown UI.
+  groupMap: Record<string, { id: string; name: string; emoji: string }>
 }
 
 export function useGlobalBalances() {
@@ -40,10 +45,10 @@ export function useGlobalBalances() {
 
       const groupIds = memberships?.map(m => m.group_id) ?? []
       if (groupIds.length === 0) {
-        return { myId: user.id, net: {}, netPerGroup: {}, profileMap: {}, membersPerGroup: {}, transfers: [], grossOwedToMe: 0, grossIOwe: 0, grossOwedToMeByPerson: {}, grossIOweByPerson: {} }
+        return { myId: user.id, net: {}, netPerGroup: {}, profileMap: {}, membersPerGroup: {}, transfers: [], grossOwedToMe: 0, grossIOwe: 0, grossOwedToMeByPerson: {}, grossIOweByPerson: {}, pairwisePerGroup: {}, groupMap: {} }
       }
 
-      const [expRes, settleRes, memberRes] = await Promise.all([
+      const [expRes, settleRes, memberRes, groupsRes] = await Promise.all([
         supabase
           .from('expenses')
           .select('group_id, paid_by, splits:expense_splits(user_id, owed_amount)')
@@ -59,6 +64,10 @@ export function useGlobalBalances() {
           .select('group_id, user_id')
           .in('group_id', groupIds)
           .eq('status', 'active'),
+        supabase
+          .from('groups')
+          .select('id, name, emoji')
+          .in('id', groupIds),
       ])
 
       const memberIds = [...new Set(memberRes.data?.map(m => m.user_id) ?? [])]
@@ -164,6 +173,44 @@ export function useGlobalBalances() {
         if (profile) membersPerGroup[gid].push({ user_id: m.user_id, profile })
       }
 
+      const groupMap: Record<string, { id: string; name: string; emoji: string }> = {}
+      for (const g of groupsRes.data ?? []) {
+        groupMap[g.id] = { id: g.id, name: g.name, emoji: g.emoji }
+      }
+
+      // Pairwise balance between me and each other person, per group.
+      const pairwisePerGroup: Record<string, Record<string, number>> = {}
+      for (const e of expRes.data ?? []) {
+        const gid = (e as any).group_id as string
+        for (const s of (e.splits as any[]) ?? []) {
+          if (s.user_id === e.paid_by) continue
+          if (e.paid_by === myId) {
+            if (!pairwisePerGroup[s.user_id]) pairwisePerGroup[s.user_id] = {}
+            pairwisePerGroup[s.user_id][gid] = (pairwisePerGroup[s.user_id][gid] ?? 0) + Number(s.owed_amount)
+          }
+          if (s.user_id === myId) {
+            if (!pairwisePerGroup[e.paid_by]) pairwisePerGroup[e.paid_by] = {}
+            pairwisePerGroup[e.paid_by][gid] = (pairwisePerGroup[e.paid_by][gid] ?? 0) - Number(s.owed_amount)
+          }
+        }
+      }
+      for (const s of settleRes.data ?? []) {
+        const gid = (s as any).group_id as string
+        if (s.to_user === myId) {
+          if (!pairwisePerGroup[s.from_user]) pairwisePerGroup[s.from_user] = {}
+          pairwisePerGroup[s.from_user][gid] = (pairwisePerGroup[s.from_user][gid] ?? 0) - Number(s.amount)
+        }
+        if (s.from_user === myId) {
+          if (!pairwisePerGroup[s.to_user]) pairwisePerGroup[s.to_user] = {}
+          pairwisePerGroup[s.to_user][gid] = (pairwisePerGroup[s.to_user][gid] ?? 0) + Number(s.amount)
+        }
+      }
+      for (const [pid, groups] of Object.entries(pairwisePerGroup)) {
+        for (const [gid, amt] of Object.entries(groups)) {
+          pairwisePerGroup[pid][gid] = Math.round(amt * 100) / 100
+        }
+      }
+
       return {
         myId,
         net: rounded,
@@ -175,6 +222,8 @@ export function useGlobalBalances() {
         grossIOwe:             Math.round(grossIOwe     * 100) / 100,
         grossOwedToMeByPerson: roundGross(grossOwedToMeByPerson),
         grossIOweByPerson:     roundGross(grossIOweByPerson),
+        pairwisePerGroup,
+        groupMap,
       }
     },
   })

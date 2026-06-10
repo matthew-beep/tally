@@ -51,7 +51,7 @@ function FloatingNav({
         <SliderPill variant="float" box={box} glow={glow} />
         {NAV_TABS.map(tab => {
           const on = tab.id === active
-          const ink = on ? T.sunInk : T.inkMuted
+          const ink = on ? T.sunOn : T.inkMuted
           const badge = NAV_BADGES[tab.id]
           return (
             <button

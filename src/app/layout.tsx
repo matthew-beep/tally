@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${jakarta.variable} ${jetbrains.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${bricolage.variable} ${jakarta.variable} ${jetbrains.variable}`}>
       <head>
         {/* Runs before first paint — prevents dark mode flash */}
         <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('tally-theme')==='dark')document.documentElement.setAttribute('data-theme','dark')}catch(e){}` }} />
