@@ -49,27 +49,25 @@ export function useGlobalBalances() {
       }
 
       const [expRes, settleRes, memberRes, groupsRes] = await Promise.all([
-        supabase
+        supabase // expRes
           .from('expenses')
           .select('group_id, paid_by, splits:expense_splits(user_id, owed_amount)')
           .in('group_id', groupIds)
           // Soft-delete invariant: deleted expenses excluded from all balance math
           .is('deleted_at', null),
-        supabase
+        supabase // settleRes
           .from('settlements')
           .select('group_id, from_user, to_user, amount')
           .in('group_id', groupIds),
-        supabase
+        supabase // memberRes TODO: add flag for active vs pending
           .from('group_members')
           .select('group_id, user_id')
-          .in('group_id', groupIds)
-          .eq('status', 'active'),
+          .in('group_id', groupIds),
         supabase
           .from('groups')
           .select('id, name, emoji')
           .in('id', groupIds),
       ])
-
       const memberIds = [...new Set(memberRes.data?.map(m => m.user_id) ?? [])]
 
       // Balances are always computed from raw splits + settlements — never stored.

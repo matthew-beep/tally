@@ -8,8 +8,9 @@ import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
 import { ModalOrSheet } from '@/components/modal'
+import { Sheet } from '@/components/modal/Sheet'
 import { AddExpenseForm } from '@/components/AddExpenseForm'
-import { useGroup, useGroupMembers } from '@/queries/useGroups'
+import { useGroup, useGroupMembers, useDeleteGroup } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
@@ -40,8 +41,10 @@ export default function GroupDetailPage() {
   const qc       = useQueryClient()
   const [addExpenseOpen, setAddExpenseOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const [pendingMembers, setPendingMembers] = useState<MemberEntry[]>([])
   const [adding, setAdding] = useState(false)
+  const deleteGroup = useDeleteGroup()
 
   async function handleAddMembers() {
     if (!pendingMembers.length) return
@@ -146,12 +149,22 @@ export default function GroupDetailPage() {
         >
           ←
         </button>
-        <button
-          onClick={() => setAddExpenseOpen(true)}
-          style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '8px 16px', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
-        >
-          + Add expense
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {group && profile?.id === group.created_by && (
+            <button
+              onClick={() => setDeleteOpen(true)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 10px', fontSize: 18, color: T.inkMuted, borderRadius: T.r.md }}
+            >
+              ···
+            </button>
+          )}
+          <button
+            onClick={() => setAddExpenseOpen(true)}
+            style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '8px 16px', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
+          >
+            + Add expense
+          </button>
+        </div>
       </div>
 
       {/* Group header */}
@@ -350,6 +363,68 @@ export default function GroupDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Delete group confirmation */}
+      <Sheet open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete group">
+        <div style={{ padding: '8px 20px 44px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div>
+            <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 700, color: T.ink, marginBottom: 6 }}>
+              Delete {group?.name}?
+            </div>
+            <div style={{ fontSize: 14, color: T.inkMuted, lineHeight: 1.5 }}>
+              This permanently deletes the group, all expenses, and all settlements. This cannot be undone.
+            </div>
+          </div>
+
+          {/* Balance summary */}
+          {members.length > 0 && (
+            <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', border: `0.5px solid ${T.line}` }}>
+              {members.map((m, i) => {
+                const p = (m as any).profile as Profile
+                const name = p?.display_name ?? p?.name ?? '…'
+                const bal = Math.round((net[m.user_id] ?? 0) * 100) / 100
+                const isYou = p?.id === profile?.id
+                return (
+                  <div key={m.user_id} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px',
+                    borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none',
+                  }}>
+                    <Avatar profile={p} slot={slotFor(members, m.user_id)} size={32} isYou={isYou} />
+                    <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: T.ink }}>
+                      {isYou ? 'You' : name}
+                    </div>
+                    <div style={{
+                      fontFamily: FMONO, fontSize: 13, fontWeight: 600,
+                      color: Math.abs(bal) < 0.01 ? T.inkFaint : bal > 0 ? T.mintInk : T.coralInk,
+                    }}>
+                      {Math.abs(bal) < 0.01 ? 'Settled' : `${bal > 0 ? '+' : '−'}$${Math.abs(bal).toFixed(2)}`}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => setDeleteOpen(false)}
+              style={{ flex: 1, padding: '14px 0', background: T.surfaceAlt, color: T.inkMuted, border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 700, fontFamily: F, cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={async () => {
+                await deleteGroup.mutateAsync(groupId)
+                router.push('/groups')
+              }}
+              disabled={deleteGroup.isPending}
+              style={{ flex: 1, padding: '14px 0', background: T.coral, color: '#fff', border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 700, fontFamily: F, cursor: 'pointer', opacity: deleteGroup.isPending ? 0.6 : 1 }}
+            >
+              {deleteGroup.isPending ? 'Deleting…' : 'Delete group'}
+            </button>
+          </div>
+        </div>
+      </Sheet>
 
       {/* Add expense — Vaul sheet on mobile, modal on desktop */}
       <ModalOrSheet

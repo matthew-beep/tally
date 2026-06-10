@@ -78,6 +78,26 @@ export function useProfileGroups(profileId: string | undefined) {
   })
 }
 
+export function useDeleteGroup() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (groupId: string) => {
+      const { error } = await supabase.from('groups').delete().eq('id', groupId)
+      if (error) throw error
+    },
+    onSuccess: (_, groupId) => {
+      qc.invalidateQueries({ queryKey: ['groups'] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
+      qc.invalidateQueries({ queryKey: ['recent-activity'] })
+      qc.removeQueries({ queryKey: ['groups', groupId] })
+      qc.removeQueries({ queryKey: ['group_members', groupId] })
+      qc.removeQueries({ queryKey: ['expenses', groupId] })
+      qc.removeQueries({ queryKey: ['settlements', groupId] })
+    },
+  })
+}
+
 export function useCreateGroup() {
   const supabase = createClient()
   const qc = useQueryClient()

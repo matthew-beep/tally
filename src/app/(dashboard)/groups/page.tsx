@@ -14,6 +14,7 @@ export default function GroupsPage() {
   const { data: groups = [], isLoading } = useGroups()
   const { data: gb } = useGlobalBalances()
 
+  console.log("gb", gb)
   console.log("groups", groups)
 
   return (
