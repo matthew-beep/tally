@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Sheet } from '@/components/modal/Sheet'
+import { ModalOrSheet } from '@/components/modal'
 import { Avatar } from '@/components/Avatar'
 import { T, FH, FMONO } from '@/design/tokens'
 import type { Profile } from '@/types'
@@ -43,7 +43,7 @@ export function BalanceSheet({ open, onClose, profile, slot, net, parts }: Balan
   const cents = (abs % 1).toFixed(2).slice(1)
 
   return (
-    <Sheet open={open} onClose={onClose} title={`Balance with ${name}`}>
+    <ModalOrSheet open={open} onClose={onClose} title={`Balance with ${name}`}>
       <div style={{ overflowY: 'auto', paddingBottom: 44 }}>
         {/* Person identity */}
         <div style={{ padding: '16px 20px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -158,6 +158,6 @@ export function BalanceSheet({ open, onClose, profile, slot, net, parts }: Balan
           )}
         </div>
       </div>
-    </Sheet>
+    </ModalOrSheet>
   )
 }

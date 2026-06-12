@@ -1,4 +1,6 @@
 export { Modal } from './Modal'
+export { ActionSheet } from './ActionSheet'
+export type { ActionSheetItem } from './ActionSheet'
 export { Sheet } from './Sheet'
 export { ModalOrSheet } from './ModalOrSheet'
 export { ModalOverlay } from './ModalOverlay'

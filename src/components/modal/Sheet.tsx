@@ -38,7 +38,7 @@ export function Sheet({
         <Drawer.Content
           className={['tally-sheet-content', contentClassName].filter(Boolean).join(' ')}
           style={{
-            background: T.bg,
+            background: T.surface,
             ...contentStyle,
           }}
         >

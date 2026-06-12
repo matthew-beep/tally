@@ -7,8 +7,7 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
-import { ModalOrSheet } from '@/components/modal'
-import { Sheet } from '@/components/modal/Sheet'
+import { ModalOrSheet, ActionSheet } from '@/components/modal'
 import { AddExpenseForm } from '@/components/AddExpenseForm'
 import { useGroup, useGroupMembers, useDeleteGroup } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
@@ -41,6 +40,7 @@ export default function GroupDetailPage() {
   const qc       = useQueryClient()
   const [addExpenseOpen, setAddExpenseOpen] = useState(false)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [pendingMembers, setPendingMembers] = useState<MemberEntry[]>([])
   const [adding, setAdding] = useState(false)
@@ -152,7 +152,7 @@ export default function GroupDetailPage() {
         <div style={{ display: 'flex', gap: 8 }}>
           {group && profile?.id === group.created_by && (
             <button
-              onClick={() => setDeleteOpen(true)}
+              onClick={() => setMenuOpen(true)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 10px', fontSize: 18, color: T.inkMuted, borderRadius: T.r.md }}
             >
               ···
@@ -364,8 +364,41 @@ export default function GroupDetailPage() {
         </div>
       )}
 
+      {/* Group action menu */}
+      <ActionSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        title={group ? `${group.emoji} ${group.name}` : undefined}
+        items={[
+          {
+            id: 'add-member',
+            label: 'Add member',
+            icon: (
+              <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
+                <circle cx="8" cy="7" r="3" stroke={T.ink} strokeWidth="1.7"/>
+                <path d="M2 17c0-3.3 2.7-5 6-5" stroke={T.ink} strokeWidth="1.7" strokeLinecap="round"/>
+                <path d="M15 12v4M13 14h4" stroke={T.ink} strokeWidth="1.7" strokeLinecap="round"/>
+              </svg>
+            ),
+            onClick: () => setAddMemberOpen(true),
+          },
+          {
+            id: 'delete',
+            label: 'Delete group',
+            sublabel: "Permanent — can't be undone",
+            danger: true,
+            icon: (
+              <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
+                <path d="M4 6h12M8 6V4h4v2M7 6l1 10h4l1-10" stroke={T.coralInk} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            ),
+            onClick: () => setDeleteOpen(true),
+          },
+        ]}
+      />
+
       {/* Delete group confirmation */}
-      <Sheet open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete group">
+      <ModalOrSheet open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete group">
         <div style={{ padding: '8px 20px 44px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div>
             <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 700, color: T.ink, marginBottom: 6 }}>
@@ -424,7 +457,7 @@ export default function GroupDetailPage() {
             </button>
           </div>
         </div>
-      </Sheet>
+      </ModalOrSheet>
 
       {/* Add expense — Vaul sheet on mobile, modal on desktop */}
       <ModalOrSheet

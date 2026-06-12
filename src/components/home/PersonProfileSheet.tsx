@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Sheet } from '@/components/modal/Sheet'
+import { ModalOrSheet } from '@/components/modal'
 import { Avatar } from '@/components/Avatar'
 import { T, FH, FMONO } from '@/design/tokens'
 import type { Profile } from '@/types'
@@ -35,7 +35,7 @@ export function PersonProfileSheet({ open, onClose, profile, slot, parts }: Pers
   const totalShared = Math.abs(parts.reduce((sum, p) => sum + p.amount, 0))
 
   return (
-    <Sheet open={open} onClose={onClose} title={`${name}'s profile`}>
+    <ModalOrSheet open={open} onClose={onClose} title={`${name}'s profile`}>
       <div style={{ overflowY: 'auto', paddingBottom: 44 }}>
         {/* Avatar + identity */}
         <div style={{
@@ -122,6 +122,6 @@ export function PersonProfileSheet({ open, onClose, profile, slot, parts }: Pers
           </button>
         </div>
       </div>
-    </Sheet>
+    </ModalOrSheet>
   )
 }
