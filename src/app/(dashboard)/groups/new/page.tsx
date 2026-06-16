@@ -6,23 +6,22 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
+import { SuggestedMembers } from '@/components/SuggestedMembers'
 import { useCreateGroup } from '@/queries/useGroups'
-import { addMembersToGroup, createGuestProfile } from '@/queries/useMembers'
-import { useCurrentProfile } from '@/queries/useProfile'
+import { addMembersToGroup, createGuestProfile, useRecentCollaborators } from '@/queries/useMembers'
+import { useCurrentProfile, useSearchProfiles } from '@/queries/useProfile'
+import type { ProfileSnippet } from '@/queries/useProfile'
+import { useIsMobileSheet } from '@/hooks/useMediaQuery'
 import type { Profile } from '@/types'
 
 const EMOJIS = ['💸', '🏖️', '🍕', '✈️', '🏠', '🎉', '🛒', '🚗', '🍽️', '💪', '🎮', '❤️']
 
+// ── Desktop-only components ────────────────────────────────────────────────
+
 type MemberRowAvatarProfile = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code' | 'handle'>
 
 function MemberRow({
-  displayName,
-  handle,
-  avatarProfile,
-  slot,
-  isYou,
-  isLast,
-  onRemove,
+  displayName, handle, avatarProfile, slot, isYou, isLast, onRemove,
 }: {
   displayName: string
   handle?: string | null
@@ -58,19 +57,7 @@ function MemberRow({
         color: isYou ? T.sunInk : T.inkMuted,
         flexShrink: 0,
       }}>
-        {isYou ? (
-          <>
-            <svg width="9" height="9" viewBox="0 0 12 12">
-              <path d="M2 9L1 4l3 2 2-4 2 4 3-2-1 5H2z" fill={T.sunInk} />
-            </svg>
-            Organizer
-          </>
-        ) : (
-          <>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.inkFaint }} />
-            Pending
-          </>
-        )}
+        {isYou ? 'Organizer' : 'Pending'}
       </span>
       {!isYou && onRemove && (
         <button
@@ -104,6 +91,8 @@ function Chevron() {
   )
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────
+
 export default function NewGroupPage() {
   const router = useRouter()
   const [name, setName] = useState('')
@@ -112,10 +101,18 @@ export default function NewGroupPage() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [mobileQuery, setMobileQuery] = useState('')
+  const [mobileQueryDebounced, setMobileQueryDebounced] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
+
   const nameInputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
+
   const createGroup = useCreateGroup()
   const { data: profile } = useCurrentProfile()
+  const { data: recents = [] } = useRecentCollaborators()
+  const { data: searchResults = [], isLoading: isSearchLoading } = useSearchProfiles(mobileQueryDebounced)
+  const isMobile = useIsMobileSheet()
 
   useEffect(() => { nameInputRef.current?.focus() }, [])
 
@@ -136,6 +133,11 @@ export default function NewGroupPage() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  useEffect(() => {
+    const id = setTimeout(() => setMobileQueryDebounced(mobileQuery.trim()), 250)
+    return () => clearTimeout(id)
+  }, [mobileQuery])
 
   async function handleCreate() {
     if (!name.trim() || creating) return
@@ -158,7 +160,342 @@ export default function NewGroupPage() {
     }
   }
 
+  function toggleSuggested(p: ProfileSnippet) {
+    const alreadyIn = members.some(m => m.type === 'user' && m.profile.id === p.id)
+    if (alreadyIn) {
+      setMembers(prev => prev.filter(m => !(m.type === 'user' && m.profile.id === p.id)))
+    } else {
+      setMembers(prev => [...prev, { type: 'user', profile: p }])
+    }
+  }
+
+  function handleAddGuest(guestName: string) {
+    const trimmed = guestName.trim()
+    if (!trimmed) return
+    setMembers(prev => [...prev, { type: 'guest', name: trimmed, tempId: `guest-${Date.now()}` }])
+    setMobileQuery('')
+  }
+
   const totalMembers = members.length + 1
+  const listProfiles = mobileQueryDebounced.length >= 2 ? searchResults : recents
+  const sectionLabel = mobileQueryDebounced.length >= 2 ? 'Results' : 'Suggested'
+  const showList = listProfiles.length > 0 || mobileQuery.trim().length > 0 || (mobileQueryDebounced.length >= 2 && !isSearchLoading)
+
+  // ── Mobile layout ────────────────────────────────────────────────────────
+
+  if (isMobile) {
+    return (
+      <div style={{
+        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+        background: T.bg, fontFamily: F, position: 'relative',
+      }}>
+
+        {/* Top bar */}
+        <header style={{ padding: '14px 20px 6px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button
+            onClick={() => router.push('/groups')}
+            style={{
+              width: 36, height: 36, borderRadius: 10, background: T.surface,
+              border: 0, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: T.shadowSm,
+            }}
+          >
+            <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
+              <path d="M7 1L1 6.5L7 12" stroke={T.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+          <span style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.3, color: T.ink, fontFamily: FH }}>New Group</span>
+        </header>
+
+        {/* Scrollable body */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 140 }}>
+
+          {/* Group header card */}
+          <div style={{ padding: '10px 16px 14px' }}>
+            <div ref={emojiPickerRef} style={{ position: 'relative' }}>
+              <div style={{
+                background: T.surface, borderRadius: 20, padding: '14px 16px',
+                display: 'flex', alignItems: 'center', gap: 14,
+                boxShadow: T.shadowSm,
+              }}>
+                <button
+                  onClick={() => setShowEmojiPicker(v => !v)}
+                  style={{
+                    width: 58, height: 58, borderRadius: 17, flexShrink: 0,
+                    background: T.surfaceAlt, border: 0, cursor: 'pointer',
+                    fontSize: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    position: 'relative',
+                  }}
+                >
+                  {emoji}
+                  <span style={{
+                    position: 'absolute', bottom: -2, right: -2,
+                    width: 19, height: 19, borderRadius: '50%',
+                    background: T.ink, color: T.bg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `0 0 0 2px ${T.surface}`,
+                  }}>
+                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
+                      <path d="M7 1.5l1.5 1.5-5.5 5.5H1.5V7L7 1.5z" stroke={T.bg} strokeWidth="1.2" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </button>
+
+                <input
+                  ref={nameInputRef}
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleCreate() }}
+                  placeholder="Group name"
+                  style={{
+                    flex: 1, fontFamily: FH, fontSize: 22, fontWeight: 700,
+                    letterSpacing: -0.6, lineHeight: 1.1,
+                    color: name ? T.ink : T.inkFaint,
+                    background: 'transparent', border: 'none', outline: 'none',
+                    padding: 0, caretColor: T.sun,
+                  }}
+                />
+              </div>
+
+              {showEmojiPicker && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 100,
+                  background: T.surface, borderRadius: 16, boxShadow: T.shadowModal,
+                  padding: 10, display: 'flex', flexWrap: 'wrap', gap: 4, width: 212,
+                  border: `0.5px solid ${T.line}`,
+                }}>
+                  {EMOJIS.map(e => (
+                    <button
+                      key={e}
+                      onClick={() => { setEmoji(e); setShowEmojiPicker(false) }}
+                      style={{
+                        width: 42, height: 42, borderRadius: 11, fontSize: 20,
+                        background: emoji === e ? T.surfaceAlt : 'transparent',
+                        border: `2px solid ${emoji === e ? T.lineStrong : 'transparent'}`,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Selected strip */}
+          {members.length > 0 && (
+            <div style={{ padding: '0 16px 14px' }}>
+              <div style={{
+                display: 'flex', gap: 10, overflowX: 'auto',
+                scrollbarWidth: 'none', padding: '2px 0 4px',
+              }}>
+                {members.map((entry, i) => {
+                  const p = entry.type === 'user'
+                    ? entry.profile
+                    : {
+                        id: entry.tempId,
+                        name: entry.name,
+                        display_name: null as string | null,
+                        avatar_url: null as string | null,
+                        add_code: null as string | null,
+                        handle: null as string | null,
+                      }
+                  const firstName = (p.display_name ?? p.name).split(' ')[0]
+                  const key = entry.type === 'guest' ? entry.tempId : entry.profile.id
+                  return (
+                    <div key={key} style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center',
+                      gap: 5, flexShrink: 0, width: 54,
+                    }}>
+                      <div style={{ position: 'relative' }}>
+                        <Avatar profile={p} slot={(i + 1) % 4 as 0 | 1 | 2 | 3} size={46} />
+                        <button
+                          onClick={() => setMembers(prev => prev.filter((_, j) => j !== i))}
+                          style={{
+                            position: 'absolute', top: -3, right: -3,
+                            width: 19, height: 19, borderRadius: '50%',
+                            background: T.ink, color: T.bg,
+                            border: `2px solid ${T.bg}`,
+                            cursor: 'pointer', padding: 0,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}
+                        >
+                          <svg width="7" height="7" viewBox="0 0 8 8">
+                            <path d="M1.5 1.5l5 5M6.5 1.5l-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                      <span style={{
+                        fontSize: 10.5, fontWeight: 600, fontFamily: F,
+                        color: T.inkMuted, whiteSpace: 'nowrap',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        maxWidth: 52, textAlign: 'center',
+                      }}>
+                        {firstName}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Search bar */}
+          <div style={{ padding: '0 16px 14px' }}>
+            <div style={{
+              background: T.surface, borderRadius: 14, padding: '11px 14px',
+              display: 'flex', alignItems: 'center', gap: 10,
+              border: `1.5px solid ${searchFocused ? T.sun : T.line}`,
+              transition: 'border-color 0.15s',
+              boxShadow: T.shadowSm,
+            }}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
+                <circle cx="6.5" cy="6.5" r="4.5" stroke={T.ink} strokeWidth="1.5" />
+                <path d="M11 11l3.5 3.5" stroke={T.ink} strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <input
+                value={mobileQuery}
+                onChange={e => setMobileQuery(e.target.value)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                placeholder="Add people…"
+                style={{
+                  flex: 1, background: 'none', border: 'none', outline: 'none',
+                  fontSize: 15, fontFamily: F, color: T.ink,
+                }}
+              />
+              {mobileQuery.length > 0 && (
+                <button
+                  onClick={() => setMobileQuery('')}
+                  style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    background: T.surfaceAlt, border: 0, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}
+                >
+                  <svg width="8" height="8" viewBox="0 0 8 8">
+                    <path d="M1.5 1.5l5 5M6.5 1.5l-5 5" stroke={T.inkMuted} strokeWidth="1.4" strokeLinecap="round" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Section label */}
+          {(recents.length > 0 || mobileQueryDebounced.length >= 2) && (
+            <div style={{
+              padding: '0 20px 10px',
+              fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
+              textTransform: 'uppercase' as const, color: T.inkMuted,
+            }}>
+              {sectionLabel}
+            </div>
+          )}
+
+          {/* List card */}
+          {showList && (
+            <div style={{ padding: '0 16px' }}>
+              <div style={{
+                background: T.surface, borderRadius: 18, overflow: 'hidden',
+                border: `0.5px solid ${T.line}`,
+              }}>
+                {isSearchLoading && mobileQueryDebounced.length >= 2 && (
+                  <div style={{ padding: '14px 16px', fontSize: 14, color: T.inkFaint }}>
+                    Searching…
+                  </div>
+                )}
+
+                {!isSearchLoading && listProfiles.length > 0 && (
+                  <SuggestedMembers
+                    profiles={listProfiles}
+                    selected={members}
+                    onSelect={toggleSuggested}
+                    variant="list"
+                  />
+                )}
+
+                {mobileQueryDebounced.length >= 2 && !isSearchLoading && listProfiles.length === 0 && (
+                  <div style={{ padding: '14px 16px', fontSize: 14, color: T.inkFaint }}>
+                    No Tally users found
+                  </div>
+                )}
+
+                {mobileQuery.trim().length > 0 && (
+                  <button
+                    onClick={() => handleAddGuest(mobileQuery)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '13px 16px', background: T.sunSoft, border: 'none',
+                      borderTop: `0.5px solid ${T.line}`,
+                      cursor: 'pointer', fontFamily: F, textAlign: 'left' as const,
+                    }}
+                  >
+                    <div style={{
+                      width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
+                      border: `1.5px dashed ${T.lineStrong}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 18, color: T.inkMuted, background: T.bg,
+                    }}>
+                      +
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.sunInk }}>
+                        Add "{mobileQuery.trim()}" as guest
+                      </div>
+                      <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 1 }}>
+                        No Tally account needed
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Floating CTA */}
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
+          padding: '36px 16px 24px',
+          background: `linear-gradient(to bottom, transparent 0%, ${T.bg} 38%)`,
+          pointerEvents: 'none',
+        }}>
+          {createError && (
+            <div style={{
+              padding: '0 4px 10px', fontSize: 12,
+              color: T.coralInk, display: 'flex', alignItems: 'center', gap: 6,
+              pointerEvents: 'auto',
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.coral, flexShrink: 0 }} />
+              {createError}
+            </div>
+          )}
+          <button
+            onClick={handleCreate}
+            disabled={!name.trim() || creating}
+            style={{
+              pointerEvents: 'auto',
+              width: '100%', padding: '16px', borderRadius: 18, border: 0,
+              background: name.trim() ? T.sun : T.surfaceAlt,
+              color: name.trim() ? T.sunInk : T.inkMuted,
+              cursor: name.trim() && !creating ? 'pointer' : 'default',
+              fontFamily: FH, fontSize: 16, fontWeight: 700, letterSpacing: -0.3,
+              boxShadow: name.trim() ? T.shadowFab : 'none',
+              transition: 'background 0.15s, box-shadow 0.15s',
+            }}
+          >
+            {creating ? 'Creating…' : `Create group · ${totalMembers} ${totalMembers === 1 ? 'member' : 'members'}`}
+          </button>
+        </div>
+
+      </div>
+    )
+  }
+
+  // ── Desktop layout ────────────────────────────────────────────────────────
 
   return (
     <>
@@ -264,6 +601,19 @@ export default function NewGroupPage() {
               </div>
             </div>
 
+            {/* Suggested strip */}
+            {recents.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ ...labelStyle, marginBottom: 10 }}>Suggested</div>
+                <SuggestedMembers
+                  profiles={recents}
+                  selected={members}
+                  onSelect={toggleSuggested}
+                  variant="strip"
+                />
+              </div>
+            )}
+
             {/* Members */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
               <div style={labelStyle}>Members</div>
@@ -276,12 +626,12 @@ export default function NewGroupPage() {
               onChange={setMembers}
               placeholder="Add by name…"
             />
+
             {/* Members card */}
             <div style={{
               background: T.surface, borderRadius: 18,
               boxShadow: T.shadowSm, overflow: 'hidden', marginTop: 14,
             }}>
-              {/* header */}
               <div style={{
                 padding: '14px 18px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -297,7 +647,6 @@ export default function NewGroupPage() {
                 </div>
               </div>
 
-              {/* You — always first */}
               {profile && (
                 <MemberRow
                   displayName={profile.display_name ?? profile.name}
@@ -309,7 +658,6 @@ export default function NewGroupPage() {
                 />
               )}
 
-              {/* Invited members */}
               {members.map((entry, i) => {
                 const isLast = i === members.length - 1
                 if (entry.type === 'user') {
@@ -338,7 +686,6 @@ export default function NewGroupPage() {
               })}
             </div>
 
-            {/* hint */}
             {members.length > 0 && (
               <div style={{
                 marginTop: 10, padding: '0 4px',
@@ -380,7 +727,6 @@ export default function NewGroupPage() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: `0.5px solid ${T.line}` }}>
-                {/* Avatar stack */}
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   {profile && (
                     <div style={{ zIndex: 10 }}>

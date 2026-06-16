@@ -1,7 +1,6 @@
 /* Dashboard shell — sidebar desktop, tab bar mobile */
 .dashboard-sidebar {
   flex-shrink: 0;
-  /* width/background set on component — keep slot for layout hide */
 }
 
 .dashboard-mobile-nav {
@@ -9,16 +8,25 @@
 }
 
 @media (max-width: 1023px) {
+  /* Switch to vertical column so tab bar is a real flex child, not a fixed overlay */
+  .dashboard-layout {
+    flex-direction: column;
+  }
+
   .dashboard-sidebar {
     display: none;
   }
 
   .dashboard-mobile-nav {
     display: block;
+    flex-shrink: 0;
+    /* Safe-area inset for iPhone home indicator */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .dashboard-main {
-    padding-bottom: 0;
+    flex: 1;
+    min-height: 0;
   }
 }
 
@@ -127,14 +135,13 @@
 }
 
 @media (max-width: 1023px) {
-  /* 110px = tab bar bottom offset (24) + pill height (70) + breathing room (16) */
   .home-scroll {
     overflow-y: auto;
-    padding: 16px 16px 110px;
+    padding: 16px 16px 32px;
   }
 
   .page-scroll {
-    padding-bottom: 110px;
+    padding-bottom: 32px;
   }
 
   .home-topbar {

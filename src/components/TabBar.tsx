@@ -112,18 +112,8 @@ export function TabBar() {
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      bottom: 24,
-      left: 0,
-      right: 0,
-      padding: '0 18px',
-      zIndex: 100,
-      pointerEvents: 'none',
-    }}>
-      <div style={{ pointerEvents: 'auto' }}>
-        <FloatingNav active={active} onSelect={onSelect} />
-      </div>
+    <div style={{ padding: '10px 18px' }}>
+      <FloatingNav active={active} onSelect={onSelect} />
     </div>
   )
 }
