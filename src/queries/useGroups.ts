@@ -99,26 +99,21 @@ export function useDeleteGroup() {
 }
 
 export function useCreateGroup() {
-  const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ name, emoji }: { name: string; emoji: string }) => {
-      const user = await getAuthUser(supabase)
-
-      const { data: group, error } = await supabase
-        .from('groups')
-        .insert({ name, emoji, created_by: user.id })
-        .select()
-        .single()
-      if (error) throw error
-
-      // Creator must be active immediately — without this the DB default lands
-      // them as pending, which would lock them out of their own group.
-      await supabase
-        .from('group_members')
-        .insert({ group_id: group.id, user_id: user.id, status: 'active' })
-
-      return group as Group
+    mutationFn: async ({ name, emoji, creatorName, members }: {
+      name: string
+      emoji: string
+      creatorName: string
+      members: { type: 'user'; profileId: string; name: string }[] | { type: 'guest'; name: string }[]
+    }) => {
+      const res = await fetch('/api/groups/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, emoji, creatorName, members }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create group')
+      return res.json() as Promise<{ id: string; membersError: string | null }>
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['groups'] })

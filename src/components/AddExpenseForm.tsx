@@ -9,7 +9,7 @@ import { useCurrentProfile } from '@/queries/useProfile'
 import { detectCategory, CATEGORIES } from '@/lib/categories'
 import { makeEqualSplits, makePercentSplits, makeExactSplits } from '@/lib/splits'
 import { useIsMobileSheet } from '@/hooks/useMediaQuery'
-import type { Profile } from '@/types'
+import type { Profile, GroupMember } from '@/types'
 
 type SplitMode = 'equal' | 'percentage' | 'exact' | 'itemized'
 
@@ -23,10 +23,10 @@ const TILE: React.CSSProperties = {
   border: `0.5px solid ${T.line}`, padding: '12px 14px',
 }
 
-function shortName(p: Profile | undefined, youId?: string) {
-  if (!p) return '…'
-  if (p.id === youId) return 'You'
-  return (p.display_name ?? p.name).split(' ')[0]
+function shortName(m: GroupMember | undefined, youMemberId?: string) {
+  if (!m) return '…'
+  if (m.id === youMemberId) return 'You'
+  return (m.profile?.display_name ?? m.name).split(' ')[0]
 }
 
 function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMode) => void }) {
@@ -86,14 +86,14 @@ function RemainderCounter({ label, value, valid }: { label: string; value: strin
 }
 
 function ModeEqual({
-  total, memberIds, profileById, included, onToggle, youId, interactive = true,
+  total, memberIds, memberById, included, onToggle, youMemberId, interactive = true,
 }: {
   total: number
   memberIds: string[]
-  profileById: Record<string, Profile>
+  memberById: Record<string, GroupMember>
   included: Set<string>
   onToggle: (id: string) => void
-  youId?: string
+  youMemberId?: string
   interactive?: boolean
 }) {
   const count = included.size || 1
@@ -104,7 +104,7 @@ function ModeEqual({
       <SectionHeader label={`Splitting $${total.toFixed(2)} equally — ${included.size} of ${memberIds.length}`} />
       <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, overflow: 'hidden' }}>
         {memberIds.map((id, i) => {
-          const p = profileById[id]
+          const m = memberById[id]
           const on = included.has(id)
           return (
             <div
@@ -117,8 +117,8 @@ function ModeEqual({
                 opacity: on ? 1 : 0.4, cursor: interactive ? 'pointer' : 'default',
               }}
             >
-              <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={32} isYou={p?.id === youId} />
-              <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(p, youId)}</div>
+              <Avatar profile={m?.profile} slot={(i % 4) as 0|1|2|3} size={32} isYou={m?.id === youMemberId} />
+              <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(m, youMemberId)}</div>
               <div style={{
                 fontFamily: FH, fontSize: 17, fontWeight: 600, letterSpacing: -0.4,
                 color: on ? T.ink : T.inkFaint,
@@ -140,15 +140,15 @@ function ModeEqual({
 }
 
 function ModePercent({
-  total, memberIds, profileById, percents, focusId, youId,
+  total, memberIds, memberById, percents, focusId, youMemberId,
   onChange, onFocus, onBlur,
 }: {
   total: number
   memberIds: string[]
-  profileById: Record<string, Profile>
+  memberById: Record<string, GroupMember>
   percents: Record<string, string>
   focusId: string | null
-  youId?: string
+  youMemberId?: string
   onChange: (id: string, val: string) => void
   onFocus: (id: string) => void
   onBlur: () => void
@@ -162,7 +162,7 @@ function ModePercent({
       <SectionHeader label="Split by percentage" />
       <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, overflow: 'hidden' }}>
         {memberIds.map((id, i) => {
-          const p = profileById[id]
+          const m = memberById[id]
           const pct = parseFloat(percents[id] || '0') || 0
           const dollars = total ? (total * pct / 100) : 0
           const isFocus = focusId === id
@@ -173,9 +173,9 @@ function ModePercent({
               borderTop: i === 0 ? 'none' : `0.5px solid ${T.line}`,
               background: isFocus ? T.surfaceAlt : 'transparent',
             }}>
-              <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={30} isYou={p?.id === youId} />
+              <Avatar profile={m?.profile} slot={(i % 4) as 0|1|2|3} size={30} isYou={m?.id === youMemberId} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(p, youId)}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(m, youMemberId)}</div>
                 <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>${dollars.toFixed(2)}</div>
               </div>
               <div style={{
@@ -213,15 +213,15 @@ function ModePercent({
 }
 
 function ModeExact({
-  total, memberIds, profileById, amounts, focusId, youId,
+  total, memberIds, memberById, amounts, focusId, youMemberId,
   onChange, onFocus, onBlur,
 }: {
   total: number
   memberIds: string[]
-  profileById: Record<string, Profile>
+  memberById: Record<string, GroupMember>
   amounts: Record<string, string>
   focusId: string | null
-  youId?: string
+  youMemberId?: string
   onChange: (id: string, val: string) => void
   onFocus: (id: string) => void
   onBlur: () => void
@@ -235,7 +235,7 @@ function ModeExact({
       <SectionHeader label="Split by exact amount" />
       <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, overflow: 'hidden' }}>
         {memberIds.map((id, i) => {
-          const p = profileById[id]
+          const m = memberById[id]
           const amt = parseFloat(amounts[id] || '0') || 0
           const pct = total ? Math.round((amt / total) * 100) : 0
           const isFocus = focusId === id
@@ -246,9 +246,9 @@ function ModeExact({
               borderTop: i === 0 ? 'none' : `0.5px solid ${T.line}`,
               background: isFocus ? T.surfaceAlt : 'transparent',
             }}>
-              <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={30} isYou={p?.id === youId} />
+              <Avatar profile={m?.profile} slot={(i % 4) as 0|1|2|3} size={30} isYou={m?.id === youMemberId} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(p, youId)}</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(m, youMemberId)}</div>
                 <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{pct}% of total</div>
               </div>
               <div style={{
@@ -326,25 +326,25 @@ function AmountTile({ amount, onChange }: { amount: string; onChange: (v: string
 }
 
 function PaidByChips({
-  members, profileById, paidById, onSelect, youId, compact,
+  members, memberById, paidById, onSelect, youMemberId, compact,
 }: {
-  members: { user_id: string }[]
-  profileById: Record<string, Profile>
+  members: GroupMember[]
+  memberById: Record<string, GroupMember>
   paidById: string | null
   onSelect: (id: string) => void
-  youId?: string
+  youMemberId?: string
   compact?: boolean
 }) {
   return (
     <div style={{ display: 'flex', gap: compact ? 4 : 6, flexWrap: 'wrap', justifyContent: compact ? 'flex-end' : 'flex-start' }}>
       {members.map((m, i) => {
-        const p = profileById[m.user_id]
-        const on = paidById === m.user_id
+        const member = memberById[m.id]
+        const on = paidById === m.id
         return (
           <button
-            key={m.user_id}
+            key={m.id}
             type="button"
-            onClick={() => onSelect(m.user_id)}
+            onClick={() => onSelect(m.id)}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: compact ? (on ? '3px 9px 3px 3px' : 3) : '4px 11px 4px 4px',
@@ -356,8 +356,8 @@ function PaidByChips({
               fontSize: 12, fontWeight: 600, fontFamily: F,
             }}
           >
-            <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={22} isYou={p?.id === youId} />
-            {(!compact || on) && <span>{shortName(p, youId)}</span>}
+            <Avatar profile={member?.profile} slot={(i % 4) as 0|1|2|3} size={22} isYou={m.id === youMemberId} />
+            {(!compact || on) && <span>{shortName(member, youMemberId)}</span>}
           </button>
         )
       })}
@@ -395,24 +395,24 @@ function CategoryChips({ category, onSelect }: { category: string; onSelect: (em
 }
 
 function SplitBetweenChips({
-  members, profileById, included, onToggle, youId,
+  members, memberById, included, onToggle, youMemberId,
 }: {
-  members: { user_id: string }[]
-  profileById: Record<string, Profile>
+  members: GroupMember[]
+  memberById: Record<string, GroupMember>
   included: Set<string>
   onToggle: (id: string) => void
-  youId?: string
+  youMemberId?: string
 }) {
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {members.map((m, i) => {
-        const p = profileById[m.user_id]
-        const on = included.has(m.user_id)
+        const member = memberById[m.id]
+        const on = included.has(m.id)
         return (
           <button
-            key={m.user_id}
+            key={m.id}
             type="button"
-            onClick={() => onToggle(m.user_id)}
+            onClick={() => onToggle(m.id)}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '4px 11px 4px 4px', borderRadius: 999,
@@ -423,8 +423,8 @@ function SplitBetweenChips({
               fontSize: 12.5, fontWeight: 600, fontFamily: F,
             }}
           >
-            <Avatar profile={p} slot={(i % 4) as 0|1|2|3} size={22} isYou={p?.id === youId} />
-            {shortName(p, youId)}
+            <Avatar profile={member?.profile} slot={(i % 4) as 0|1|2|3} size={22} isYou={m.id === youMemberId} />
+            {shortName(member, youMemberId)}
             <span style={{ fontSize: 12, lineHeight: 1, opacity: 0.9 }}>{on ? '✓' : '+'}</span>
           </button>
         )
@@ -557,13 +557,14 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
   const [exactAmounts,   setExactAmounts]   = useState<Record<string, string>>({})
   const [focusId,        setFocusId]        = useState<string | null>(null)
 
-  const memberIds   = members.map(m => m.user_id)
-  const profileById = Object.fromEntries(members.map(m => [m.user_id, (m as { profile: Profile }).profile]))
-  const youId       = profile?.id
+  const memberIds    = members.map(m => m.id)
+  const memberById   = Object.fromEntries(members.map(m => [m.id, m as GroupMember]))
+  const myMember     = members.find(m => m.user_id === profile?.id)
+  const youMemberId  = myMember?.id
 
   useEffect(() => {
-    if (profile && !paidById) setPaidById(profile.id)
-  }, [profile?.id])
+    if (myMember && !paidById) setPaidById(myMember.id)
+  }, [myMember?.id])
 
   useEffect(() => {
     if (members.length > 0 && included.size === 0) setIncluded(new Set(memberIds))
@@ -620,17 +621,17 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
     if (!canSave || addExpense.isPending || !paidById) return
     const roundedAmt = Math.round(amt * 100) / 100
 
-    let splits: { user_id: string; owed_amount: number }[]
+    let splits: { group_member_id: string; owed_amount: number }[]
     let splitType: 'equal' | 'percentage' | 'exact'
 
     if (splitMode === 'equal') {
-      splits    = makeEqualSplits('', roundedAmt, [...included]).map(s => ({ user_id: s.user_id, owed_amount: s.owed_amount }))
+      splits    = makeEqualSplits('', roundedAmt, [...included]).map(s => ({ group_member_id: s.group_member_id, owed_amount: s.owed_amount }))
       splitType = 'equal'
     } else if (splitMode === 'percentage') {
-      splits    = makePercentSplits('', roundedAmt, memberIds.map(id => ({ user_id: id, percent: parseFloat(percents[id] || '0') || 0 }))).map(s => ({ user_id: s.user_id, owed_amount: s.owed_amount }))
+      splits    = makePercentSplits('', roundedAmt, memberIds.map(id => ({ group_member_id: id, percent: parseFloat(percents[id] || '0') || 0 }))).map(s => ({ group_member_id: s.group_member_id, owed_amount: s.owed_amount }))
       splitType = 'percentage'
     } else {
-      splits    = makeExactSplits('', memberIds.map(id => ({ user_id: id, owed_amount: parseFloat(exactAmounts[id] || '0') || 0 }))).map(s => ({ user_id: s.user_id, owed_amount: s.owed_amount }))
+      splits    = makeExactSplits('', memberIds.map(id => ({ group_member_id: id, owed_amount: parseFloat(exactAmounts[id] || '0') || 0 }))).map(s => ({ group_member_id: s.group_member_id, owed_amount: s.owed_amount }))
       splitType = 'exact'
     }
 
@@ -654,25 +655,25 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
           <ModeEqual
             total={amt}
             memberIds={equalMemberIds}
-            profileById={profileById}
+            memberById={memberById}
             included={included}
             onToggle={toggleIncluded}
-            youId={youId}
+            youMemberId={youMemberId}
             interactive={!isMobile}
           />
         )}
         {splitMode === 'percentage' && (
           <ModePercent
-            total={amt} memberIds={memberIds} profileById={profileById}
-            percents={percents} focusId={focusId} youId={youId}
+            total={amt} memberIds={memberIds} memberById={memberById}
+            percents={percents} focusId={focusId} youMemberId={youMemberId}
             onChange={(id, val) => setPercents(p => ({ ...p, [id]: val }))}
             onFocus={setFocusId} onBlur={() => setFocusId(null)}
           />
         )}
         {splitMode === 'exact' && (
           <ModeExact
-            total={amt} memberIds={memberIds} profileById={profileById}
-            amounts={exactAmounts} focusId={focusId} youId={youId}
+            total={amt} memberIds={memberIds} memberById={memberById}
+            amounts={exactAmounts} focusId={focusId} youMemberId={youMemberId}
             onChange={(id, val) => setExactAmounts(p => ({ ...p, [id]: val }))}
             onFocus={setFocusId} onBlur={() => setFocusId(null)}
           />
@@ -782,8 +783,8 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
             <div style={TILE_LABEL}>Paid by</div>
             <div style={{ marginTop: 9 }}>
               <PaidByChips
-                members={members} profileById={profileById}
-                paidById={paidById} onSelect={setPaidById} youId={youId}
+                members={members as GroupMember[]} memberById={memberById}
+                paidById={paidById} onSelect={setPaidById} youMemberId={youMemberId}
               />
             </div>
           </div>
@@ -806,11 +807,11 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
             </div>
             <div style={{ marginTop: 9 }}>
               <SplitBetweenChips
-                members={members}
-                profileById={profileById}
+                members={members as GroupMember[]}
+                memberById={memberById}
                 included={included}
                 onToggle={toggleIncluded}
-                youId={youId}
+                youMemberId={youMemberId}
               />
             </div>
           </div>
@@ -878,8 +879,8 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px' }}>
             <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Paid by</div>
             <PaidByChips
-              members={members} profileById={profileById}
-              paidById={paidById} onSelect={setPaidById} youId={youId}
+              members={members as GroupMember[]} memberById={memberById}
+              paidById={paidById} onSelect={setPaidById} youMemberId={youMemberId}
             />
           </div>
 

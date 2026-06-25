@@ -8,7 +8,7 @@ import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
 import { SuggestedMembers } from '@/components/SuggestedMembers'
 import { useCreateGroup } from '@/queries/useGroups'
-import { addMembersToGroup, createGuestProfile, useRecentCollaborators } from '@/queries/useMembers'
+import { useRecentCollaborators } from '@/queries/useMembers'
 import { useCurrentProfile, useSearchProfiles } from '@/queries/useProfile'
 import type { ProfileSnippet } from '@/queries/useProfile'
 import { useIsMobileSheet } from '@/hooks/useMediaQuery'
@@ -144,16 +144,15 @@ export default function NewGroupPage() {
     setCreating(true)
     setCreateError(null)
     try {
-      const group = await createGroup.mutateAsync({ name: name.trim(), emoji })
-      if (members.length > 0) {
-        const ids: string[] = []
-        for (const entry of members) {
-          if (entry.type === 'user') ids.push(entry.profile.id)
-          else ids.push(await createGuestProfile(entry.name))
-        }
-        await addMembersToGroup(group.id, ids)
-      }
-      router.push(`/groups/${group.id}`)
+      const creatorName = profile?.display_name ?? profile?.name ?? 'Unknown'
+      const mappedMembers = members.map(entry =>
+        entry.type === 'user'
+          ? { type: 'user' as const, profileId: entry.profile.id, name: entry.profile.display_name ?? entry.profile.name }
+          : { type: 'guest' as const, name: entry.name }
+      )
+      const { id, membersError } = await createGroup.mutateAsync({ name: name.trim(), emoji, creatorName, members: mappedMembers })
+      if (membersError) setCreateError(membersError)
+      router.push(`/groups/${id}`)
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'Something went wrong. Try again.')
       setCreating(false)

@@ -1,5 +1,43 @@
 # TODO
 
+## 0. Immediate — group members + expense refinement
+
+### 0a. Add members to existing group (BROKEN — blocks usage)
+- [ ] Create `POST /api/groups/members/add` route — handles real users (with name lookup) and guests (name only, `user_id = null`) in one batch insert. Same pattern as `/api/groups/create`.
+- [ ] Update `groups/[id]/page.tsx` add member flow to call the new route instead of `addMembersToGroup`/`createGuestProfile`
+- [ ] Remove `createGuestProfile` from `useMembers.ts` (no longer needed)
+- [ ] Update `addMembersToGroup` in `useMembers.ts` to pass `name` — or remove it entirely if the route replaces all usages
+
+### 0b. Remove members from group
+- [ ] UI — remove button on member row in group detail (visible to group creator only for now)
+- [ ] For real users: `UPDATE group_members SET status = 'left'` (preserves expense history)
+- [ ] For guests: hard delete the `group_members` row (no history to preserve, no account)
+- [ ] `useMembers.ts` — add `useRemoveGroupMember` mutation
+
+### 0c. Group settings screen
+- [ ] New route `/groups/[id]/settings` — gear icon in group header opens it
+- [ ] Member list with add + remove actions
+- [ ] Add member flow (real users + guests) via `POST /api/groups/members/add`
+- [ ] Remove member — `status: 'left'` for real users, hard delete for guests
+- [ ] Group rename + emoji change
+- [ ] Delete group (move from action menu)
+
+### 0d. Group expenses page refinement
+- [ ] Review layout, spacing, and information density on the expenses feed
+- [x] Payer display — confirm name renders correctly for real users and guests
+- [ ] Balance section — verify "who pays who" rows are accurate after schema change
+- [x] Activity feed date grouping — confirm headers render correctly
+- [x] Empty state when no expenses yet
+- [ ] Mobile layout review
+
+### 0e. Expense adding refinement
+- [x] Verify `paidById` initializes correctly when `profile` loads after `members`
+- [x] Confirm splits sum correctly with `group_member_id` keys
+- [ ] Test equal / exact / percentage split modes end to end
+- [x] Guest members should appear in paid-by chips and split lists
+
+---
+
 ## 1. Supabase setup
 
 ### 1a. Create project & configure env
@@ -197,6 +235,21 @@ Extract business logic out of fat components into `src/hooks/`. Goal: components
 - [ ] Emoji picker — evaluate current implementation, consider a scrollable grid sheet
 - [ ] Member search inline — `MemberCombobox` flow on mobile; confirm keyboard dismiss + chip layout work at small sizes
 - [ ] Success state — after creation, confirm redirect to group detail feels right
+
+---
+
+## 17. Wire up group creation route ✅
+
+- [x] `POST /api/groups/create` is written but not wired up — `useCreateGroup` in `useGroups.ts` and `handleCreate` in `groups/new/page.tsx` still use the old direct Supabase client flow
+- [x] Update `useCreateGroup` to call the route instead of direct inserts
+- [x] Update `handleCreate` to pass the full member list (real users + guests) to the hook
+- [x] Remove `createGuestProfile` and `addMembersToGroup` calls from `new/page.tsx`
+
+---
+
+## 18. Auth session sharing
+
+- [ ] Each TanStack Query calls `getAuthUser` independently → multiple `supabase.auth.getSession()` calls fire simultaneously on `refetchOnWindowFocus`, hitting Supabase auth rate limit. Fix: share a single session across all queries via a context or a dedicated `useSession` hook that all other queries consume.
 
 ---
 

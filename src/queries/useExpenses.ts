@@ -11,10 +11,8 @@ export function useExpenses(groupId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
-        .select('*, splits:expense_splits(*), payer:profiles!paid_by(*)')
-        // FK hint: expenses.paid_by → profiles (avoids ambiguity if other FKs are added)
+        .select('*, splits:expense_splits(id, group_member_id, owed_amount), payer:group_members!paid_by(id, name, user_id, profile:profiles!group_members_user_id_fkey(avatar_url, display_name))')
         .eq('group_id', groupId)
-        // Soft-delete invariant: deleted expenses must never reach balance calculations
         .is('deleted_at', null)
         .order('expense_date', { ascending: false })
         .order('created_at', { ascending: false })
@@ -34,7 +32,7 @@ export function useAddExpense(groupId: string) {
       amount: number
       paid_by: string
       split_type: 'equal' | 'percentage' | 'exact'
-      splits: { user_id: string; owed_amount: number }[]
+      splits: { group_member_id: string; owed_amount: number }[]
       category: string
       expense_date: string
     }) => {
@@ -50,7 +48,7 @@ export function useAddExpense(groupId: string) {
       // expense total before this point — not re-validated here.
       const splitsToInsert = splitData.map(s => ({
         expense_id: expense.id,
-        user_id: s.user_id,
+        group_member_id: s.group_member_id,
         owed_amount: s.owed_amount,
       }))
       const { error: splitsError } = await supabase

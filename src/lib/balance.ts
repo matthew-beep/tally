@@ -12,17 +12,17 @@ export function calcNetBalances(
     .filter(e => e.group_id === groupId && !e.deleted_at)
     .forEach(e => {
       e.splits?.forEach(s => {
-        if (s.user_id === e.paid_by) return
+        if (s.group_member_id === e.paid_by) return
         net[e.paid_by] = (net[e.paid_by] ?? 0) + s.owed_amount
-        net[s.user_id] = (net[s.user_id] ?? 0) - s.owed_amount
+        net[s.group_member_id] = (net[s.group_member_id] ?? 0) - s.owed_amount
       })
     })
 
   settlements
     .filter(s => s.group_id === groupId)
     .forEach(s => {
-      net[s.from_user] = (net[s.from_user] ?? 0) + s.amount
-      net[s.to_user]   = (net[s.to_user]   ?? 0) - s.amount
+      net[s.from_member_id] = (net[s.from_member_id] ?? 0) + s.amount
+      net[s.to_member_id]   = (net[s.to_member_id]   ?? 0) - s.amount
     })
 
   return Object.fromEntries(

@@ -11,8 +11,7 @@ export function useSettlements(groupId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('settlements')
-        // FK hints required: two FKs from settlements to profiles (from_user + to_user)
-        .select('*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*)')
+        .select('*, from_member:group_members!from_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(avatar_url, display_name)), to_member:group_members!to_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(avatar_url, display_name))')
         .eq('group_id', groupId)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -27,21 +26,18 @@ export function useCreateSettlement(groupId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (payload: {
-      from_user: string
-      to_user: string
+      from_member_id: string
+      to_member_id: string
       amount: number
       note?: string
       settled_date: string
     }) => {
       const { data, error } = await supabase
         .from('settlements')
-        // Pending settlements count toward balance immediately (optimistic).
-        // DB trigger fires settlement_confirm notification to to_user.
         .insert({ ...payload, group_id: groupId, status: 'pending' })
         .select()
         .single()
       if (error) throw error
-
       return data as Settlement
     },
     onSuccess: () => {
@@ -57,7 +53,6 @@ export function useConfirmSettlement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
-      // UPDATE fires notify_settlement_confirmed trigger → notifies payer
       await supabase.from('settlements').update({ status: 'confirmed' }).eq('id', id)
       return { id, groupId }
     },
@@ -75,7 +70,6 @@ export function useDenySettlement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
-      // DELETE (not a status update) — balance reverts, trigger notifies payer
       await supabase.from('settlements').delete().eq('id', id)
       return { id, groupId }
     },

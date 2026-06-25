@@ -6,7 +6,6 @@ export interface Profile {
   email: string | null
   avatar_url: string | null
   add_code: string | null
-  status: 'active' | 'guest'
   claim_token: string | null
   created_at: string
 }
@@ -21,8 +20,10 @@ export interface Group {
 }
 
 export interface GroupMember {
+  id: string
   group_id: string
-  user_id: string
+  name: string
+  user_id: string | null  // null for guests
   status: 'pending' | 'active' | 'left'
   invited_by: string | null
   joined_at: string
@@ -45,13 +46,13 @@ export interface Expense {
   share_token: string | null
   deleted_at: string | null
   splits?: ExpenseSplit[]
-  payer?: Profile
+  payer?: GroupMember
 }
 
 export interface ExpenseSplit {
   id: string
   expense_id: string
-  user_id: string
+  group_member_id: string
   owed_amount: number
 }
 
@@ -70,15 +71,15 @@ export interface ExpenseItemAssignment {
 export interface Settlement {
   id: string
   group_id: string
-  from_user: string
-  to_user: string
+  from_member_id: string
+  to_member_id: string
   amount: number
   note: string | null
   settled_date: string
   created_at: string
   status: 'pending' | 'confirmed'
-  from_profile?: Profile
-  to_profile?: Profile
+  from_member?: GroupMember
+  to_member?: GroupMember
 }
 
 export interface Notification {

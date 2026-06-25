@@ -28,23 +28,35 @@ interface PersonPart {
 
 interface PersonEntry {
   id: string
-  profile: Profile
+  name: string
+  profile?: Profile
   slot: 0 | 1 | 2 | 3
   net: number
   direction: 'owed' | 'owe'
   parts: PersonPart[]
+  userType: 'user' | 'guest'
 }
 
 function buildPeopleFlow(gb: NonNullable<ReturnType<typeof useGlobalBalances>['data']>): PersonEntry[] {
-  const { pairwisePerGroup, profileMap, groupMap, myId } = gb
+  const { pairwisePerGroup, profileMap, membersPerGroup, groupMap, myId } = gb
   const people: PersonEntry[] = []
+
+  // Build a name lookup for guests keyed by group_member_id
+  const guestNameMap: Record<string, string> = {}
+  for (const members of Object.values(membersPerGroup)) {
+    for (const m of members) {
+      if (!m.user_id) guestNameMap[m.id] = m.name
+    }
+  }
 
   for (const [personId, groups] of Object.entries(pairwisePerGroup)) {
     if (personId === myId) continue
     const net = Math.round(Object.values(groups).reduce((s, v) => s + v, 0) * 100) / 100
     if (Math.abs(net) < 0.01) continue
+
     const profile = profileMap[personId]
-    if (!profile) continue
+    const guestName = guestNameMap[personId]
+    if (!profile && !guestName) continue
 
     const parts = Object.entries(groups)
       .filter(([, amt]) => Math.abs(amt) >= 0.01)
@@ -58,11 +70,13 @@ function buildPeopleFlow(gb: NonNullable<ReturnType<typeof useGlobalBalances>['d
 
     people.push({
       id: personId,
+      name: profile ? (profile.display_name ?? profile.name) : guestName!,
       profile,
       slot: hashSlot(personId),
       net,
       direction: net > 0 ? 'owed' : 'owe',
       parts,
+      userType: profile ? 'user' : 'guest',
     })
   }
 
@@ -168,7 +182,7 @@ function PersonCard({
 }) {
   const owed = person.direction === 'owed'
   const amtColor = owed ? T.mintInk : T.coralInk
-  const firstName = (person.profile.display_name ?? person.profile.name).split(' ')[0]
+  const firstName = person.name.split(' ')[0]
   const groupHint = person.parts
     .slice(0, 2)
     .map(p => `${p.groupEmoji} ${p.groupName}`)
@@ -195,7 +209,7 @@ function PersonCard({
         onClick={e => { e.stopPropagation(); onAvatarTap() }}
         style={{ flexShrink: 0, cursor: 'pointer' }}
       >
-        <Avatar profile={person.profile} slot={person.slot} size={44} />
+        <Avatar profile={person.profile ?? { name: person.name, display_name: null, avatar_url: null }} slot={person.slot} size={44} />
       </div>
 
       {/* Name + group hint */}
@@ -310,14 +324,14 @@ export default function HomePage() {
             <HeroCard gb={gb} />
             <OpenBalances
               people={people}
-              onAvatarTap={p => setProfilePerson(p)}
+              onAvatarTap={p => { if (p.userType === 'user') setProfilePerson(p) }}
               onRowTap={p => setBalancePerson(p)}
             />
           </>
         )}
       </div>
 
-      {profilePerson && (
+      {profilePerson?.profile && (
         <PersonProfileSheet
           open={!!profilePerson}
           onClose={() => setProfilePerson(null)}
@@ -327,7 +341,7 @@ export default function HomePage() {
         />
       )}
 
-      {balancePerson && (
+      {balancePerson && balancePerson.profile && (
         <BalanceSheet
           open={!!balancePerson}
           onClose={() => setBalancePerson(null)}

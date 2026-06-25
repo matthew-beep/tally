@@ -47,11 +47,17 @@ Extends `auth.users`. Auto-created by the `on_auth_user_created` trigger on Goog
 
 | Column | Type | Notes |
 |---|---|---|
-| `group_id` | uuid → groups CASCADE | PK |
-| `user_id` | uuid → profiles CASCADE | PK |
+| `id` | uuid PK | Surrogate key — referenced by expense_splits, expenses, settlements |
+| `group_id` | uuid → groups CASCADE | |
+| `name` | text | Display name in this group context |
+| `user_id` | uuid → profiles NULLABLE | `NULL` for guests. Set when a guest claims a Tally account. |
+| `invited_by` | uuid → profiles NULLABLE | |
+| `status` | text | `'pending'` \| `'active'` \| `'left'` |
 | `joined_at` | timestamptz | |
 
-Composite PK `(group_id, user_id)`. Joining a group via invite link = INSERT here.
+Everyone in a group is a `group_members` row — real users and guests alike. `user_id` is the optional link to a Tally profile. Guests have `user_id = NULL` and are passive — they appear in splits but cannot add expenses, settle, or take any action until they claim a profile.
+
+Unique partial index on `(group_id, user_id) WHERE user_id IS NOT NULL` — prevents duplicate real-user rows per group while allowing multiple guests.
 
 **RLS:** Visible to other members of the same group. Any authenticated user can INSERT. Users can DELETE their own row (leave group).
 
@@ -63,7 +69,7 @@ Composite PK `(group_id, user_id)`. Joining a group via invite link = INSERT her
 |---|---|---|
 | `id` | uuid PK | |
 | `group_id` | uuid → groups CASCADE | |
-| `paid_by` | uuid → profiles | Who fronted the money. |
+| `paid_by` | uuid → group_members | Who fronted the money. Must be a member with a linked profile. |
 | `description` | text | |
 | `amount` | numeric(10,2) | Total bill. Always > 0. |
 | `split_type` | text | `'equal'` \| `'exact'` \| `'itemized'` |
@@ -89,7 +95,7 @@ One row per person per expense. The source of truth for balance calculation.
 |---|---|---|
 | `id` | uuid PK | |
 | `expense_id` | uuid → expenses CASCADE | |
-| `user_id` | uuid → profiles | |
+| `group_member_id` | uuid → group_members CASCADE | |
 | `owed_amount` | numeric(10,2) | Final amount owed by this person, including proportional tax/tip. |
 
 **Equal split:** `amount / member_count`, remainder assigned to first person.
@@ -129,8 +135,8 @@ A recorded payment from one person to another within a group. Not tied to specif
 |---|---|---|
 | `id` | uuid PK | |
 | `group_id` | uuid → groups CASCADE | |
-| `from_user` | uuid → profiles | Who paid. |
-| `to_user` | uuid → profiles | Who is owed. |
+| `from_member_id` | uuid → group_members | Who paid. Must have a linked profile. |
+| `to_member_id` | uuid → group_members | Who is owed. Must have a linked profile. |
 | `amount` | numeric(10,2) | Always > 0. |
 | `note` | text | Optional. E.g. "via Venmo". |
 | `settled_date` | date | When payment happened (user-set). Default today. |
@@ -142,7 +148,7 @@ A recorded payment from one person to another within a group. Not tied to specif
 - Payee confirms → `status = 'confirmed'`.
 - Payee denies → DELETE the row (balance reverts).
 
-**RLS:** Group members only. Both parties (`from_user` or `to_user`) can UPDATE status or DELETE.
+**RLS:** Group members only. Both parties (`from_member_id` or `to_member_id`) can UPDATE status or DELETE.
 
 ---
 
