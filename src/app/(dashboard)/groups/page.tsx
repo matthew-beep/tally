@@ -58,7 +58,7 @@ function GroupCard({ group, myId, netPerGroup, membersPerGroup }: {
   group: { id: string; name: string; emoji: string }
   myId?: string
   netPerGroup?: Record<string, Record<string, number>>
-  membersPerGroup?: Record<string, Array<{ user_id: string; profile: Profile }>>
+  membersPerGroup?: Record<string, Array<{ user_id: string | null; profile?: Profile }>>
 }) {
   const router = useRouter()
   const members = membersPerGroup?.[group.id] ?? []

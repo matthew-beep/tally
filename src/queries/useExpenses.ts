@@ -23,6 +23,26 @@ export function useExpenses(groupId: string) {
   })
 }
 
+export function useDeleteExpense(groupId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (expenseId: string) => {
+      const { error } = await supabase
+        .from('expenses')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', expenseId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses', groupId] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
+      qc.invalidateQueries({ queryKey: ['recent-activity'] })
+      qc.invalidateQueries({ queryKey: ['all-activity'] })
+    },
+  })
+}
+
 export function useAddExpense(groupId: string) {
   const supabase = createClient()
   const qc = useQueryClient()

@@ -59,7 +59,7 @@ export default function SettleUpPage() {
   async function handleRecord() {
     const amt = parseFloat(amount)
     if (!fromUser || !toUser || isNaN(amt) || amt <= 0) return
-    await createSettlement.mutateAsync({ from_user: fromUser, to_user: toUser, amount: Math.round(amt * 100) / 100, note: note || undefined, settled_date: settledDate })
+    await createSettlement.mutateAsync({ from_member_id: fromUser, to_member_id: toUser, amount: Math.round(amt * 100) / 100, note: note || undefined, settled_date: settledDate })
     router.push(`/groups/${groupId}`)
   }
 

@@ -7,44 +7,43 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
-import { ModalOrSheet, ActionSheet } from '@/components/modal'
+import { ModalOrSheet } from '@/components/modal'
 import { AddExpenseForm } from '@/components/AddExpenseForm'
-import { useGroup, useGroupMembers, useDeleteGroup } from '@/queries/useGroups'
+import { DeleteGroupSheet } from '@/components/DeleteGroupSheet'
+import { GroupActionMenu } from '@/components/GroupActionMenu'
+import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
+import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { addMembersToGroup, createGuestProfile } from '@/queries/useMembers'
-import { calcNetBalances, simplifyDebts } from '@/lib/balance'
+import { calcNetBalances } from '@/lib/balance'
 import type { Profile, Expense, Settlement } from '@/types'
-
 
 function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
   const idx = members.findIndex(m => m.id === id)
   return Math.max(0, idx) % 4 as 0 | 1 | 2 | 3
 }
 
-function dateLabel(dateStr: string) {
+function monthLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const diff = Math.round((today.getTime() - d.getTime()) / 86400000)
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Yesterday'
-  return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
 export default function GroupDetailPage() {
-  const params   = useParams()
-  const groupId  = params.id as string
-  const router   = useRouter()
-  const qc       = useQueryClient()
-  const [addExpenseOpen, setAddExpenseOpen] = useState(false)
-  const [addMemberOpen, setAddMemberOpen] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [pendingMembers, setPendingMembers] = useState<MemberEntry[]>([])
-  const [adding, setAdding] = useState(false)
-  const deleteGroup = useDeleteGroup()
+  const params  = useParams()
+  const groupId = params.id as string
+  const router  = useRouter()
+  const qc      = useQueryClient()
+
+  const [addExpenseOpen,  setAddExpenseOpen]  = useState(false)
+  const [addMemberOpen,   setAddMemberOpen]   = useState(false)
+  const [menuOpen,        setMenuOpen]        = useState(false)
+  const [deleteOpen,      setDeleteOpen]      = useState(false)
+  const [balanceExpanded, setBalanceExpanded] = useState(false)
+  const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
+  const [pendingMembers,  setPendingMembers]  = useState<MemberEntry[]>([])
+  const [adding,          setAdding]          = useState(false)
 
   async function handleAddMembers() {
     if (!pendingMembers.length) return
@@ -64,7 +63,7 @@ export default function GroupDetailPage() {
     }
   }
 
-  const { data: group,       isLoading: loadingGroup   } = useGroup(groupId)
+  const { data: group,        isLoading: loadingGroup   } = useGroup(groupId)
   const { data: members = [], isLoading: loadingMembers } = useGroupMembers(groupId)
   const { data: expenses = []                           } = useExpenses(groupId)
   const { data: settlements = []                        } = useSettlements(groupId)
@@ -74,54 +73,64 @@ export default function GroupDetailPage() {
     members.map(m => [m.id, m])
   )
 
-  const memberIds = members.map(m => m.id)
-  const net       = calcNetBalances(groupId, expenses, settlements, memberIds)
-  const debts     = simplifyDebts(net)
-  const myMember  = members.find(m => m.user_id === profile?.id)
-  const myId      = myMember?.id
-  const myBal     = myId ? (net[myId] ?? 0) : 0
-  const isPos     = myBal >= 0
-  const settled   = Math.abs(myBal) < 0.01
+  const memberIds  = members.map(m => m.id)
+  const net        = calcNetBalances(groupId, expenses, settlements, memberIds)
+  const myMember   = members.find(m => m.user_id === profile?.id)
+  const myId       = myMember?.id
+  const myBal      = myId ? (net[myId] ?? 0) : 0
+  const totalSpend = expenses.reduce((s, e) => s + Number(e.amount), 0)
 
-  const whole = Math.floor(Math.abs(myBal))
-  const cents = (Math.abs(myBal) % 1).toFixed(2).slice(1)
-  const sign  = settled ? '' : isPos ? '+' : '−'
+  // Pairwise nets from my perspective — positive = they owe me, negative = I owe them
+  const pairwiseNets: Record<string, number> = {}
+  if (myId) {
+    for (const e of expenses) {
+      const mySplit = e.splits?.find((s: { group_member_id: string }) => s.group_member_id === myId)
+      if (e.paid_by === myId) {
+        for (const s of (e.splits ?? [])) {
+          if (s.group_member_id === myId) continue
+          pairwiseNets[s.group_member_id] = (pairwiseNets[s.group_member_id] ?? 0) + Number(s.owed_amount)
+        }
+      } else if (mySplit) {
+        pairwiseNets[e.paid_by] = (pairwiseNets[e.paid_by] ?? 0) - Number(mySplit.owed_amount)
+      }
+    }
+    for (const s of settlements) {
+      if (s.from_member_id === myId) {
+        pairwiseNets[s.to_member_id] = (pairwiseNets[s.to_member_id] ?? 0) + Number(s.amount)
+      } else if (s.to_member_id === myId) {
+        pairwiseNets[s.from_member_id] = (pairwiseNets[s.from_member_id] ?? 0) - Number(s.amount)
+      }
+    }
+    for (const k of Object.keys(pairwiseNets)) {
+      pairwiseNets[k] = Math.round(pairwiseNets[k] * 100) / 100
+    }
+  }
 
-  // Merge expenses + settlements into a date-grouped feed
+  const oweMeEntries = Object.entries(pairwiseNets).filter(([, v]) => v > 0.01)
+  const IOweEntries  = Object.entries(pairwiseNets).filter(([, v]) => v < -0.01)
+  const hasBalance   = oweMeEntries.length > 0 || IOweEntries.length > 0
+  const netPositive  = myBal >= 0
+
+  // Feed — month-grouped
   type FeedItem =
     | { _type: 'expense';    _date: string; data: Expense }
     | { _type: 'settlement'; _date: string; data: Settlement }
 
   const feed: FeedItem[] = [
-    ...expenses.map(e => ({
-      _type: 'expense' as const,
-      _date: e.expense_date,
-      data: e,
-    })),
-    ...settlements.map(s => ({
-      _type: 'settlement' as const,
-      _date: s.settled_date,
-      data: s,
-    })),
-  ].sort((a, b) => {
-    const aTime = a._type === 'expense' ? a.data.created_at : a.data.created_at
-    const bTime = b._type === 'expense' ? b.data.created_at : b.data.created_at
-    return new Date(bTime).getTime() - new Date(aTime).getTime()
-  })
+    ...expenses.map(e    => ({ _type: 'expense'    as const, _date: e.expense_date, data: e })),
+    ...settlements.map(s => ({ _type: 'settlement' as const, _date: s.settled_date, data: s })),
+  ].sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime())
 
+  const dateOrder: string[] = []
   const byDate: Record<string, FeedItem[]> = {}
   for (const item of feed) {
-    const label = dateLabel(item._date)
-    if (!byDate[label]) byDate[label] = []
+    const label = monthLabel(item._date)
+    if (!byDate[label]) { byDate[label] = []; dateOrder.push(label) }
     byDate[label].push(item)
   }
 
   if (loadingGroup || loadingMembers) {
-    return (
-      <div style={{ padding: 28, fontFamily: F, color: T.inkMuted, fontSize: 14 }}>
-        Loading…
-      </div>
-    )
+    return <div style={{ padding: 28, fontFamily: F, color: T.inkMuted, fontSize: 14 }}>Loading…</div>
   }
 
   if (!group) {
@@ -129,10 +138,7 @@ export default function GroupDetailPage() {
       <div style={{ padding: 28, fontFamily: F, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 }}>
         <div style={{ fontSize: 40 }}>💸</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: T.ink }}>Group not found</div>
-        <button
-          onClick={() => router.push('/groups')}
-          style={{ marginTop: 4, padding: '10px 20px', background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
-        >
+        <button onClick={() => router.push('/groups')} style={{ marginTop: 4, padding: '10px 20px', background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>
           Back to groups
         </button>
       </div>
@@ -140,68 +146,62 @@ export default function GroupDetailPage() {
   }
 
   return (
-    <div style={{ flex: 1, minHeight: 0, height: '100%', overflowY: 'auto', padding: 28, fontFamily: F, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: F, color: T.ink }}>
 
-      {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 20, justifyContent: 'space-between' }}>
+      {/* ── Header (19h) ── */}
+      <header style={{ padding: '8px 14px 6px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <button
           onClick={() => router.push('/groups')}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px 6px 0', fontSize: 20, color: T.inkMuted }}
+          style={{ width: 36, height: 36, borderRadius: T.r.md, background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         >
-          ←
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M12 4l-6 6 6 6" stroke={T.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </button>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {group && profile?.id === group.created_by && (
-            <button
-              onClick={() => setMenuOpen(true)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '8px 10px', fontSize: 18, color: T.inkMuted, borderRadius: T.r.md }}
-            >
-              ···
-            </button>
-          )}
-          <button
-            onClick={() => setAddExpenseOpen(true)}
-            style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '8px 16px', fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
-          >
-            + Add expense
-          </button>
-        </div>
-      </div>
-
-      {/* Group header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20 }}>
-        <div style={{ width: 52, height: 52, borderRadius: T.r.lg, background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, boxShadow: T.shadowSm, flexShrink: 0 }}>
-          {group.emoji}
-        </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 700, fontFamily: FH, letterSpacing: -0.5, color: T.ink }}>{group.name}</div>
-          <div style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
-            {members.slice(0, 5).map((m, i) => (
-              <div key={m.id} style={{ marginLeft: i === 0 ? 0 : -8, zIndex: members.length - i }}>
-                <Avatar
-                  profile={(m as any).profile}
-                  slot={i % 4 as 0 | 1 | 2 | 3}
-                  size={24}
-                  isYou={m.user_id === profile?.id}
-                />
-              </div>
-            ))}
-            <span style={{ marginLeft: 10, fontSize: 12, color: T.inkMuted }}>{members.length} {members.length === 1 ? 'person' : 'people'}</span>
-            <button
-              onClick={() => setAddMemberOpen(true)}
-              style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: T.r.pill, border: `1.5px dashed ${T.lineStrong}`, background: 'transparent', color: T.inkMuted, fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: F }}
-            >
-              + Add
-            </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 20 }}>{group.emoji}</span>
+            <span style={{ fontFamily: FH, fontSize: 20, fontWeight: 700, letterSpacing: -0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.ink }}>
+              {group.name}
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 1 }}>
+            {members.length} {members.length === 1 ? 'person' : 'people'}
+            {totalSpend > 0 ? ` · $${totalSpend.toFixed(0)} total` : ''}
           </div>
         </div>
+        <button
+          onClick={() => setMenuOpen(true)}
+          style={{ width: 36, height: 36, borderRadius: T.r.md, background: T.surface, border: `0.5px solid ${T.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: T.shadowSm }}
+        >
+          <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
+            <circle cx="10" cy="5.5"  r="1.6" fill={T.inkMuted}/>
+            <circle cx="10" cy="10.5" r="1.6" fill={T.inkMuted}/>
+            <circle cx="10" cy="15.5" r="1.6" fill={T.inkMuted}/>
+          </svg>
+        </button>
+      </header>
+
+      {/* ── Member strip (19h) ── */}
+      <div style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div style={{ display: 'flex' }}>
+          {members.map((m, i) => (
+            <div key={m.id} style={{ marginLeft: i > 0 ? -8 : 0, zIndex: members.length - i, width: 26, height: 26, borderRadius: '50%', border: `2px solid ${T.bg}`, flexShrink: 0, overflow: 'hidden' }}>
+              <Avatar profile={(m as any).profile} slot={i % 4 as 0 | 1 | 2 | 3} size={22} isYou={m.user_id === profile?.id} />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={() => setAddMemberOpen(true)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: T.sun, padding: 0, letterSpacing: -0.1 }}
+        >
+          + Add member
+        </button>
       </div>
 
+      {/* ── Add member inline ── */}
       {addMemberOpen && (
-        <div style={{
-          marginTop: 12, background: T.surface, borderRadius: T.r.lg,
-          padding: 14, boxShadow: T.shadow,
-        }}>
+        <div style={{ margin: '0 16px 12px', background: T.surface, borderRadius: T.r.lg, padding: 14, boxShadow: T.shadow, flexShrink: 0 }}>
           <MemberCombobox
             value={pendingMembers}
             onChange={setPendingMembers}
@@ -218,12 +218,7 @@ export default function GroupDetailPage() {
             <button
               onClick={handleAddMembers}
               disabled={!pendingMembers.length || adding}
-              style={{
-                padding: '8px 16px', borderRadius: T.r.md, border: 0, cursor: pendingMembers.length ? 'pointer' : 'default',
-                background: pendingMembers.length ? T.ink : T.surfaceAlt,
-                color: pendingMembers.length ? T.bg : T.inkMuted,
-                fontSize: 13, fontWeight: 700, fontFamily: F,
-              }}
+              style={{ padding: '8px 16px', borderRadius: T.r.md, border: 0, cursor: pendingMembers.length ? 'pointer' : 'default', background: pendingMembers.length ? T.ink : T.surfaceAlt, color: pendingMembers.length ? T.bg : T.inkMuted, fontSize: 13, fontWeight: 700, fontFamily: F }}
             >
               {adding ? 'Adding…' : pendingMembers.length ? `Add ${pendingMembers.length} to group` : 'Add to group'}
             </button>
@@ -231,238 +226,209 @@ export default function GroupDetailPage() {
         </div>
       )}
 
-      {/* Members */}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 8 }}>
-          Members
-        </div>
-        <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
-          {members.map((m, i) => {
-            const p = (m as any).profile as Profile | undefined
-            const isYou     = m.user_id === profile?.id
-            const isPending = m.status === 'pending'
-            const isGuest   = !m.user_id
-            const name      = p?.display_name ?? p?.name ?? m.name ?? '…'
-            return (
-              <div key={m.id} style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '11px 14px',
-                borderBottom: i < members.length - 1 ? `1px solid ${T.line}` : 'none',
-              }}>
-                <Avatar profile={p} slot={slotFor(members, m.id)} size={34} isYou={isYou} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {isYou ? 'You' : name}
-                  </div>
-                  {p?.handle && !isGuest && (
-                    <div style={{ fontSize: 11, color: T.inkMuted, fontFamily: FMONO, marginTop: 1 }}>@{p.handle}</div>
-                  )}
-                </div>
-                {isPending && (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '3px 8px', borderRadius: 999,
-                    fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' as const,
-                    background: T.sunSoft, color: T.sunInk, flexShrink: 0,
-                  }}>
-                    ⏳ Pending
-                  </span>
-                )}
-                {isGuest && (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    padding: '3px 8px', borderRadius: 999,
-                    fontSize: 10, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase' as const,
-                    background: T.surfaceAlt, color: T.inkMuted, flexShrink: 0,
-                  }}>
-                    👤 Guest
-                  </span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      {/* ── Scrollable body ── */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 16px 100px' }}>
 
-      {/* Balance hero */}
-      <div style={{ padding: '22px 20px', background: T.surface, borderRadius: T.r.xl, boxShadow: T.shadowSm, marginBottom: 14 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 8 }}>
-          Your balance
-        </div>
-        <div style={{ lineHeight: 1, marginBottom: 4, color: settled ? T.mintInk : isPos ? T.mintInk : T.coralInk }}>
-          <span style={{ fontFamily: FH, fontSize: 32, fontWeight: 500, opacity: 0.7 }}>{sign}$</span>
-          <span style={{ fontFamily: FH, fontSize: 72, fontWeight: 700, letterSpacing: -2, fontVariantNumeric: 'tabular-nums' }}>{whole}</span>
-          <span style={{ fontFamily: FMONO, fontSize: 18, opacity: 0.7 }}>{cents}</span>
-        </div>
-        <div style={{ fontSize: 13, color: T.inkMuted, marginBottom: 16 }}>
-          {settled
-            ? "You're all settled up in this group 🎉"
-            : isPos
-              ? 'Overall you are owed in this group'
-              : 'Overall you owe in this group'}
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {!settled && (
-            <button
-              onClick={() => router.push(`/groups/${groupId}/settle`)}
-              style={{ flex: 1, padding: '11px 0', background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
-            >
-              Settle up
-            </button>
-          )}
-          <button
-            onClick={() => setAddExpenseOpen(true)}
-            style={{ flex: 1, padding: '11px 0', background: settled ? T.ink : T.surface, color: settled ? T.bg : T.ink, border: settled ? 'none' : `1.5px solid ${T.lineStrong}`, borderRadius: T.r.md, fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
-          >
-            + Add expense
-          </button>
-        </div>
-      </div>
+        {expenses.length === 0 ? (
 
-      {/* Who pays who */}
-      {debts.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 8 }}>
-            Who pays who
-          </div>
-          <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
-            {debts.map((debt, i) => {
-              const fromMember  = memberById[debt.from]
-              const toMember    = memberById[debt.to]
-              const fromP       = (fromMember as any)?.profile as Profile | undefined
-              const toP         = (toMember as any)?.profile as Profile | undefined
-              const isMyDebt    = debt.from === myId
-              const owedToMe    = debt.to === myId
-              return (
-                <div
-                  key={i}
-                  style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', borderBottom: i < debts.length - 1 ? `1px solid ${T.line}` : 'none', gap: 10 }}
-                >
-                  <Avatar profile={fromP} slot={slotFor(members, debt.from)} size={32} isYou={fromMember?.user_id === profile?.id} />
-                  <div style={{ width: 22, height: 22, background: T.bg, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0, color: T.inkMuted }}>→</div>
-                  <Avatar profile={toP}   slot={slotFor(members, debt.to)}   size={32} isYou={toMember?.user_id === profile?.id} />
-                  <div style={{ flex: 1, marginLeft: 4 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>
-                      {fromP?.display_name ?? fromP?.name ?? fromMember?.name ?? '…'} → {toP?.display_name ?? toP?.name ?? toMember?.name ?? '…'}
-                    </div>
-                    <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 1, fontFamily: FMONO }}>${debt.amount.toFixed(2)}</div>
-                  </div>
-                  {isMyDebt && (
-                    <button
-                      onClick={() => router.push(`/groups/${groupId}/settle`)}
-                      style={{ padding: '6px 14px', background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.pill, fontSize: 12, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}
-                    >
-                      Pay
-                    </button>
-                  )}
-                  {owedToMe && (
-                    <button style={{ padding: '6px 14px', background: T.surface, color: T.inkMuted, border: `1px solid ${T.lineStrong}`, borderRadius: T.r.pill, fontSize: 12, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>
-                      Remind
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Group action menu */}
-      <ActionSheet
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        title={group ? `${group.emoji} ${group.name}` : undefined}
-        items={[
-          {
-            id: 'add-member',
-            label: 'Add member',
-            icon: (
-              <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
-                <circle cx="8" cy="7" r="3" stroke={T.ink} strokeWidth="1.7"/>
-                <path d="M2 17c0-3.3 2.7-5 6-5" stroke={T.ink} strokeWidth="1.7" strokeLinecap="round"/>
-                <path d="M15 12v4M13 14h4" stroke={T.ink} strokeWidth="1.7" strokeLinecap="round"/>
-              </svg>
-            ),
-            onClick: () => setAddMemberOpen(true),
-          },
-          {
-            id: 'delete',
-            label: 'Delete group',
-            sublabel: "Permanent — can't be undone",
-            danger: true,
-            icon: (
-              <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
-                <path d="M4 6h12M8 6V4h4v2M7 6l1 10h4l1-10" stroke={T.coralInk} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            ),
-            onClick: () => setDeleteOpen(true),
-          },
-        ]}
-      />
-
-      {/* Delete group confirmation */}
-      <ModalOrSheet open={deleteOpen} onClose={() => setDeleteOpen(false)} title="Delete group">
-        <div style={{ padding: '8px 20px 44px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div>
-            <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 700, color: T.ink, marginBottom: 6 }}>
-              Delete {group?.name}?
+          /* ══ EMPTY STATE (19a) ══ */
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0 0', textAlign: 'center', gap: 10 }}>
+            <div style={{ width: 72, height: 72, borderRadius: T.r.xl, background: T.surface, border: `0.5px solid ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36, boxShadow: T.shadowSm }}>
+              {group.emoji}
             </div>
-            <div style={{ fontSize: 14, color: T.inkMuted, lineHeight: 1.5 }}>
-              This permanently deletes the group, all expenses, and all settlements. This cannot be undone.
+            <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: -0.3, color: T.ink }}>No expenses yet</div>
+            <div style={{ fontSize: 13, color: T.inkMuted, lineHeight: 1.55, maxWidth: 220 }}>
+              Add your first expense and it'll appear here, split across everyone.
             </div>
-          </div>
-
-          {/* Balance summary */}
-          {members.length > 0 && (
-            <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', border: `0.5px solid ${T.line}` }}>
+            <div style={{ width: '100%', background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', marginTop: 16, boxShadow: T.shadowSm }}>
               {members.map((m, i) => {
-                const p = (m as any).profile as Profile | undefined
-                const name = p?.display_name ?? p?.name ?? m.name ?? '…'
-                const bal = Math.round((net[m.id] ?? 0) * 100) / 100
+                const p     = (m as any).profile as Profile | undefined
+                const name  = p?.display_name ?? p?.name ?? m.name ?? '…'
                 const isYou = m.user_id === profile?.id
                 return (
-                  <div key={m.id} style={{
-                    display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px',
-                    borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none',
-                  }}>
-                    <Avatar profile={p} slot={slotFor(members, m.id)} size={32} isYou={isYou} />
-                    <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: T.ink }}>
-                      {isYou ? 'You' : name}
-                    </div>
-                    <div style={{
-                      fontFamily: FMONO, fontSize: 13, fontWeight: 600,
-                      color: Math.abs(bal) < 0.01 ? T.inkFaint : bal > 0 ? T.mintInk : T.coralInk,
-                    }}>
-                      {Math.abs(bal) < 0.01 ? 'Settled' : `${bal > 0 ? '+' : '−'}$${Math.abs(bal).toFixed(2)}`}
-                    </div>
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
+                    <Avatar profile={p} slot={i % 4 as 0 | 1 | 2 | 3} size={34} isYou={isYou} />
+                    <div style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: T.ink }}>{isYou ? 'You' : name}</div>
+                    <div style={{ fontSize: 13, color: T.inkFaint, fontFamily: FMONO }}>—</div>
                   </div>
                 )
               })}
             </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              onClick={() => setDeleteOpen(false)}
-              style={{ flex: 1, padding: '14px 0', background: T.surfaceAlt, color: T.inkMuted, border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 700, fontFamily: F, cursor: 'pointer' }}
-            >
-              Cancel
-            </button>
-            <button
-              onClick={async () => {
-                await deleteGroup.mutateAsync(groupId)
-                router.push('/groups')
-              }}
-              disabled={deleteGroup.isPending}
-              style={{ flex: 1, padding: '14px 0', background: T.coral, color: '#fff', border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 700, fontFamily: F, cursor: 'pointer', opacity: deleteGroup.isPending ? 0.6 : 1 }}
-            >
-              {deleteGroup.isPending ? 'Deleting…' : 'Delete group'}
-            </button>
           </div>
-        </div>
-      </ModalOrSheet>
 
-      {/* Add expense — Vaul sheet on mobile, modal on desktop */}
+        ) : (
+
+          /* ══ POPULATED STATE ══ */
+          <>
+
+            {/* ── Collapsible balance card (19b) ── */}
+            <div style={{ marginBottom: 20, background: T.surface, border: `0.5px solid ${T.line}`, boxShadow: T.shadowSm, borderRadius: T.r.lg, overflow: 'hidden' }}>
+              <button
+                onClick={() => hasBalance && setBalanceExpanded(o => !o)}
+                style={{ width: '100%', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: hasBalance ? 'pointer' : 'default', font: 'inherit', textAlign: 'left', padding: '16px', borderBottom: balanceExpanded ? `0.5px solid ${T.line}` : 'none' }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.55, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 7 }}>
+                    {Math.abs(myBal) < 0.01 ? 'All square' : netPositive ? 'Owed to you' : 'You owe'}
+                  </div>
+                  <div style={{ fontFamily: FH, fontSize: 30, fontWeight: 600, letterSpacing: -0.9, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk }}>
+                    {Math.abs(myBal) < 0.01 ? '—' : `$${Math.abs(myBal).toFixed(2)}`}
+                  </div>
+                  {hasBalance && (
+                    <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 5, fontWeight: 500 }}>
+                      {netPositive
+                        ? `from ${oweMeEntries.length} ${oweMeEntries.length === 1 ? 'person' : 'people'}`
+                        : `to ${IOweEntries.length} ${IOweEntries.length === 1 ? 'person' : 'people'}`}
+                    </div>
+                  )}
+                </div>
+                {hasBalance && (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: balanceExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.22s ease', opacity: 0.35, flexShrink: 0 }}>
+                    <path d="M3.5 6l4.5 4.5 4.5-4.5" stroke={T.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </button>
+
+              {balanceExpanded && (
+                <div>
+                  {oweMeEntries.map(([memberId, amount]) => {
+                    const m    = memberById[memberId]
+                    const p    = (m as any)?.profile as Profile | undefined
+                    const name = p?.display_name ?? p?.name ?? m?.name ?? '…'
+                    return (
+                      <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
+                        <Avatar profile={p} slot={slotFor(members, memberId)} size={30} />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{name.split(' ')[0]}</span>
+                          <span style={{ fontSize: 13, color: T.inkMuted }}> owes you </span>
+                          <span style={{ fontSize: 13.5, fontWeight: 700, color: T.mintInk, fontVariantNumeric: 'tabular-nums' }}>${amount.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {IOweEntries.map(([memberId, amount]) => {
+                    const m    = memberById[memberId]
+                    const p    = (m as any)?.profile as Profile | undefined
+                    const name = p?.display_name ?? p?.name ?? m?.name ?? '…'
+                    return (
+                      <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
+                        <Avatar profile={p} slot={slotFor(members, memberId)} size={30} />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>You owe {name.split(' ')[0]} </span>
+                          <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>${Math.abs(amount).toFixed(2)}</span>
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); router.push(`/groups/${groupId}/settle`) }}
+                          style={{ flexShrink: 0, border: `1.5px solid ${T.coralInk}`, cursor: 'pointer', font: 'inherit', padding: '6px 13px', borderRadius: 9, background: 'transparent', color: T.coralInk, fontSize: 12, fontWeight: 700, letterSpacing: -0.1 }}
+                        >
+                          Settle up
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* ── Expense feed (19c) ── */}
+            {dateOrder.map(date => (
+              <div key={date} style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, padding: '0 4px 9px' }}>{date}</div>
+                <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
+                  {byDate[date].map((item, i) => {
+
+                    if (item._type === 'expense') {
+                      const e          = item.data
+                      const payer      = memberById[e.paid_by]
+                      const payerP     = (payer as any)?.profile as Profile | undefined
+                      const payerName  = payerP?.display_name ?? payerP?.name ?? payer?.name ?? '…'
+                      const youPaid    = e.paid_by === myId
+                      const mySplit    = e.splits?.find((s: { group_member_id: string }) => s.group_member_id === myId)
+                      const myAmt      = youPaid
+                        ? (e.splits ?? []).filter((s: { group_member_id: string }) => s.group_member_id !== e.paid_by).reduce((sum: number, s: { owed_amount: number }) => sum + Number(s.owed_amount), 0)
+                        : (mySplit ? Number(mySplit.owed_amount) : 0)
+                      const myInvolved = youPaid || !!mySplit
+                      const edited     = e.updated_at && e.updated_at !== e.created_at
+
+                      return (
+                        <div
+                          key={e.id}
+                          onClick={() => setExpenseSheet(e)}
+                          style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12, borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none', cursor: 'pointer' }}
+                        >
+                          <div style={{ width: 40, height: 40, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, flexShrink: 0 }}>
+                            {e.category ?? '💸'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {e.description}{edited && <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 5 }}>(edited)</span>}
+                            </div>
+                            <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2 }}>
+                              {youPaid ? 'You paid' : `${payerName} paid`} · ${Number(e.amount).toFixed(2)}
+                            </div>
+                          </div>
+                          {myInvolved && myAmt > 0 && (
+                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                              <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: youPaid ? T.mintInk : T.coralInk }}>
+                                {youPaid ? '+' : '−'}${myAmt.toFixed(2)}
+                              </div>
+                              <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>your share</div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    }
+
+                    // settlement
+                    const s          = item.data
+                    const fromMember = memberById[s.from_member_id]
+                    const toMember   = memberById[s.to_member_id]
+                    const fromP      = (fromMember as any)?.profile as Profile | undefined
+                    const toP        = (toMember as any)?.profile as Profile | undefined
+                    const fromName   = fromP?.display_name ?? fromP?.name ?? fromMember?.name ?? '…'
+                    const toName     = toP?.display_name   ?? toP?.name   ?? toMember?.name   ?? '…'
+                    const youFrom    = s.from_member_id === myId
+                    const youTo      = s.to_member_id   === myId
+
+                    return (
+                      <div key={s.id} style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12, borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none', background: s.status === 'confirmed' ? T.mintSoft : 'transparent' }}>
+                        <div style={{ width: 40, height: 40, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                          {s.status === 'confirmed' ? '✓' : '⏳'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: s.status === 'confirmed' ? T.mintInk : T.ink }}>
+                            {youFrom ? 'You' : fromName} paid {youTo ? 'you' : toName}
+                          </div>
+                          <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2 }}>
+                            {s.status === 'pending' ? 'Pending confirmation' : 'Confirmed'}{s.note ? ` · ${s.note}` : ''}
+                          </div>
+                        </div>
+                        <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: s.status === 'confirmed' ? T.mintInk : T.ink, flexShrink: 0 }}>
+                          ${Number(s.amount).toFixed(2)}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+
+
+          </>
+        )}
+      </div>
+
+      {/* ── Floating Add expense CTA ── */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 16px 28px', pointerEvents: 'none' }}>
+        <button
+          onClick={() => setAddExpenseOpen(true)}
+          style={{ pointerEvents: 'auto', width: '100%', height: 54, borderRadius: T.r.lg, border: 0, cursor: 'pointer', background: T.sun, color: T.sunInk, fontFamily: FH, fontSize: 16.5, fontWeight: 600, letterSpacing: -0.2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: T.shadowFab }}
+        >
+          <span style={{ fontSize: 22, lineHeight: 1 }}>+</span> Add expense
+        </button>
+      </div>
+
+      {/* ── Add expense modal ── */}
       <ModalOrSheet
         open={addExpenseOpen}
         onClose={() => setAddExpenseOpen(false)}
@@ -480,97 +446,31 @@ export default function GroupDetailPage() {
         />
       </ModalOrSheet>
 
-      {/* Activity feed */}
-      <div style={{ marginTop: 4 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: T.inkMuted, marginBottom: 12 }}>
-          Activity
-        </div>
+      {/* ── Sheets (position: fixed — viewport-relative, no clipping risk) ── */}
+      <GroupActionMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        group={group}
+        onAddMember={() => setAddMemberOpen(true)}
+        onDeleteTap={() => setDeleteOpen(true)}
+      />
 
-        {feed.length === 0 && (
-          <div style={{ background: T.surface, borderRadius: T.r.lg, padding: '28px 20px', textAlign: 'center', color: T.inkMuted, fontSize: 13 }}>
-            No expenses yet — add one to get started.
-          </div>
-        )}
+      <DeleteGroupSheet
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        group={group}
+        expenses={expenses}
+        members={members}
+        groupId={groupId}
+      />
 
-        {Object.entries(byDate).map(([label, items]) => (
-          <div key={label} style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.inkFaint, marginBottom: 6, paddingLeft: 2 }}>{label}</div>
-            <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
-              {items.map((item, i) => {
-                const isLast = i === items.length - 1
-                const border = isLast ? 'none' : `1px solid ${T.line}`
+      <ExpenseActionSheet
+        expense={expenseSheet}
+        members={members}
+        groupId={groupId}
+        onClose={() => setExpenseSheet(null)}
+      />
 
-                if (item._type === 'expense') {
-                  const e = item.data
-                  const payer       = memberById[e.paid_by]
-                  const payerName   = payer?.profile?.display_name ?? payer?.name ?? '…'
-                  const youPaid     = e.paid_by === myId
-                  const mySplit     = e.splits?.find(s => s.group_member_id === myId)
-                  const myAmt       = youPaid
-                    ? (e.splits ?? []).filter(s => s.group_member_id !== e.paid_by).reduce((sum, s) => sum + Number(s.owed_amount), 0)
-                    : (mySplit ? Number(mySplit.owed_amount) : 0)
-                  const myInvolved  = youPaid || !!mySplit
-                  const edited      = e.updated_at && e.updated_at !== e.created_at
-
-                  return (
-                    <div key={e.id} style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', gap: 12, borderBottom: border }}>
-                      <div style={{ width: 38, height: 38, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-                        {e.category ?? '💸'}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {e.description}{edited && <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 5 }}>(edited)</span>}
-                        </div>
-                        <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 2 }}>
-                          {youPaid ? 'You paid' : `${payerName} paid`} · {(e.splits?.length ?? 0)} people
-                        </div>
-                      </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, fontFamily: FMONO, color: T.ink }}>
-                          ${Number(e.amount).toFixed(2)}
-                        </div>
-                        {myInvolved && myAmt > 0 && (
-                          <div style={{ fontSize: 11, fontWeight: 600, color: youPaid ? T.mintInk : T.coralInk, marginTop: 1 }}>
-                            {youPaid ? '+' : '−'}${myAmt.toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                }
-
-                // settlement
-                const s          = item.data
-                const fromMember  = memberById[s.from_member_id]
-                const toMember    = memberById[s.to_member_id]
-                const fromName    = fromMember?.profile?.display_name ?? fromMember?.name ?? '…'
-                const toName      = toMember?.profile?.display_name   ?? toMember?.name   ?? '…'
-                const youFrom     = s.from_member_id === myId
-                const youTo       = s.to_member_id   === myId
-
-                return (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', gap: 12, borderBottom: border, background: s.status === 'confirmed' ? T.mintSoft : 'transparent' }}>
-                    <div style={{ width: 38, height: 38, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                      {s.status === 'confirmed' ? '✓' : '⏳'}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: s.status === 'confirmed' ? T.mintInk : T.ink }}>
-                        {youFrom ? 'You' : fromName} paid {youTo ? 'you' : toName}
-                      </div>
-                      <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 2 }}>
-                        {s.status === 'pending' ? 'Pending confirmation' : 'Confirmed'}{s.note ? ` · ${s.note}` : ''}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, fontFamily: FMONO, color: s.status === 'confirmed' ? T.mintInk : T.ink, flexShrink: 0 }}>
-                      ${Number(s.amount).toFixed(2)}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }

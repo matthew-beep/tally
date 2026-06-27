@@ -284,7 +284,8 @@ function SettlementConfirmCard({ notification }: { notification: Notification })
   const s = notification.settlement
   if (!s) return null
 
-  const fromName = s.from_profile ? (s.from_profile.display_name ?? s.from_profile.name) : '…'
+  const fromP    = s.from_member?.profile
+  const fromName = fromP ? (fromP.display_name ?? fromP.name) : s.from_member?.name ?? '…'
 
   return (
     <Card style={{ padding: '14px' }}>

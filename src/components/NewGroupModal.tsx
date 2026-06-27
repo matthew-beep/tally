@@ -8,7 +8,7 @@ import { Btn } from '@/components/Btn'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
 import { useCreateGroup } from '@/queries/useGroups'
-import { addMembersToGroup, createGuestProfile } from '@/queries/useMembers'
+import { useCurrentProfile } from '@/queries/useProfile'
 import { useUIStore } from '@/store/ui'
 
 const EMOJIS = ['💸', '🏖️', '🍕', '✈️', '🏠', '🎉', '🛒', '🚗', '🍽️', '💪', '🎮', '❤️']
@@ -21,6 +21,7 @@ export function NewGroupModal() {
   const [emoji, setEmoji] = useState('💸')
   const [members, setMembers] = useState<MemberEntry[]>([])
   const createGroup = useCreateGroup()
+  const { data: profile } = useCurrentProfile()
 
   useEffect(() => {
     if (!open) {
@@ -38,17 +39,15 @@ export function NewGroupModal() {
   async function handleCreate() {
     if (!name.trim() || createGroup.isPending) return
     try {
-      const group = await createGroup.mutateAsync({ name: name.trim(), emoji })
-      if (members.length > 0) {
-        const ids: string[] = []
-        for (const entry of members) {
-          if (entry.type === 'user') ids.push(entry.profile.id)
-          else ids.push(await createGuestProfile(entry.name))
-        }
-        await addMembersToGroup(group.id, ids)
-      }
+      const creatorName = profile?.display_name ?? profile?.name ?? 'Unknown'
+      const mappedMembers = members.map(entry =>
+        entry.type === 'user'
+          ? { type: 'user' as const, profileId: entry.profile.id, name: entry.profile.display_name ?? entry.profile.name }
+          : { type: 'guest' as const, name: entry.name }
+      )
+      const { id } = await createGroup.mutateAsync({ name: name.trim(), emoji, creatorName, members: mappedMembers })
       setOpen(false)
-      router.push(`/groups/${group.id}`)
+      router.push(`/groups/${id}`)
     } catch {
       // keep modal open on error
     }

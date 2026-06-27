@@ -1,49 +1,11 @@
 # TODO
 
-## 0. Immediate — group members + expense refinement
-
-### 0a. Add members to existing group (BROKEN — blocks usage)
-- [ ] Create `POST /api/groups/members/add` route — handles real users (with name lookup) and guests (name only, `user_id = null`) in one batch insert. Same pattern as `/api/groups/create`.
-- [ ] Update `groups/[id]/page.tsx` add member flow to call the new route instead of `addMembersToGroup`/`createGuestProfile`
-- [ ] Remove `createGuestProfile` from `useMembers.ts` (no longer needed)
-- [ ] Update `addMembersToGroup` in `useMembers.ts` to pass `name` — or remove it entirely if the route replaces all usages
-
-### 0b. Remove members from group
-- [ ] UI — remove button on member row in group detail (visible to group creator only for now)
-- [ ] For real users: `UPDATE group_members SET status = 'left'` (preserves expense history)
-- [ ] For guests: hard delete the `group_members` row (no history to preserve, no account)
-- [ ] `useMembers.ts` — add `useRemoveGroupMember` mutation
-
-### 0c. Group settings screen
-- [ ] New route `/groups/[id]/settings` — gear icon in group header opens it
-- [ ] Member list with add + remove actions
-- [ ] Add member flow (real users + guests) via `POST /api/groups/members/add`
-- [ ] Remove member — `status: 'left'` for real users, hard delete for guests
-- [ ] Group rename + emoji change
-- [ ] Delete group (move from action menu)
-
-### 0d. Group expenses page refinement
-- [ ] Review layout, spacing, and information density on the expenses feed
-- [x] Payer display — confirm name renders correctly for real users and guests
-- [ ] Balance section — verify "who pays who" rows are accurate after schema change
-- [x] Activity feed date grouping — confirm headers render correctly
-- [x] Empty state when no expenses yet
-- [ ] Mobile layout review
-
-### 0e. Expense adding refinement
-- [x] Verify `paidById` initializes correctly when `profile` loads after `members`
-- [x] Confirm splits sum correctly with `group_member_id` keys
-- [ ] Test equal / exact / percentage split modes end to end
-- [x] Guest members should appear in paid-by chips and split lists
-
----
-
 ## 1. Supabase setup
 
 ### 1a. Create project & configure env
 - [x] Create project at supabase.com
 - [x] Copy `SUPABASE_URL` and `SUPABASE_ANON_KEY` into `.env.local`
-- [x] Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` (used by the invite decline API route)
+- [x] Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` (used by the public `/expense/[share_token]` page)
 
 ### 1b. Run database schema
 - [x] Core tables: `profiles`, `groups`, `group_members`, `expenses`, `expense_splits`, `settlements`, `notifications`
@@ -58,15 +20,18 @@
   - [x] `log_expense_edit` trigger
 
 ### 1c. Enable Google OAuth
-- [x] New Supabase project created — Google OAuth configured on fresh credentials
+- [ ] Supabase → Authentication → Providers → Google (suspended — credentials leaked, appeal pending)
+- [ ] Create OAuth app in Google Cloud Console, paste client ID + secret into Supabase
+- [ ] Set callback URL: `https://<your-project>.supabase.co/auth/v1/callback`
+- [ ] Add `http://localhost:3000` to allowed redirect URLs
 
 ---
 
 ## 2. Wire up auth
 
 - [x] **`src/app/login/LoginButton.tsx`** — email/password form implemented with dev auto-login button (dev-only, Google OAuth is the production auth path)
-- [x] **Google OAuth** — working on new project
-- [x] **`src/proxy.ts`** — protects all routes, redirects to onboarding if handle is null, carries `?redirect` through the onboarding hop so deep links survive sign-up
+- [ ] **Google OAuth** — restore `signInWithOAuth` once appeal is approved
+- [x] **`src/middleware.ts`** — created. Protects all routes, redirects to onboarding if handle is null, carries `?redirect` through the onboarding hop so deep links survive sign-up
 
 ---
 
@@ -76,32 +41,46 @@
 - [x] Home page — real global balances, groups panel, recent activity
 - [x] Sidebar — real groups list
 
+**Note:** These queries were written before `group_members.status` existed. They will include pending/left members once the schema migration runs. See §10 for the full status-filter audit — fix those before or alongside the §1b migration.
+
 ---
 
-## 4. Add member flow ✅
+## 4. Add member flow ⚠️ REOPENED — current implementation is wrong
+
+The flow was built before the `group_members.status` model was decided. Direct inserts without `status`/`invited_by` and no accept/decline flow are incorrect per CLAUDE.md.
+
+**What's wrong:**
+- `useAddGroupMember` (`src/queries/useMembers.ts:11`) — upserts without `status` or `invited_by`. Once migration runs, members land as `'pending'` with no `invited_by`, breaking the accept/decline flow.
+- `addMembersToGroup` (`src/queries/useMembers.ts:57`) — same issue, used during group creation for non-creator members.
+- `useCreateGroup` (`src/queries/useGroups.ts:92`) — inserts creator without `status: 'active'`. Once migration runs, the group creator will be pending in their own group — critical bug.
+- `useGroupMembers` (`src/queries/useGroups.ts:49`) — no status filter. Returns pending and left members as full members.
+- `useRecentCollaborators` (`src/queries/useMembers.ts:32,39`) — no status filter on either sub-query. Shows collaborators from left groups and pending members.
+- `src/app/invite/[token]/page.tsx:30` — upserts without `status: 'active'`. Invite-link joins must be immediately active, not pending.
+- No accept/decline flow exists anywhere.
+- No ⏳ pending badge in group member list.
 
 ### 4a. Schema migration (prerequisite — see §1b)
-- [x] Add `status` and `invited_by` to `group_members`
-- [x] Backfill existing rows: `UPDATE group_members SET status = 'active'`
+- [ ] Add `status` and `invited_by` to `group_members`
+- [ ] Backfill existing rows: `UPDATE group_members SET status = 'active'`
 
 ### 4b. Fix insert/upsert calls
-- [x] `useCreateGroup` (`useGroups.ts`) — `status: 'active'` on creator insert
-- [x] `useAddGroupMember` (`useMembers.ts`) — `status: 'pending'`, `invited_by` (current user's profile id)
-- [x] `addMembersToGroup` (`useMembers.ts`) — `status: 'pending'`, `invited_by`
-- [x] `invite/[token]/page.tsx` — upsert with `status: 'active'` (invite-link join = immediately active, no confirmation)
+- [x] `useCreateGroup` (`useGroups.ts:92`) — add `status: 'active'` to creator insert
+- [x] `useAddGroupMember` (`useMembers.ts:11`) — add `status: 'pending'`, `invited_by` (current user's profile id)
+- [x] `addMembersToGroup` (`useMembers.ts:57`) — add `status: 'pending'`, `invited_by`
+- [x] `invite/[token]/page.tsx:30` — upsert with `status: 'active'` (invite-link join = immediately active, no confirmation)
 
-### 4c. Fix read queries ✅ (see also §10)
-- [x] `useGroupMembers` — returns pending + active; pending shown with ⏳ badge (intentional — splits and balances include pending members)
-- [x] `useGroups` — `.eq('status', 'active')` so left/pending groups don't appear in user's list
-- [x] `useProfileGroups` — status filter applied
-- [x] `useRecentCollaborators` — `status = 'active'` on both sub-queries
-- [x] `useGlobalBalances` — both `group_members` queries filtered to `status = 'active'`
-- [x] `useRecentActivity` — memberships query filtered to `status = 'active'`
+### 4c. Fix read queries (see also §10)
+- [ ] `useGroupMembers` — add `.eq('status', 'active')` (show pending separately for organiser view, tagged ⏳)
+- [ ] `useGroups` — add `.eq('status', 'active')` so left/pending groups don't appear in list
+- [ ] `useProfileGroups` — add status filter
+- [ ] `useRecentCollaborators` — add `AND status = 'active'` to both sub-queries
+- [ ] `useGlobalBalances` — both `group_members` queries need `.eq('status', 'active')` (see §10)
+- [ ] `useRecentActivity` — memberships query needs `.eq('status', 'active')` (see §10)
 
-### 4d. Accept/decline flow ✅
-- [x] `useAcceptGroupInvite(groupId)` — UPDATE to `status: 'active'`; trigger fires `group_invite_accepted` to `invited_by`
-- [x] `useDeclineGroupInvite(groupId)` — API route (`/api/invite/decline`) uses service role to transfer splits to guest profile, DELETE pending row; trigger fires `group_invite_declined`
-- [x] Pending invites surface in Me page — group invite card with Accept / Decline
+### 4d. Accept/decline flow (not built yet)
+- [x] `useAcceptGroupInvite(groupId)` — `UPDATE group_members SET status = 'active'` where `group_id = X AND user_id = me`; trigger fires `group_invite_accepted` to `invited_by`
+- [x] `useDeclineGroupInvite(groupId)` — `DELETE` row where `group_id = X AND user_id = me AND status = 'pending'`; trigger fires `group_invite_declined` to `invited_by`
+- [x] Pending invites surface in Me page — show group invite card with Accept / Decline
 - [x] ⏳ Pending and 👤 Guest badges in group member list
 
 ### 4e. Invite link
@@ -113,7 +92,7 @@
 ## 5. Notifications ✅
 
 - [x] App-level notification writes removed from `useCreateSettlement`, `useConfirmSettlement`, `useDenySettlement`
-- [x] `fromUser` param removed from `useConfirmSettlement` and `useDenySettlement`
+- [x] `fromUser` param removed from `useConfirmSettlement` and `useDenySettlement` (was only needed for manual writes)
 - [x] All 6 notification triggers live in DB (deployed 2026-05-26 via migration)
 - [x] `invalidateQueries(['notifications'])` kept in confirm/deny hooks so TanStack refetches after trigger fires
 
@@ -121,135 +100,146 @@
 
 ## 6. Polish / small fixes
 
-- [x] **Display name editing** — `ProfileSettings` section on Me page: display name field + `HandleInput` for handle changes, single save button. `HandleInput` extracted as reusable component used by both Me page and onboarding.
+- [ ] **Display name editing** — Me page has no way to set `display_name`. Add an inline edit or simple form field.
 - [x] **Group detail back button** — navigates to `/groups`
-- [x] **Home page skeleton** — `HomeScreenSkeleton` shown while balances + activity load
-- [x] **Expense splits validation** — `RemainderCounter` in exact and percentage modes blocks save until balanced
+- [ ] **Home page layout** — currently uses a desktop multi-column layout (different from the DashboardPage wrapper used everywhere else); consider aligning it
+- [ ] **Expense splits sum validation** — in exact and percentage split mode, show a running total/remainder counter so the user knows if amounts are balanced before hitting save
 - [x] **Empty state for group detail** — shows "No expenses yet — add one to get started."
-- [x] **Add expense modal on desktop** — sheet modal (full-screen on mobile, centered card on desktop) opened inline; `/groups/[id]/add` redirects back to group detail
 
 ---
 
-## 7. Identity & handle system ✅
+## 7. Identity & handle system
+
+Full spec is now in CLAUDE.md (Auth section, Identity model, Member search sections).
 
 ### 7a. Database
-- [x] `handle TEXT UNIQUE` on `profiles` — in schema, type reflects `handle: string | null`
+- [ ] Add `handle TEXT UNIQUE` to `profiles` (in §1b migration list)
+- [ ] `handle_new_user` trigger already leaves handle NULL — no change needed
 
-### 7b. Onboarding screen ✅
-- [x] `src/app/onboarding/page.tsx` — name pre-filled, handle input with real-time availability check + suggestion chips + identity preview, Continue writes handle → redirects to home or `?redirect` URL
-- [x] `src/proxy.ts` — handle-null → `/onboarding` redirect, `?redirect` chain preserved
+### 7b. Onboarding screen
+- [ ] Create `src/app/onboarding/page.tsx` — name pre-filled (read-only), handle input with real-time availability check, Continue writes handle to DB → redirects to home or `?redirect` URL
+- [ ] Create `src/middleware.ts` (see §2) — includes handle-null → `/onboarding` redirect logic
 
 ### 7c. Email/password form (dev-only — do not ship)
-Dev convenience only. `LoginButton.tsx` gates the form behind `NODE_ENV === 'development'`. Will be removed before launch.
+The existing form is a dev convenience. Google OAuth is the production auth path. Do not add handle fields to it. It will be removed when Google OAuth is restored.
 
-### 7d. Search overhaul ✅
-- [x] `handle` already in `ProfileSnippet` type
-- [x] `useSearchProfiles` — three input modes: `@` prefix → handle fuzzy, 8-char alphanumeric → `add_code` exact, else → name + display_name + handle fuzzy
-- [x] `MemberCombobox` result rows show `@handle` below name
+### 7d. Search overhaul
+- [ ] Add `handle` to `ProfileSnippet` type (keep `add_code` — it's permanent for QR, never changes even if handle does)
+- [ ] Update `useSearchProfiles` — three input modes: `@` prefix → handle fuzzy, 8-char alphanumeric → `add_code` exact, else → name + handle fuzzy
+- [ ] Update `MemberCombobox` search result rows — show `@handle` alongside name and avatar
 
 ---
 
 ## 8. Dashboard balance cards
 
-- [x] **Simplify cards** — gross amounts per card (`grossOwedToMe` / `grossIOwe` in `useGlobalBalances`), not pairwise-netted
-- [x] **Balance invalidation** — `useAddExpense`, `useCreateSettlement`, `useConfirmSettlement`, `useDenySettlement` all invalidate `['global-balances']`
-- [x] **Expand button** — opens modal with full per-person breakdown (who owes what, across which groups)
+- [x] **Simplify cards** — single total number per card. "Owed to you" and "You owe" show gross amounts (not pairwise-netted) so both sides of a relationship are visible even when net balance swings negative. Computed via `grossOwedToMe` / `grossIOwe` in `useGlobalBalances`.
+- [x] **Balance invalidation** — `useAddExpense`, `useCreateSettlement`, `useConfirmSettlement`, `useDenySettlement` all now invalidate `['global-balances']` on success.
+- [ ] **Add expand button** — opens modal with full per-person breakdown (who owes what, across which groups)
 
 ---
 
-## 9. Split modes ✅
+## 9. Split modes
 
-- [x] `equal` — amount / member count, rounding remainder to first person. Member toggle (click to include/exclude).
-- [x] `exact` — $ input per member, % of total shown below name. RemainderCounter blocks save until balanced.
-- [x] `percentage` — % input per member, $ equivalent shown below name. RemainderCounter blocks save until 100%. `makePercentSplits` in `lib/splits.ts` handles rounding.
-- [ ] `itemized` (receipt scan) — Phase 3. Placeholder tab shown in add expense form.
+Four modes. Only `equal` is implemented. All four write to `expense_splits` — `split_type` determines how `owed_amount` is calculated before insert.
+
+- [x] `equal` — amount / member count, rounding remainder to first person
+- [ ] `exact` — each person's amount entered manually. Validation: sum must equal expense total before save.
+- [ ] `percentage` — each person assigned a %. Validation: must sum to 100. `owed_amount = (pct / 100) * total`. **Requires schema update: `'percentage'` added to `expenses.split_type` CHECK — in §1b migration list.**
+- [ ] `itemized` (receipt scan) — line items assigned to members, tax/tip distributed proportionally. Full spec in CLAUDE.md. Phase 3 (receipt scanning pre-fills this flow).
+
+UI rule for exact + percentage: show a running total/percentage-remaining counter in the form — user must see balance before saving.
 
 ---
 
-## 10. group_members status filter audit ✅
+## 10. group_members status filter audit ⚠️ Bug-waiting-to-happen
 
-All queries fixed. See §4c.
+Every `group_members` query missing `status = 'active'` will silently include pending and left members once the §1b migration runs. Fix these **before or alongside** the migration. Fix rule: any read from `group_members` must include `.eq('status', 'active')` unless it's explicitly showing pending invites.
 
-| File | Function | Status |
-|---|---|---|
-| `src/queries/useGroups.ts` | `useGroups` | ✅ |
-| `src/queries/useGroups.ts` | `useGroupMembers` | ✅ (returns pending+active; pending shown with badge) |
-| `src/queries/useGroups.ts` | `useProfileGroups` | ✅ |
-| `src/queries/useGroups.ts` | `useCreateGroup` | ✅ |
-| `src/queries/useGlobalBalances.ts` | `useGlobalBalances` | ✅ |
-| `src/queries/useGlobalBalances.ts` | `useRecentActivity` | ✅ |
-| `src/queries/useMembers.ts` | `useRecentCollaborators` | ✅ |
-| `src/app/invite/[token]/page.tsx` | InvitePage | ✅ |
+| File | Function | Line | Issue |
+|---|---|---|---|
+| `src/queries/useGroups.ts` | `useGroups` | 16 | ✅ Fixed |
+| `src/queries/useGroups.ts` | `useGroupMembers` | 49 | ✅ Fixed |
+| `src/queries/useGroups.ts` | `useProfileGroups` | 65 | ✅ Fixed |
+| `src/queries/useGroups.ts` | `useCreateGroup` | 92 | ✅ Fixed |
+| `src/queries/useGlobalBalances.ts` | `useGlobalBalances` | 25 | ✅ Fixed |
+| `src/queries/useGlobalBalances.ts` | `useGlobalBalances` | 45 | ✅ Fixed |
+| `src/queries/useGlobalBalances.ts` | `useRecentActivity` | 106 | ✅ Fixed |
+| `src/queries/useMembers.ts` | `useRecentCollaborators` | 32 | ✅ Fixed |
+| `src/queries/useMembers.ts` | `useRecentCollaborators` | 39 | ✅ Fixed |
+| `src/app/invite/[token]/page.tsx` | InvitePage | 30 | ✅ Fixed |
 
 ---
 
 ## 11. Hooks extraction
 
-Extract business logic out of fat components into `src/hooks/`. Goal: components contain only JSX, event wiring, and presentational UI state.
+Extract business logic out of fat components into `src/hooks/`. Goal: components contain only JSX, event wiring, and presentational UI state. Hooks contain queries, mutations, derived values, and form state.
 
 **Convention:**
 - Navigation via `onSuccess` callback — never import `next/navigation` inside a hook
 - Never write to `notifications` in a hook — DB triggers handle all notification inserts
 - Naming: `queries/` holds raw fetching hooks; `hooks/` composes them with local state
+- `category` in add-expense is `useState` seeded from `detectCategory`, not a pure derived value (user can override)
 
-**Extract these:**
+**Extract these — they have real form/interaction state worth isolating:**
+
+- [ ] `useAddExpense` — 9 `useState`, split-building logic, category override. Extract alongside §9 (split modes) since you'll be in that file anyway. Lives in `hooks/useAddExpense.ts`.
 - [ ] `useSettleUp` — pre-fill from debt simplification, amount/payee state, validation. Lives in `hooks/useSettleUp.ts`.
 - [ ] `useCreateGroup` — name/emoji form state + mutation. Lives in `hooks/useCreateGroup.ts`.
-- [ ] `useMemberSearch` — debounce, three input modes (@handle / add_code / fuzzy), query gating. Extract alongside §7d. Lives in `hooks/useMemberSearch.ts`.
+- [ ] `useMemberSearch` — debounce, three input modes (@handle / add_code / fuzzy), query gating. Extract alongside §7d (search overhaul). Lives in `hooks/useMemberSearch.ts`.
+
+**Write hooks-first for new flows (don't retrofit, just build correctly from the start):**
+- `useAcceptGroupInvite` / `useDeclineGroupInvite` — already listed in §4d
 
 **Skip — pure query composition, no second consumer yet:**
-- `useGroupDetail`, `useGroupsList`, `useHome` — call query hooks directly in the component. Add a screen hook only if a second consumer appears.
+- `useGroupDetail`, `useGroupsList`, `useHome` — call query hooks directly in the component, `useMemo` the derived values. Add a screen hook only if a second consumer appears.
 
 ---
 
-## 13. Add expense form polish
+## 13. Add members to existing group (BROKEN)
 
-- [ ] Center the amount display on mobile (the `$0.00` hero is left-aligned after recent changes)
-- [ ] End-to-end add expense flow — open sheet → enter amount → fill description → pick paid by → save → confirm expense appears in feed
-- [ ] Keypad "00" behavior — verify it doesn't overflow the max cents guard
-- [ ] Date field — confirm it appears and saves correctly on mobile (currently desktop-only tile)
+The group detail page still calls `addMembersToGroup` and `createGuestProfile` directly from the client. No `/api/groups/members/add` route exists. Same fix as group creation — move to a server route.
 
----
-
-## 14. Mobile group view
-
-- [ ] Group detail page on mobile — layout, spacing, scroll behavior
-- [ ] Balance hero on mobile — size and legibility at small viewport
-- [ ] Who pays who rows — confirm tap targets and avatar sizing
-- [ ] Activity feed — date group headers, item density on small screens
-- [ ] Add member inline — `MemberCombobox` keyboard + chip layout on mobile
+- [ ] Create `POST /api/groups/members/add` — same pattern as `/api/groups/create`: real users get `status: 'pending'` + `invited_by`, guests get `user_id: null` + `status: 'active'`
+- [ ] Update `handleAddMembers` in `groups/[id]/page.tsx` to call the new route
+- [ ] Remove `createGuestProfile` from `useMembers.ts` — no longer needed
+- [ ] Remove `addMembersToGroup` from `useMembers.ts` — no longer needed once route is wired up
 
 ---
 
-## 15. Mobile nav redesign
+## 14. Settle up — fix bugs + redesign
 
-- [ ] Tab bar — review active state, icon set, label sizing, and safe area handling
-- [ ] FAB — placement, tap target, and whether it still belongs as a standalone button vs. inline in the tab bar
-- [ ] Active route highlighting — ensure current tab is visually distinct across all four routes
+**Current bugs in `groups/[id]/settle/page.tsx`:**
+- `memberIds = members.map(m => m.user_id)` — should be `m.id`. Passes auth user IDs into `calcNetBalances` which expects group member IDs. Breaks balance and debt simplification entirely.
+- `createSettlement.mutateAsync({ from_user, to_user, ... })` — field names changed to `from_member_id` / `to_member_id`. Active TS error.
+- `profileById` keyed by `user_id` but debt transfers use member IDs — name/avatar lookups return undefined.
+- `myTransfer` compares `profile.id` (profile UUID) against transfer IDs (member UUIDs) — never matches.
 
----
+**Redesign:** Page uses old `DashboardPage` + `Card` wrapper. Needs to match the new inline layout (same pattern as group detail).
 
-## 16. Group creation redesign
-
-- [ ] `/groups/new` page — review layout on mobile (currently full-page form, may need bottom-sheet treatment)
-- [ ] Emoji picker — evaluate current implementation, consider a scrollable grid sheet
-- [ ] Member search inline — `MemberCombobox` flow on mobile; confirm keyboard dismiss + chip layout work at small sizes
-- [ ] Success state — after creation, confirm redirect to group detail feels right
-
----
-
-## 17. Wire up group creation route ✅
-
-- [x] `POST /api/groups/create` is written but not wired up — `useCreateGroup` in `useGroups.ts` and `handleCreate` in `groups/new/page.tsx` still use the old direct Supabase client flow
-- [x] Update `useCreateGroup` to call the route instead of direct inserts
-- [x] Update `handleCreate` to pass the full member list (real users + guests) to the hook
-- [x] Remove `createGuestProfile` and `addMembersToGroup` calls from `new/page.tsx`
+- [ ] Fix `memberIds` → `members.map(m => m.id)`
+- [ ] Fix `createSettlement` call → `from_member_id` / `to_member_id`
+- [ ] Fix `profileById` → key by `m.id`, look up member name/avatar from `GroupMember` directly
+- [ ] Fix `myTransfer` → compare against `myMember.id`
+- [ ] Redesign page layout to match design system — drop `DashboardPage`/`Card`, inline layout
 
 ---
 
-## 18. Auth session sharing
+## 15. Group detail page redesign (§19) — remaining items
 
-- [ ] Each TanStack Query calls `getAuthUser` independently → multiple `supabase.auth.getSession()` calls fire simultaneously on `refetchOnWindowFocus`, hitting Supabase auth rate limit. Fix: share a single session across all queries via a context or a dedicated `useSession` hook that all other queries consume.
+- [ ] **19e** — Convert `ExpenseActionSheet` from floating action sheet cards to Vaul bottom sheet (`Sheet` component) for consistent drag-to-dismiss and spring animation
+- [ ] **19f** — Group action menu: wire "Group settings" and "Leave group" once those flows exist
+
+---
+
+## 16. App-level data prefetch
+
+**Problem:** `useGlobalBalances` only runs on the home page. Pages reached via deep link don't have cross-group balance data, causing avatar taps on the group detail balance card to have no data to show.
+
+**Fix:** `GlobalDataPrefetch` client component mounted in root layout — calls `useCurrentProfile` + `useGlobalBalances` once on app load. TanStack caches the result; all pages read from cache.
+
+- [ ] Create `src/components/GlobalDataPrefetch.tsx`
+- [ ] Mount inside `<Providers>` in `src/app/layout.tsx`
+- [ ] Wire avatar tap in group detail balance card expanded rows → `PersonProfileSheet` using cached global balances data
 
 ---
 
@@ -257,7 +247,7 @@ Extract business logic out of fat components into `src/hooks/`. Goal: components
 
 - Public expense share page (`/expense/[share_token]`) — skeleton exists, needs service-role fetch
 - QR code / add by code (`/add/[add_code]`) — skeleton exists
-- Display name editing — Me page (tracked in §6)
+- Profile display name settings (tracked in §6)
 - Guest profiles
 - Group settings page (creator as admin, toggleable member permissions)
 - Expense editing + history view (`expense_history` table is in schema, UI deferred)
@@ -265,7 +255,3 @@ Extract business logic out of fat components into `src/hooks/`. Goal: components
 - Cross-group "Settle all with [person]" (see CLAUDE.md architecture section)
 - Full activity feed tab (`/activity` page)
 - Receipt scanning / OCR (`/api/ocr`) — Phase 3, wires into `itemized` split type
-- **Currency options** — `currency_code` already stored per expense. UI: currency picker in add expense form, display symbol alongside amounts.
-- **Payment method on settlements** — `payment_method` column on `settlements`, picker in settle up form, shown in activity feed.
-- **Comments on expenses** — `expense_comments` table, thread UI per expense.
-- **Recurring expenses** — `repeat_interval` on expenses, Edge Function cron to auto-create next instance.

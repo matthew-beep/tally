@@ -105,7 +105,7 @@ export function useCreateGroup() {
       name: string
       emoji: string
       creatorName: string
-      members: { type: 'user'; profileId: string; name: string }[] | { type: 'guest'; name: string }[]
+      members: ({ type: 'user'; profileId: string; name: string } | { type: 'guest'; name: string })[]
     }) => {
       const res = await fetch('/api/groups/create', {
         method: 'POST',
