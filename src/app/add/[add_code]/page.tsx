@@ -6,7 +6,6 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { useProfileByAddCode } from '@/queries/useProfile'
 import { useGroups, useProfileGroups } from '@/queries/useGroups'
-import { addMembersToGroup } from '@/queries/useMembers'
 
 export default function AddByCodePage() {
   const params = useParams()
@@ -29,7 +28,15 @@ export default function AddByCodePage() {
     if (!target || !effectiveSelected) return
     setAdding(true)
     try {
-      await addMembersToGroup(effectiveSelected, [target.id])
+      const res = await fetch('/api/groups/members/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId: effectiveSelected,
+          members: [{ type: 'user', profileId: target.id, name: target.display_name ?? target.name }],
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to add member')
       router.push(`/groups/${effectiveSelected}`)
     } finally {
       setAdding(false)

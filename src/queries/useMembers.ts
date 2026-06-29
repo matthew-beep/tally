@@ -119,30 +119,3 @@ export function useRecentCollaborators() {
   })
 }
 
-// Standalone (non-hook) version used during group creation where there's no
-// React component to call a hook from. Fetches its own session to keep the
-// public API at two args — callers don't need to thread invited_by through.
-export async function addMembersToGroup(groupId: string, profileIds: string[]) {
-  if (!profileIds.length) return
-  const supabase = createClient()
-  const user = await getAuthUser(supabase)
-  const rows = profileIds.map(user_id => ({
-    group_id: groupId,
-    user_id,
-    status: 'pending',
-    invited_by: user.id,
-  }))
-  const { error } = await supabase.from('group_members').upsert(rows)
-  if (error) throw error
-}
-
-export async function createGuestProfile(name: string): Promise<string> {
-  const supabase = createClient()
-  const { data, error } = await supabase
-    .from('profiles')
-    .insert({ name, status: 'guest' })
-    .select('id')
-    .single()
-  if (error) throw error
-  return data.id as string
-}

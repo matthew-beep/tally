@@ -211,3 +211,75 @@
   font-size: 18px;
   line-height: 1;
 }
+
+/* ── Group detail page ── */
+
+.group-detail-header {
+  border-bottom: 0.5px solid var(--tally-line);
+}
+
+.group-detail-header-actions {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.group-detail-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.group-detail-left {
+  display: none;
+  flex-direction: column;
+}
+
+.group-detail-right {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 16px 100px;
+}
+
+@media (min-width: 1024px) {
+  .group-detail-header-actions {
+    display: flex;
+  }
+
+  .group-detail-body {
+    flex-direction: row;
+  }
+
+  .group-detail-left {
+    display: flex;
+    width: 300px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 24px 20px;
+    border-right: 0.5px solid var(--tally-line);
+  }
+
+  .group-detail-right {
+    padding: 20px 28px 32px;
+  }
+
+  .group-detail-mobile-strip {
+    display: none !important;
+  }
+
+  .group-detail-balance-card {
+    display: none !important;
+  }
+
+  .group-detail-empty-members {
+    display: none !important;
+  }
+
+  .group-detail-fab {
+    display: none !important;
+  }
+}

@@ -26,16 +26,17 @@ export default function SettleUpPage() {
   const { data: profile } = useCurrentProfile()
   const createSettlement = useCreateSettlement(groupId)
 
-  const memberIds = members.map(m => m.user_id)
+  const memberIds = members.map(m => m.id)
   const net = calcNetBalances(groupId, expenses, settlements, memberIds)
   const simplified = simplifyDebts(net)
 
   const profileById = Object.fromEntries(
-    members.map(m => [m.user_id, (m as any).profile as Profile])
+    members.map(m => [m.id, (m as any).profile as Profile])
   )
 
-  const myTransfer = profile
-    ? simplified.find(t => t.from === profile.id || t.to === profile.id)
+  const myMember = members.find(m => m.user_id === profile?.id)
+  const myTransfer = myMember
+    ? simplified.find(t => t.from === myMember.id || t.to === myMember.id)
     : null
 
   const [fromUser, setFromUser] = useState('')
@@ -45,7 +46,7 @@ export default function SettleUpPage() {
   const [settledDate, setSettledDate] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    if (myTransfer && profile) {
+    if (myTransfer) {
       setFromUser(myTransfer.from)
       setToUser(myTransfer.to)
       setAmount(myTransfer.amount.toFixed(2))
@@ -77,12 +78,12 @@ export default function SettleUpPage() {
           {/* From → To visual */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '16px', background: T.bg, borderRadius: T.r.md }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <Avatar profile={fromProfile} slot={members.findIndex(m => m.user_id === fromUser) as 0 | 1 | 2 | 3} size={44} isYou={fromProfile?.id === profile?.id} />
+              <Avatar profile={fromProfile} slot={Math.max(0, members.findIndex(m => m.id === fromUser)) % 4 as 0 | 1 | 2 | 3} size={44} isYou={fromProfile?.id === profile?.id} />
               <div style={{ fontSize: 12, fontWeight: 600 }}>{fromProfile ? (fromProfile.display_name ?? fromProfile.name) : '…'}</div>
             </div>
             <div style={{ fontSize: 22, color: T.inkFaint }}>→</div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <Avatar profile={toProfile} slot={members.findIndex(m => m.user_id === toUser) as 0 | 1 | 2 | 3} size={44} isYou={toProfile?.id === profile?.id} />
+              <Avatar profile={toProfile} slot={Math.max(0, members.findIndex(m => m.id === toUser)) % 4 as 0 | 1 | 2 | 3} size={44} isYou={toProfile?.id === profile?.id} />
               <div style={{ fontSize: 12, fontWeight: 600 }}>{toProfile ? (toProfile.display_name ?? toProfile.name) : '…'}</div>
             </div>
           </div>

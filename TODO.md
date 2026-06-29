@@ -195,31 +195,29 @@ Extract business logic out of fat components into `src/hooks/`. Goal: components
 
 ---
 
-## 13. Add members to existing group (BROKEN)
+## 13. Add members to existing group ✅
 
-The group detail page still calls `addMembersToGroup` and `createGuestProfile` directly from the client. No `/api/groups/members/add` route exists. Same fix as group creation — move to a server route.
-
-- [ ] Create `POST /api/groups/members/add` — same pattern as `/api/groups/create`: real users get `status: 'pending'` + `invited_by`, guests get `user_id: null` + `status: 'active'`
-- [ ] Update `handleAddMembers` in `groups/[id]/page.tsx` to call the new route
-- [ ] Remove `createGuestProfile` from `useMembers.ts` — no longer needed
-- [ ] Remove `addMembersToGroup` from `useMembers.ts` — no longer needed once route is wired up
+- [x] Created `POST /api/groups/members/add` — real users get `status: 'pending'` + `invited_by` + `name`; guests use service role to insert profile then `user_id: null` + `status: 'active'`
+- [x] Updated `handleAddMembers` in `groups/[id]/page.tsx` to call the new route
+- [x] Also updated `add/[add_code]/page.tsx` — was using `addMembersToGroup` directly
+- [x] Removed `createGuestProfile` and `addMembersToGroup` from `useMembers.ts`
 
 ---
 
 ## 14. Settle up — fix bugs + redesign
 
 **Current bugs in `groups/[id]/settle/page.tsx`:**
-- `memberIds = members.map(m => m.user_id)` — should be `m.id`. Passes auth user IDs into `calcNetBalances` which expects group member IDs. Breaks balance and debt simplification entirely.
-- `createSettlement.mutateAsync({ from_user, to_user, ... })` — field names changed to `from_member_id` / `to_member_id`. Active TS error.
-- `profileById` keyed by `user_id` but debt transfers use member IDs — name/avatar lookups return undefined.
-- `myTransfer` compares `profile.id` (profile UUID) against transfer IDs (member UUIDs) — never matches.
+- ~~`memberIds = members.map(m => m.user_id)` — should be `m.id`.~~ ✅ Fixed
+- ~~`createSettlement.mutateAsync({ from_user, to_user, ... })` — field names changed to `from_member_id` / `to_member_id`.~~ ✅ Already correct
+- ~~`profileById` keyed by `user_id` but debt transfers use member IDs — name/avatar lookups return undefined.~~ ✅ Fixed
+- ~~`myTransfer` compares `profile.id` (profile UUID) against transfer IDs (member UUIDs) — never matches.~~ ✅ Fixed (uses `myMember.id` now, same pattern as group detail page)
 
 **Redesign:** Page uses old `DashboardPage` + `Card` wrapper. Needs to match the new inline layout (same pattern as group detail).
 
-- [ ] Fix `memberIds` → `members.map(m => m.id)`
-- [ ] Fix `createSettlement` call → `from_member_id` / `to_member_id`
-- [ ] Fix `profileById` → key by `m.id`, look up member name/avatar from `GroupMember` directly
-- [ ] Fix `myTransfer` → compare against `myMember.id`
+- [x] Fix `memberIds` → `members.map(m => m.id)`
+- [x] Fix `createSettlement` call → `from_member_id` / `to_member_id` (was already correct)
+- [x] Fix `profileById` → key by `m.id`
+- [x] Fix `myTransfer` → compare against `myMember.id`
 - [ ] Redesign page layout to match design system — drop `DashboardPage`/`Card`, inline layout
 
 ---
@@ -240,6 +238,120 @@ The group detail page still calls `addMembersToGroup` and `createGuestProfile` d
 - [ ] Create `src/components/GlobalDataPrefetch.tsx`
 - [ ] Mount inside `<Providers>` in `src/app/layout.tsx`
 - [ ] Wire avatar tap in group detail balance card expanded rows → `PersonProfileSheet` using cached global balances data
+
+---
+
+## 17. Desktop / web layout styling
+
+The app is mobile-first but runs in a browser on desktop. The sidebar + tab bar responsive split is already wired (`dashboard.css`, breakpoint at 1023px).
+
+- [x] **Sidebar on wide viewports** — shown at ≥1024px, hidden below
+- [x] **Tab bar visibility** — hidden at ≥1024px, shown below; tab bar is a real flex child (not position:fixed) so safe-area insets work correctly
+- [ ] **Two-column group detail** — on wide viewports, balance hero + member list on the left, activity feed on the right
+- [ ] **Modal sizing** — modals and sheets render full-screen on mobile; on desktop they should be centered, max-width ~480px, with a backdrop overlay
+
+---
+
+## 18. Home dashboard — 3-column desktop layout
+
+**Reference:** `home-overview.jsx` (3-column layout spec).
+
+The home page on desktop (≥1024px) should be a 3-column layout inside `.home-scroll`. On mobile it stays the current single-column. All data is already available — this is a layout + rendering task.
+
+**Column breakdown:**
+
+| Column | Width | Content |
+|---|---|---|
+| Left | 340px fixed | Balance hero (compact) + groups mini-list |
+| Middle | flex: 1 | Recent Activity feed |
+| Right | 285px fixed | Up Next — per-person owe/owed action cards |
+
+**Left column — Balance + Groups**
+- Balance hero: same data as current `HeroCard` but compressed — net amount at 52px, owed/owing as two grid tiles below
+- Groups mini-list: `useGroups` (already used in `Sidebar`). Each row: emoji icon, name, member count, net balance badge (mint/coral/faint). "+ New" button top-right → `router.push('/groups/new')`. "View all groups →" link at bottom.
+- Divider between balance hero and groups list
+
+**Middle column — Recent Activity**
+- `useRecentActivity` already exists in `src/queries/useGlobalBalances.ts` — returns last 15 expenses with payer name, group name/emoji
+- Each row: category emoji icon, description (truncated), group name · payer, net impact (+ or −, mint/coral), relative time
+- "View all activity →" link at bottom → `/activity`
+
+**Right column — Up Next**
+- Per-person cards built from `buildPeopleFlow` (already in `page.tsx`)
+- **You owe [name]** card: coral tint background, amount in coral, "Settle up" button → `/groups/[groupId]/settle`
+- **[Name] owes you** card: neutral background, amount in mint, "Remind" button (no-op for now, Phase 2)
+- Each card shows the group context below the name (e.g. "Apartment 4B")
+- If multiple groups with same person, show largest balance group; person can tap to see breakdown
+- Empty state: "All square" with checkmark — no outstanding balances
+- "View all settlements →" link at bottom
+
+**Topbar changes (desktop only)**
+- Replace greeting text with "Overview" label (simpler, no time-of-day)
+- Add search pill (non-functional placeholder for now, or links to `/groups`) — hidden on mobile via CSS
+- Keep "+ Add expense" / "New group" button and avatar
+
+**Implementation notes:**
+- Add `.home-desktop-columns` wrapper div with `display: flex; gap: 0; overflow: hidden` inside `.home-scroll` — at ≥1024px apply 3-column widths; at <1024px stack as single column
+- Left and right columns get `overflow-y: auto` independently; middle column gets `flex: 1; overflow-y: auto`
+- `useRecentActivity` is called in `HomePage` alongside `useGlobalBalances` — both use the same `enabled` guard
+- Right column reuses `buildPeopleFlow` result already computed — no new data fetching needed
+
+---
+
+## 19. Group detail — 2-column desktop layout
+
+**Reference:** `group-page-overview.jsx` (2-column layout spec).
+
+The group detail page on desktop (≥1024px) should be a 2-column layout. On mobile it stays the current single-column with collapsible balance card and floating FAB. All data is already computed in the page — this is a layout reorganization task.
+
+**Column breakdown:**
+
+| Column | Width | Content |
+|---|---|---|
+| Left | 340px fixed | Position hero + Suggested Payments + Members list |
+| Right | flex: 1 | Expenses + settlements feed |
+
+**Top bar changes (desktop only)**
+- Current header: back arrow + emoji/name + ··· menu button
+- Desktop: add "Settle up" (outlined) and "+ Add expense" (filled) as proper buttons in the header row, right-aligned
+- Subtitle line gains "Created [date]" from `group.created_at`
+- Floating FAB (`position: absolute`) hidden at ≥1024px via CSS — actions are in the header instead
+
+**Left column — Your Position**
+- Always expanded on desktop (not collapsible like the mobile card)
+- Label: "Owed to you" / "You owe" / "All square" (same logic as current)
+- Amount: 52px Bricolage, coral or mint, `toFixed(2)` — matches the hero style from the home reference
+- Subtitle: "You owe this group" / "This group owes you" / nothing
+
+**Left column — Suggested Payments**
+- Call `simplifyDebts(net)` — already computed as part of the page's balance math
+- Filter to transfers that involve `myId` as from or to
+- Each row: avatar (from) → arrow → avatar (to), name label, amount in coral/mint
+- "i" info tooltip explaining this is the minimum-transfer algorithm result
+- If no transfers involving me, hide section entirely
+
+**Left column — Members**
+- Full member list replacing the current overlapping avatar strip
+- Each row: avatar, first name, `@handle` (from `m.profile.handle`, shown in `inkFaint` mono), individual net balance (from `net[m.id]`, coral/mint/faint)
+- Balance label: "+ $X.XX" (mint) / "− $X.XX" (coral) / "$0.00" (faint)
+- "+ Add member" as a button at the bottom of the list, not a header link
+
+**Right column — Expenses feed**
+- Same expense + settlement rows as current (month-grouped is fine, or switch to flat with a sort toggle matching the reference)
+- Remove the bottom padding-for-FAB (`padding: '0 16px 100px'`) on desktop — right column scrolls independently with `overflow-y: auto`
+- Each expense row: same data as current, but payer avatar shown inline on the right (already there in current rows; just make it visible on desktop width)
+
+**CSS approach**
+- Add `.group-detail-body` wrapper around the 2-column area
+- At ≥1024px: `display: flex; overflow: hidden` — left col fixed 340px with border-right, right col flex:1 with independent scroll
+- At <1024px: single column, existing mobile layout unchanged
+- Add `.group-detail-fab` class to the floating FAB button — `display: none` at ≥1024px
+
+**Implementation notes:**
+- `net` is already keyed by `group_members.id` — use `net[m.id]` directly for member balance display
+- `simplifyDebts(net)` is not currently called on the group page (only `pairwiseNets` is computed); add the call alongside the existing balance math
+- Member `@handle` is already fetched via `useGroupMembers` → `profiles!group_members_user_id_fkey` select — just render `m.profile?.handle`
+- The add member inline combobox currently lives in the scrollable body; on desktop move it into the left column below the members list
 
 ---
 
