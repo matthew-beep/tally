@@ -329,7 +329,7 @@ a {
     height: 95dvh;
     display: flex !important;
     flex-direction: column !important;
-    background: var(--tally-bg) !important;
+    background: var(--tally-surface) !important;
     border-radius: 20px 20px 0 0 !important;
   }
 }
@@ -341,7 +341,7 @@ a {
   flex: 1;
   min-height: 0;
   height: 100%;
-  background: var(--tally-bg);
+  background: var(--tally-surface);
   color: var(--tally-ink);
   font-family: var(--font-ui), "Plus Jakarta Sans", system-ui, sans-serif;
 }
@@ -396,7 +396,7 @@ a {
 .add-expense-mobile-footer {
   flex-shrink: 0;
   padding: 10px 14px 28px;
-  background: linear-gradient(to top, var(--tally-bg) 70%, transparent);
+  background: linear-gradient(to top, var(--tally-surface) 70%, transparent);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -452,7 +452,7 @@ a {
   .add-expense-panel-root {
     display: flex !important;
     flex-direction: column !important;
-    background: var(--tally-bg) !important;
+    background: var(--tally-surface) !important;
     max-height: min(92dvh, 800px) !important;
   }
 }

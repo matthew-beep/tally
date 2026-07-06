@@ -7,8 +7,7 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
-import { ModalOrSheet } from '@/components/modal'
-import { AddExpenseForm } from '@/components/AddExpenseForm'
+import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { DeleteGroupSheet } from '@/components/DeleteGroupSheet'
 import { GroupActionMenu } from '@/components/GroupActionMenu'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
@@ -577,23 +576,11 @@ export default function GroupDetailPage() {
         </button>
       </div>
 
-      {/* ── Add expense modal ── */}
-      <ModalOrSheet
+      <AddExpenseSheet
         open={addExpenseOpen}
         onClose={() => setAddExpenseOpen(false)}
-        title={group ? `Add expense — ${group.name}` : 'Add expense'}
-        maxWidth={740}
-        sheetContentClassName="add-expense-panel-root"
-        sheetContentStyle={{ padding: 0, overflow: 'hidden' }}
-        panelClassName="add-expense-panel-root"
-        panelStyle={{ background: T.bg, padding: 0, overflow: 'hidden' }}
-      >
-        <AddExpenseForm
-          groupId={groupId}
-          onSuccess={() => setAddExpenseOpen(false)}
-          onCancel={() => setAddExpenseOpen(false)}
-        />
-      </ModalOrSheet>
+        groupId={groupId}
+      />
 
       {/* ── Sheets ── */}
       <GroupActionMenu
