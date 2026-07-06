@@ -22,7 +22,6 @@ function initials(profile: Pick<Profile, 'name' | 'display_name'>): string {
 
 export function Avatar({ profile, slot = 0, size = 36, isYou = false }: AvatarProps) {
   const colors = AVATAR_SLOTS[slot % AVATAR_SLOTS.length]
-
   if (profile?.avatar_url && isYou) {
     return (
       <Image

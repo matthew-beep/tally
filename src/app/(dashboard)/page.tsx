@@ -9,6 +9,7 @@ import { useCurrentProfile } from '@/queries/useProfile'
 import { useGlobalBalances } from '@/queries/useGlobalBalances'
 import { PersonProfileSheet } from '@/components/home/PersonProfileSheet'
 import { BalanceSheet } from '@/components/home/BalanceSheet'
+import { avatarProfile } from '@/lib/memberDisplay'
 import type { Profile } from '@/types'
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -209,7 +210,7 @@ function PersonCard({
         onClick={e => { e.stopPropagation(); onAvatarTap() }}
         style={{ flexShrink: 0, cursor: 'pointer' }}
       >
-        <Avatar profile={person.profile ?? { name: person.name, display_name: null, avatar_url: null }} slot={person.slot} size={44} />
+        <Avatar profile={avatarProfile({ name: person.name, profile: person.profile })} slot={person.slot} size={44} />
       </div>
 
       {/* Name + group hint */}

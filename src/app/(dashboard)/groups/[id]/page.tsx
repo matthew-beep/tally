@@ -16,7 +16,8 @@ import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { calcNetBalances, simplifyDebts } from '@/lib/balance'
-import type { Profile, Expense, Settlement } from '@/types'
+import { avatarProfile, displayName } from '@/lib/memberDisplay'
+import type { GroupMember, Expense, Settlement } from '@/types'
 
 function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
   const idx = members.findIndex(m => m.id === id)
@@ -77,8 +78,8 @@ export default function GroupDetailPage() {
   const { data: settlements = []                        } = useSettlements(groupId)
   const { data: profile                                 } = useCurrentProfile()
 
-  const memberById: Record<string, typeof members[0]> = Object.fromEntries(
-    members.map(m => [m.id, m])
+  const memberById: Record<string, GroupMember> = Object.fromEntries(
+    members.map(m => [m.id, m as GroupMember])
   )
 
   const memberIds   = members.map(m => m.id)
@@ -246,7 +247,7 @@ export default function GroupDetailPage() {
         <div style={{ display: 'flex' }}>
           {members.map((m, i) => (
             <div key={m.id} style={{ marginLeft: i > 0 ? -8 : 0, zIndex: members.length - i, width: 26, height: 26, borderRadius: '50%', border: `2px solid ${T.bg}`, flexShrink: 0, overflow: 'hidden' }}>
-              <Avatar profile={(m as any).profile} slot={i % 4 as 0 | 1 | 2 | 3} size={22} isYou={m.user_id === profile?.id} />
+              <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={22} isYou={m.user_id === profile?.id} />
             </div>
           ))}
         </div>
@@ -314,18 +315,16 @@ export default function GroupDetailPage() {
                 {myTransfers.map((t, i) => {
                   const fromM    = memberById[t.from]
                   const toM      = memberById[t.to]
-                  const fromP    = (fromM as any)?.profile as Profile | undefined
-                  const toP      = (toM as any)?.profile as Profile | undefined
-                  const fromName = fromP?.display_name ?? fromP?.name ?? fromM?.name ?? '…'
-                  const toName   = toP?.display_name   ?? toP?.name   ?? toM?.name   ?? '…'
+                  const fromName = fromM ? displayName(fromM) : '…'
+                  const toName   = toM ? displayName(toM) : '…'
                   const isFromMe = t.from === myId
                   return (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <Avatar profile={fromP} slot={slotFor(members, t.from)} size={28} isYou={isFromMe} />
+                      <Avatar profile={fromM ? avatarProfile(fromM) : undefined} slot={slotFor(members, t.from)} size={28} isYou={isFromMe} />
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
                         <path d="M5 12h14M14 7l5 5-5 5" stroke={T.inkMuted} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                      <Avatar profile={toP} slot={slotFor(members, t.to)} size={28} isYou={t.to === myId} />
+                      <Avatar profile={toM ? avatarProfile(toM) : undefined} slot={slotFor(members, t.to)} size={28} isYou={t.to === myId} />
                       <span style={{ fontSize: 13, color: T.inkMuted, flex: 1, marginLeft: 2 }}>
                         {isFromMe ? 'You' : fromName.split(' ')[0]} → {t.to === myId ? 'you' : toName.split(' ')[0]}
                       </span>
@@ -345,8 +344,7 @@ export default function GroupDetailPage() {
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 8 }}>Members</div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {members.map((m, i) => {
-                const p        = (m as any).profile as Profile | undefined
-                const name     = p?.display_name ?? p?.name ?? m.name ?? '…'
+                const name     = displayName(m)
                 const isYou    = m.user_id === profile?.id
                 const bal      = net[m.id] ?? 0
                 const balColor = Math.abs(bal) < 0.01 ? T.inkFaint : bal > 0 ? T.mintInk : T.coralInk
@@ -355,10 +353,10 @@ export default function GroupDetailPage() {
                   : `${bal > 0 ? '+' : '−'}$${Math.abs(bal).toFixed(2)}`
                 return (
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', borderRadius: T.r.md }}>
-                    <Avatar profile={p} slot={i % 4 as 0 | 1 | 2 | 3} size={32} isYou={isYou} />
+                    <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={32} isYou={isYou} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 700, color: T.ink, lineHeight: 1.2 }}>{isYou ? 'You' : name.split(' ')[0]}</div>
-                      {p?.handle && <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, marginTop: 1 }}>@{p.handle}</div>}
+                      {m.profile?.handle && <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, marginTop: 1 }}>@{m.profile.handle}</div>}
                     </div>
                     <div style={{ fontFamily: FH, fontSize: 13.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0, color: balColor }}>
                       {balStr}
@@ -390,12 +388,11 @@ export default function GroupDetailPage() {
               {/* Member preview — mobile only; desktop has left column */}
               <div className="group-detail-empty-members" style={{ width: '100%', background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', marginTop: 16, boxShadow: T.shadowSm }}>
                 {members.map((m, i) => {
-                  const p     = (m as any).profile as Profile | undefined
-                  const name  = p?.display_name ?? p?.name ?? m.name ?? '…'
+                  const name  = displayName(m)
                   const isYou = m.user_id === profile?.id
                   return (
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
-                      <Avatar profile={p} slot={i % 4 as 0 | 1 | 2 | 3} size={34} isYou={isYou} />
+                      <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={34} isYou={isYou} />
                       <div style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: T.ink }}>{isYou ? 'You' : name}</div>
                       <div style={{ fontSize: 13, color: T.inkFaint, fontFamily: FMONO }}>—</div>
                     </div>
@@ -441,11 +438,10 @@ export default function GroupDetailPage() {
                   <div>
                     {oweMeEntries.map(([memberId, amount]) => {
                       const m    = memberById[memberId]
-                      const p    = (m as any)?.profile as Profile | undefined
-                      const name = p?.display_name ?? p?.name ?? m?.name ?? '…'
+                      const name = m ? displayName(m) : '…'
                       return (
                         <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
-                          <Avatar profile={p} slot={slotFor(members, memberId)} size={30} />
+                          <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, memberId)} size={30} />
                           <div style={{ flex: 1 }}>
                             <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{name.split(' ')[0]}</span>
                             <span style={{ fontSize: 13, color: T.inkMuted }}> owes you </span>
@@ -456,11 +452,10 @@ export default function GroupDetailPage() {
                     })}
                     {IOweEntries.map(([memberId, amount]) => {
                       const m    = memberById[memberId]
-                      const p    = (m as any)?.profile as Profile | undefined
-                      const name = p?.display_name ?? p?.name ?? m?.name ?? '…'
+                      const name = m ? displayName(m) : '…'
                       return (
                         <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
-                          <Avatar profile={p} slot={slotFor(members, memberId)} size={30} />
+                          <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, memberId)} size={30} />
                           <div style={{ flex: 1 }}>
                             <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>You owe {name.split(' ')[0]} </span>
                             <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>${Math.abs(amount).toFixed(2)}</span>
@@ -488,8 +483,7 @@ export default function GroupDetailPage() {
                       if (item._type === 'expense') {
                         const e          = item.data
                         const payer      = memberById[e.paid_by]
-                        const payerP     = (payer as any)?.profile as Profile | undefined
-                        const payerName  = payerP?.display_name ?? payerP?.name ?? payer?.name ?? '…'
+                        const payerName  = payer ? displayName(payer) : '…'
                         const youPaid    = e.paid_by === myId
                         const mySplit    = e.splits?.find((s: { group_member_id: string }) => s.group_member_id === myId)
                         const myAmt      = youPaid
@@ -531,10 +525,8 @@ export default function GroupDetailPage() {
                       const s          = item.data
                       const fromMember = memberById[s.from_member_id]
                       const toMember   = memberById[s.to_member_id]
-                      const fromP      = (fromMember as any)?.profile as Profile | undefined
-                      const toP        = (toMember as any)?.profile as Profile | undefined
-                      const fromName   = fromP?.display_name ?? fromP?.name ?? fromMember?.name ?? '…'
-                      const toName     = toP?.display_name   ?? toP?.name   ?? toMember?.name   ?? '…'
+                      const fromName   = fromMember ? displayName(fromMember) : '…'
+                      const toName     = toMember ? displayName(toMember) : '…'
                       const youFrom    = s.from_member_id === myId
                       const youTo      = s.to_member_id   === myId
 

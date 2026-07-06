@@ -20,17 +20,17 @@
   - [x] `log_expense_edit` trigger
 
 ### 1c. Enable Google OAuth
-- [ ] Supabase → Authentication → Providers → Google (suspended — credentials leaked, appeal pending)
-- [ ] Create OAuth app in Google Cloud Console, paste client ID + secret into Supabase
-- [ ] Set callback URL: `https://<your-project>.supabase.co/auth/v1/callback`
-- [ ] Add `http://localhost:3000` to allowed redirect URLs
+- [x] Supabase → Authentication → Providers → Google
+- [x] Create OAuth app in Google Cloud Console, paste client ID + secret into Supabase
+- [x] Set callback URL: `https://<your-project>.supabase.co/auth/v1/callback`
+- [x] Add `http://localhost:3000` to allowed redirect URLs
 
 ---
 
 ## 2. Wire up auth
 
 - [x] **`src/app/login/LoginButton.tsx`** — email/password form implemented with dev auto-login button (dev-only, Google OAuth is the production auth path)
-- [ ] **Google OAuth** — restore `signInWithOAuth` once appeal is approved
+- [x] **Google OAuth** — `signInWithOAuth` restored
 - [x] **`src/middleware.ts`** — created. Protects all routes, redirects to onboarding if handle is null, carries `?redirect` through the onboarding hop so deep links survive sign-up
 
 ---
@@ -103,7 +103,7 @@ The flow was built before the `group_members.status` model was decided. Direct i
 - [ ] **Display name editing** — Me page has no way to set `display_name`. Add an inline edit or simple form field.
 - [x] **Group detail back button** — navigates to `/groups`
 - [ ] **Home page layout** — currently uses a desktop multi-column layout (different from the DashboardPage wrapper used everywhere else); consider aligning it
-- [ ] **Expense splits sum validation** — in exact and percentage split mode, show a running total/remainder counter so the user knows if amounts are balanced before hitting save
+- [x] **Expense splits sum validation** — in exact and percentage split mode, show a running total/remainder counter so the user knows if amounts are balanced before hitting save
 - [x] **Empty state for group detail** — shows "No expenses yet — add one to get started."
 
 ---
@@ -113,20 +113,20 @@ The flow was built before the `group_members.status` model was decided. Direct i
 Full spec is now in CLAUDE.md (Auth section, Identity model, Member search sections).
 
 ### 7a. Database
-- [ ] Add `handle TEXT UNIQUE` to `profiles` (in §1b migration list)
-- [ ] `handle_new_user` trigger already leaves handle NULL — no change needed
+- [x] Add `handle TEXT UNIQUE` to `profiles` (in §1b migration list)
+- [x] `handle_new_user` trigger already leaves handle NULL — no change needed
 
 ### 7b. Onboarding screen
-- [ ] Create `src/app/onboarding/page.tsx` — name pre-filled (read-only), handle input with real-time availability check, Continue writes handle to DB → redirects to home or `?redirect` URL
-- [ ] Create `src/middleware.ts` (see §2) — includes handle-null → `/onboarding` redirect logic
+- [x] Create `src/app/onboarding/page.tsx` — name pre-filled (read-only), handle input with real-time availability check, Continue writes handle to DB → redirects to home or `?redirect` URL
+- [x] Create `src/middleware.ts` (see §2) — includes handle-null → `/onboarding` redirect logic
 
 ### 7c. Email/password form (dev-only — do not ship)
 The existing form is a dev convenience. Google OAuth is the production auth path. Do not add handle fields to it. It will be removed when Google OAuth is restored.
 
 ### 7d. Search overhaul
-- [ ] Add `handle` to `ProfileSnippet` type (keep `add_code` — it's permanent for QR, never changes even if handle does)
-- [ ] Update `useSearchProfiles` — three input modes: `@` prefix → handle fuzzy, 8-char alphanumeric → `add_code` exact, else → name + handle fuzzy
-- [ ] Update `MemberCombobox` search result rows — show `@handle` alongside name and avatar
+- [x] Add `handle` to `ProfileSnippet` type (keep `add_code` — it's permanent for QR, never changes even if handle does)
+- [x] Update `useSearchProfiles` — three input modes: `@` prefix → handle fuzzy, 8-char alphanumeric → `add_code` exact, else → name + handle fuzzy
+- [x] Update `MemberCombobox` search result rows — show `@handle` alongside name and avatar
 
 ---
 
@@ -143,8 +143,8 @@ The existing form is a dev convenience. Google OAuth is the production auth path
 Four modes. Only `equal` is implemented. All four write to `expense_splits` — `split_type` determines how `owed_amount` is calculated before insert.
 
 - [x] `equal` — amount / member count, rounding remainder to first person
-- [ ] `exact` — each person's amount entered manually. Validation: sum must equal expense total before save.
-- [ ] `percentage` — each person assigned a %. Validation: must sum to 100. `owed_amount = (pct / 100) * total`. **Requires schema update: `'percentage'` added to `expenses.split_type` CHECK — in §1b migration list.**
+- [x] `exact` — each person's amount entered manually. Validation: sum must equal expense total before save.
+- [x] `percentage` — each person assigned a %. Validation: must sum to 100. `owed_amount = (pct / 100) * total`. **Requires schema update: `'percentage'` added to `expenses.split_type` CHECK — in §1b migration list.**
 - [ ] `itemized` (receipt scan) — line items assigned to members, tax/tip distributed proportionally. Full spec in CLAUDE.md. Phase 3 (receipt scanning pre-fills this flow).
 
 UI rule for exact + percentage: show a running total/percentage-remaining counter in the form — user must see balance before saving.
@@ -218,7 +218,7 @@ Extract business logic out of fat components into `src/hooks/`. Goal: components
 - [x] Fix `createSettlement` call → `from_member_id` / `to_member_id` (was already correct)
 - [x] Fix `profileById` → key by `m.id`
 - [x] Fix `myTransfer` → compare against `myMember.id`
-- [ ] Redesign page layout to match design system — drop `DashboardPage`/`Card`, inline layout
+- [x] Redesign page layout to match design system — drop `DashboardPage`/`Card`, inline layout
 
 ---
 
@@ -355,14 +355,40 @@ The group detail page on desktop (≥1024px) should be a 2-column layout. On mob
 
 ---
 
+## 20. Expense editing
+
+Any active group member can edit any expense. The `expense_history` table and `log_expense_edit` trigger are already in the schema — every edit snapshots the previous state automatically.
+
+- [ ] **Edit entry point** — long-press / swipe or ··· menu on an expense row opens `ExpenseActionSheet` with an Edit option
+- [ ] **Edit form** — reuse `AddExpenseForm` pre-filled with existing expense data (description, amount, paid_by, split_type, splits, category, expense_date). On save: UPDATE expense + DELETE + re-INSERT expense_splits
+- [ ] **"(edited)" label** — activity feed rows where `updated_at != created_at` show a subtle "(edited)" tag
+- [ ] **Edit history drawer** — tap "(edited)" to open a sheet listing previous snapshots from `expense_history` (edited_by name, date, old amount/description)
+- [ ] **Delete** — soft delete via `deleted_at = now()`. Confirm dialog. Excluded from all balance calculations immediately.
+
+---
+
+## 21. Group settings
+
+Creator (`created_by`) is the admin. Phase 2 adds a settings page at `/groups/[id]/settings`.
+
+- [ ] **Route** — `src/app/(dashboard)/groups/[id]/settings/page.tsx`
+- [ ] **Rename group** — edit name + emoji picker, UPDATE groups SET name, emoji
+- [ ] **Invite link** — display current `invite_token` link + copy button + regenerate option (UPDATE groups SET invite_token = new token)
+- [ ] **Member management** — list all active + pending members; admin can remove any member (UPDATE status = 'left'); pending invites can be cancelled (DELETE row)
+- [ ] **Leave group** — any non-admin member can leave: UPDATE group_members SET status = 'left'. Warn if they have an outstanding balance.
+- [ ] **Delete group** — admin only, with confirmation. Only allowed if all balances are $0.00. Cascades via ON DELETE CASCADE.
+- [ ] **Wire "Group settings" nav item** — `GroupActionMenu` currently has a placeholder; link it to `/groups/[id]/settings`
+
+---
+
 ## 12. Later (Phase 2+, don't build yet)
 
 - Public expense share page (`/expense/[share_token]`) — skeleton exists, needs service-role fetch
 - QR code / add by code (`/add/[add_code]`) — skeleton exists
 - Profile display name settings (tracked in §6)
 - Guest profiles
-- Group settings page (creator as admin, toggleable member permissions)
-- Expense editing + history view (`expense_history` table is in schema, UI deferred)
+- Group settings page — see §21
+- Expense editing + history view — see §20
 - Leave group flow (`status: 'left'` is in schema, UI deferred)
 - Cross-group "Settle all with [person]" (see CLAUDE.md architecture section)
 - Full activity feed tab (`/activity` page)

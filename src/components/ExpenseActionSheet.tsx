@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
+import { avatarProfile, displayName } from '@/lib/memberDisplay'
 import { useBodyScrollLock } from '@/components/modal/useBodyScrollLock'
 import { useDeleteExpense } from '@/queries/useExpenses'
-import type { Expense, GroupMember, Profile } from '@/types'
+import type { Expense, GroupMember } from '@/types'
 
 interface Props {
   expense: Expense | null
@@ -37,8 +38,7 @@ export function ExpenseActionSheet({ expense, members, groupId, onClose }: Props
 
   const memberById: Record<string, GroupMember> = Object.fromEntries(members.map(m => [m.id, m]))
   const payer     = memberById[expense.paid_by]
-  const payerP    = payer?.profile as Profile | undefined
-  const payerName = payerP?.display_name ?? payerP?.name ?? payer?.name ?? '…'
+  const payerName = payer ? displayName(payer) : '…'
 
   async function handleDelete() {
     await deleteExpense.mutateAsync(expense!.id)
@@ -80,11 +80,10 @@ export function ExpenseActionSheet({ expense, members, groupId, onClose }: Props
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {expense.splits.map(split => {
                   const m    = memberById[split.group_member_id]
-                  const p    = m?.profile as Profile | undefined
-                  const name = p?.display_name ?? p?.name ?? m?.name ?? '…'
+                  const name = m ? displayName(m) : '…'
                   return (
                     <div key={split.group_member_id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: T.surfaceAlt, borderRadius: T.r.pill, padding: '4px 10px 4px 5px' }}>
-                      <Avatar profile={p} slot={slotFor(members, split.group_member_id)} size={22} />
+                      <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, split.group_member_id)} size={22} />
                       <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{name.split(' ')[0]}</span>
                       <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: FMONO }}>${Number(split.owed_amount).toFixed(2)}</span>
                     </div>

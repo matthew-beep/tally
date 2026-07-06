@@ -8,6 +8,7 @@ import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
 import { SuggestedMembers } from '@/components/SuggestedMembers'
 import { useCreateGroup } from '@/queries/useGroups'
+import { avatarProfile } from '@/lib/memberDisplay'
 import { useRecentCollaborators } from '@/queries/useMembers'
 import { useCurrentProfile, useSearchProfiles } from '@/queries/useProfile'
 import type { ProfileSnippet } from '@/queries/useProfile'
@@ -18,14 +19,14 @@ const EMOJIS = ['💸', '🏖️', '🍕', '✈️', '🏠', '🎉', '🛒', '�
 
 // ── Desktop-only components ────────────────────────────────────────────────
 
-type MemberRowAvatarProfile = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code' | 'handle'>
+type MemberAvatarProfile = Pick<Profile, 'name' | 'display_name' | 'avatar_url'>
 
 function MemberRow({
-  displayName, handle, avatarProfile, slot, isYou, isLast, onRemove,
+  displayName, handle, avatarProfile: avatarSrc, slot, isYou, isLast, onRemove,
 }: {
   displayName: string
   handle?: string | null
-  avatarProfile: MemberRowAvatarProfile
+  avatarProfile: MemberAvatarProfile
   slot: 0 | 1 | 2 | 3
   isYou?: boolean
   isLast: boolean
@@ -37,7 +38,7 @@ function MemberRow({
       padding: '12px 18px',
       borderBottom: isLast ? 'none' : `0.5px solid ${T.line}`,
     }}>
-      <Avatar profile={avatarProfile} slot={slot} size={40} isYou={isYou} />
+      <Avatar profile={avatarSrc} slot={slot} size={40} isYou={isYou} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {isYou ? 'You' : displayName}
@@ -676,7 +677,7 @@ export default function NewGroupPage() {
                   <MemberRow
                     key={entry.tempId}
                     displayName={entry.name}
-                    avatarProfile={{ id: entry.tempId, name: entry.name, display_name: null, avatar_url: null, add_code: null, handle: null }}
+                    avatarProfile={avatarProfile({ name: entry.name })}
                     slot={(i + 1) % 4 as 0 | 1 | 2 | 3}
                     isLast={isLast}
                     onRemove={() => setMembers(prev => prev.filter((_, j) => j !== i))}
@@ -732,16 +733,17 @@ export default function NewGroupPage() {
                       <Avatar profile={profile} slot={0} size={22} isYou />
                     </div>
                   )}
-                  {members.slice(0, 4).map((entry, i) => {
-                    const fakeProfile = entry.type === 'guest'
-                      ? { id: entry.tempId, name: entry.name, display_name: null, avatar_url: null, add_code: null }
-                      : entry.profile
-                    return (
+                  {members.slice(0, 4).map((entry, i) => (
                       <div key={i} style={{ marginLeft: -7, zIndex: 9 - i }}>
-                        <Avatar profile={fakeProfile} slot={(i + 1) % 4 as 0 | 1 | 2 | 3} size={22} />
+                        <Avatar
+                          profile={entry.type === 'guest'
+                            ? avatarProfile({ name: entry.name })
+                            : avatarProfile({ name: entry.profile.name, profile: entry.profile })}
+                          slot={(i + 1) % 4 as 0 | 1 | 2 | 3}
+                          size={22}
+                        />
                       </div>
-                    )
-                  })}
+                  ))}
                   {members.length > 4 && (
                     <div style={{
                       marginLeft: -7, width: 22, height: 22, borderRadius: '50%',
