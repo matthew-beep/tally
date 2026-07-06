@@ -393,3 +393,5 @@ Creator (`created_by`) is the admin. Phase 2 adds a settings page at `/groups/[i
 - Cross-group "Settle all with [person]" (see CLAUDE.md architecture section)
 - Full activity feed tab (`/activity` page)
 - Receipt scanning / OCR (`/api/ocr`) — Phase 3, wires into `itemized` split type
+- Expense reactions (emoji react on an expense row, e.g. 😂/👍)
+- Group leaderboards (e.g. who's paid the most / owes the most within a group)
