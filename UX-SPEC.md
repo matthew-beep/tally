@@ -21,31 +21,19 @@ A shared expense ledger that calculates the minimum transfers to zero everyone o
 
 ## Visual Language
 
-### Colour Palette
+### Colour, typography, tokens
 
-| Token | Hex | Usage |
-|---|---|---|
-| `bg` | `#EBE5D8` | App background |
-| `surface` | `#F5F0E8` | Cards, inputs, raised elements |
-| `ink` | `#1F1A14` | Primary text, filled buttons |
-| `inkMuted` | `rgba(31,26,20,0.52)` | Secondary text, labels |
-| `inkFaint` | `rgba(31,26,20,0.28)` | Placeholder, disabled text |
-| `line` | `rgba(31,26,20,0.07)` | Subtle separators |
-| `lineStrong` | `rgba(31,26,20,0.16)` | Input borders, stronger dividers |
-| **Sun** | `#F2C144` | Brand accent, logo mark, "You" avatar, info highlights |
-| **Mint** | `#2DB97A` | Positive balances, "you're owed", success states, settlements |
-| **Coral** | `#EF6144` | Negative balances, "you owe", destructive actions, errors |
-| **Lavender** | `#9179EF` | 4th-member avatar — no semantic meaning, purely visual variety |
+The design system is specified in [`tally-style-guide.md`](./tally-style-guide.md)
+and implemented as CSS variables in `src/app/globals.css` (light + dark), consumed
+through the `T` object in `src/design/tokens.ts`. Semantics in brief:
 
-Each accent colour has three values: base, soft background (e.g. `mintBg: #D3F5E5`), and dark ink (e.g. `mintInk: #0A5C35`).
-
-### Typography
-
-**Bricolage Grotesque** — display face. Used for: app name, screen titles, monetary amounts, avatar initials. Weight 600–800.
-
-**Plus Jakarta Sans** — UI face. Used for: labels, body copy, buttons, input text, section headings. Weight 400–700.
-
-Monospace amounts (e.g. balance deltas in activity feeds) use **JetBrains Mono**.
+- **Sun** `#F2C144` — brand accent, "You" avatar, primary CTA
+- **Mint** — positive balances, "you're owed", success, settlements
+- **Coral** — negative balances, "you owe", destructive actions
+- **Lavender** — 4th avatar slot; visual variety only
+- **Bricolage Grotesque** — display: titles, monetary amounts, avatar initials
+- **Plus Jakarta Sans** — UI: labels, body, buttons
+- **JetBrains Mono** — tabular: cents, balance deltas, metadata
 
 ### Member Avatars
 
@@ -96,9 +84,13 @@ Group detail → [Settle up] → Settle up form → [Record payment] → Zero ba
 Six screens cover the entire v1 app. Expense Detail ships in Phase 2.
 
 ### Groups List
-*Phase 1 · Home screen*
+*Phase 1 — `/groups`*
 
-Entry: app launch, back from any group.
+> As built, the app launches to a dedicated **Home** dashboard (`/`) with the
+> cross-group balance hero, groups panel, and recent activity; the groups list
+> is its own tab. The elements below are split across those two screens.
+
+Entry: Groups tab, back from any group.
 Exit: Group detail, Create group.
 
 **Purpose:** Net balance across all groups at a glance, with a card per group showing that group's balance.
@@ -170,29 +162,30 @@ Exit: Group detail (on save or cancel).
 Entry: `+ New group` from groups list.
 Exit: Group detail (empty state).
 
-**Purpose:** Spin up a new group. Emoji picker + name. You're added as member 1 automatically — member invites happen after creation.
+**Purpose:** Spin up a new group. Emoji picker + name. You're added as member 1 automatically, and members can be added inline before saving — searched users join as pending invites, free-text names become guests.
 
 **Key elements:**
 - Emoji picker (12 options in a grid)
 - Group name field
-- Info note: "invite others after creating"
+- Member combobox — search by @handle / name / add code, or add a guest by name
 - Create CTA (disabled until name is non-empty)
 
 ---
 
-### Expense Detail
-*Phase 2*
+### Expense Actions
+*Built as a bottom sheet, not a separate screen*
 
 Entry: tap an expense row in group detail.
-Exit: Group detail.
+Exit: back to group detail.
 
-**Purpose:** Full breakdown of one expense. Read-only for most users, editable by the creator.
+**Purpose:** Full breakdown of one expense plus edit/delete. **Any active group
+member** can edit any expense — every edit is snapshotted to `expense_history`
+by a DB trigger.
 
 **Key elements:**
-- Paid by, date, description
-- Per-person split breakdown
-- Edit button (creator only)
-- Delete (creator only — requires confirm dialog)
+- Paid by, amount, description + per-person split chips
+- Edit — drawer for amount / description / payer (split membership read-only; splits rescale proportionally)
+- Delete — confirmation sheet ("balances for N people will be recalculated"), then soft delete
 
 ---
 
@@ -282,7 +275,7 @@ Used in Add Expense for "Paid by" and per-member inclusion toggles.
 Always includes the avatar for recognition without reading text.
 
 ### Card
-Surface background `#F5F0E8`, `borderRadius 18px`, warm box shadow (light mode only — no heavy border). Section heads inside cards: 10px uppercase, `inkMuted`, 0.5px warm separator. Row padding: 12px 16px, 0.5px warm row separator, `surfaceHov` on hover.
+Surface background (`T.surface`), `borderRadius 18px`, warm box shadow (light mode only — no heavy border). Section heads inside cards: 10px uppercase, `inkMuted`, 0.5px warm separator. Row padding: 12px 16px, 0.5px warm row separator, `surfaceHov` on hover.
 
 ### Input — Text and Amount Variants
 

@@ -13,7 +13,7 @@ A free expense-splitting app. Groups of people log shared costs, the app tracks 
 | **Next.js 16+ (App Router)** | File-based routing, proxy auth, API routes. Deploys natively to Vercel. |
 | **Zustand** | Lightweight client state (active group, open modals) |
 | **TanStack Query** | Server state — fetch, cache, optimistic updates, auto-refetch on invalidation |
-| **Tailwind v4 + design tokens** | Tally design system (T object + CSS variables wired into Tailwind) |
+| **Design tokens (CSS variables + inline styles)** | `T` object in `src/design/tokens.ts` reads CSS vars from `globals.css` (light + dark). No CSS framework. |
 
 ### Backend
 | Tool | Why |
@@ -59,12 +59,10 @@ The minimum loop: create a group, add a friend, split an expense, see who owes w
 - [x] Record a settlement (pre-fills with outstanding balance)
 - [x] Settlement confirmation — pending ⏳ → confirmed ✓ or denied ✗
 - [x] In-app notifications (Me tab) with confirm/deny actions
-- [x] Notification bell polling every 30s (active tab only)
 
 **User discovery**
 - [x] QR code / add by code (`/add/:add_code`) — add a user to a group by scanning their code
 - [x] Member search — three modes: @handle, add_code exact match, name fuzzy
-- [x] Public share view (`/expense/:share_token`) — no auth required
 
 **Milestone**: ✅ Full loop works end to end.
 
@@ -75,22 +73,24 @@ The minimum loop: create a group, add a friend, split an expense, see who owes w
 Everything needed for real day-to-day use.
 
 **Expenses**
-- [ ] Exact split — manually set each person's share
-- [ ] Expense edit — any member can edit, audit trail written to `expense_history`
-- [ ] Expense delete — soft delete, show "(deleted)" in activity feed
+- [x] Exact split — manually set each person's share (percentage split also shipped)
+- [x] Expense edit — any member can edit amount/description/payer via bottom-sheet drawer; audit trail written to `expense_history` by trigger
+- [x] Expense delete — soft delete with confirmation sheet (deleted expenses drop out of feed and balances)
+- [ ] Edit history viewer — surface `expense_history` snapshots from the expense sheet
 
 **Groups**
 - [ ] Group settings page — rename group, change emoji, leave group
 - [ ] "Former member" display for users who left (balance history preserved)
-- [ ] Fix founding member flow — `addMembersToGroup` currently inserts with `status: 'pending'` (the DB default), triggering invite notifications immediately. Members added during group creation should be inserted with `status: 'active'` so no notification fires. The pending/notification flow should only apply when adding someone to an existing group. Also fix `invited_by` — it is never set, so accept/decline notifications back to the inviter are silently dropped.
+- [x] Guest members — add by name only (`group_members` row with `user_id NULL`), during creation or later (claim flow still Phase 4)
 
 **Activity**
-- [ ] Activity tab — full cross-group feed with confirmation requests pinned at top
+- [x] Activity tab — full cross-group feed (confirmation requests live on the Me tab)
 - [ ] "(edited)" label on expenses where `updated_at != created_at`
 
 **Notifications**
-- [ ] Group invite notifications — accept/decline pending membership from Me tab
-- [ ] Unread count badge on bell icon
+- [x] Group invite notifications — accept/decline pending membership from Me tab
+- [ ] Unread count badge + 30s poll on nav bell
+- [ ] Public share view (`/expense/:share_token`) — skeleton exists, needs service-role fetch
 
 **Milestone**: Use this for a real trip and trust it completely.
 
@@ -115,7 +115,7 @@ Where Tally pulls ahead of free Splitwise.
 
 ## Phase 4 — Polish
 
-- [ ] Guest profiles — add someone by name only, no account required
+- [ ] Guest claim flow — guests already exist (name-only member rows); claiming links a real account to the seat
   - Organiser marks guest as paid directly (no confirmation flow)
   - Claim paths: auto via email match, manual link, claim token URL
 - [ ] Multi-currency display
@@ -147,7 +147,8 @@ No separate quick-split data model. "Split a bill" silently creates a group and 
 ```sql
 CREATE POLICY "group members only" ON expenses
   USING (group_id IN (
-    SELECT group_id FROM group_members WHERE user_id = auth.uid()
+    SELECT group_id FROM group_members
+    WHERE user_id = auth.uid() AND status = 'active'
   ));
 ```
-Same pattern on `expense_splits`, `settlements`, `expense_items`, `expense_item_assignments`.
+Same pattern on `expense_splits` and `settlements` (see `docs/schema.md` for the deployed policies and two RLS fixes).

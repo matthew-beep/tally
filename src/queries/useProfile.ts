@@ -104,8 +104,9 @@ export function useNotifications() {
       const { data, error } = await supabase
         .from('notifications')
         // FK hints required: notifications has both settlement_id and group_id FKs,
-        // and settlements itself has two FKs to profiles.
-        .select('*, settlement:settlements(*, from_profile:profiles!from_user(*), to_profile:profiles!to_user(*)), group:groups(id, name, emoji)')
+        // settlements has two FKs to group_members, and group_members has two FKs
+        // to profiles (user_id + invited_by).
+        .select('*, settlement:settlements(*, from_member:group_members!from_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(*)), to_member:group_members!to_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(*))), group:groups(id, name, emoji)')
         .eq('recipient_id', user.id)
         .eq('read', false)
         .order('created_at', { ascending: false })

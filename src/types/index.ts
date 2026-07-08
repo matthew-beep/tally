@@ -113,6 +113,7 @@ export type ActivityItem =
       amount: number
       date: string
       createdAt: string
+      updatedAt: string
       payerName: string
       groupId: string
       groupName: string

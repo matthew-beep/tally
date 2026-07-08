@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { ModalOrSheet } from '@/components/modal'
 import { Avatar } from '@/components/Avatar'
+import { avatarProfile } from '@/lib/memberDisplay'
 import { T, FH, FMONO } from '@/design/tokens'
 import type { Profile } from '@/types'
 
@@ -16,25 +17,24 @@ interface PersonPart {
 interface BalanceSheetProps {
   open: boolean
   onClose: () => void
-  profile: Profile
+  name: string
+  profile?: Profile   // absent for guests — name-only member rows
   slot: 0 | 1 | 2 | 3
   net: number
   parts: PersonPart[]
 }
 
-export function BalanceSheet({ open, onClose, profile, slot, net, parts }: BalanceSheetProps) {
+export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }: BalanceSheetProps) {
   const router = useRouter()
   const owed = net > 0
   const amtColor  = owed ? T.mintInk  : T.coralInk
   const amtBg     = owed ? T.mintSoft : T.coralSoft
-  const name = profile.display_name ?? profile.name
   const firstName = name.split(' ')[0]
 
   const visibleParts = parts
     .filter(p => Math.abs(p.amount) >= 0.01)
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
 
-    console.log("visibleParts", visibleParts)
   // For settle CTA: navigate to the group with the largest outstanding balance
   const settleGroupId = visibleParts[0]?.groupId
 
@@ -47,16 +47,22 @@ export function BalanceSheet({ open, onClose, profile, slot, net, parts }: Balan
       <div style={{ overflowY: 'auto', paddingBottom: 44 }}>
         {/* Person identity */}
         <div style={{ padding: '16px 20px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Avatar profile={profile} slot={slot} size={50} />
+          <Avatar profile={avatarProfile({ name, profile })} slot={slot} size={50} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: FH, fontSize: 19, fontWeight: 700, letterSpacing: -0.4, color: T.ink }}>
               {name}
             </div>
-            {profile.handle && (
-              <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 2, fontFamily: FMONO }}>
-                @{profile.handle}
-              </div>
-            )}
+            {profile?.handle
+              ? (
+                <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 2, fontFamily: FMONO }}>
+                  @{profile.handle}
+                </div>
+              )
+              : !profile && (
+                <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 2 }}>
+                  Guest — no account
+                </div>
+              )}
           </div>
         </div>
 
@@ -124,21 +130,23 @@ export function BalanceSheet({ open, onClose, profile, slot, net, parts }: Balan
           </div>
         )}
 
-        {/* CTA */}
+        {/* CTA — guests have no account to remind; owed-by-guest shows no action */}
         <div style={{ padding: '0 16px' }}>
           {owed ? (
-            <button
-              onClick={onClose}
-              style={{
-                width: '100%', padding: 16, borderRadius: 18,
-                background: T.sun, color: T.sunOn,
-                border: 0, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
-                boxShadow: '0 8px 24px rgba(242,192,74,0.35)',
-              }}
-            >
-              Remind {firstName}
-            </button>
+            profile && (
+              <button
+                onClick={onClose}
+                style={{
+                  width: '100%', padding: 16, borderRadius: 18,
+                  background: T.sun, color: T.sunOn,
+                  border: 0, cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+                  boxShadow: '0 8px 24px rgba(242,192,74,0.35)',
+                }}
+              >
+                Remind {firstName}
+              </button>
+            )
           ) : (
             <button
               onClick={() => {

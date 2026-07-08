@@ -24,25 +24,30 @@ export function useAllActivity() {
         (memberships ?? []).map(m => [m.group_id, (m as any).group])
       )
 
+      // paid_by / from_member_id / to_member_id reference group_members, whose
+      // display name lives on the row itself (guests) or its linked profile.
+      const memberSelect = '(name, user_id, profile:profiles!group_members_user_id_fkey(name, display_name))'
       const [expRes, settleRes] = await Promise.all([
         supabase
           .from('expenses')
-          .select('id, description, category, amount, expense_date, created_at, group_id, payer:profiles!paid_by(name, display_name)')
+          .select(`id, description, category, amount, expense_date, created_at, updated_at, group_id, payer:group_members!paid_by${memberSelect}`)
           .in('group_id', groupIds)
           .is('deleted_at', null)
           .order('created_at', { ascending: false }),
         supabase
           .from('settlements')
-          .select('id, amount, status, created_at, group_id, from_profile:profiles!from_user(name, display_name), to_profile:profiles!to_user(name, display_name)')
+          .select(`id, amount, status, created_at, group_id, from_member:group_members!from_member_id${memberSelect}, to_member:group_members!to_member_id${memberSelect}`)
           .in('group_id', groupIds)
           .order('created_at', { ascending: false }),
       ])
+
+      const memberName = (m: any) =>
+        m?.profile?.display_name ?? m?.profile?.name ?? m?.name ?? '…'
 
       const byGroup: Record<string, ActivityItem[]> = {}
       for (const gid of groupIds) byGroup[gid] = []
 
       for (const e of expRes.data ?? []) {
-        const payer = (e as any).payer
         byGroup[e.group_id]?.push({
           type: 'expense',
           id: e.id,
@@ -51,7 +56,8 @@ export function useAllActivity() {
           amount: Number(e.amount),
           date: e.expense_date,
           createdAt: e.created_at,
-          payerName: payer?.display_name ?? payer?.name ?? '…',
+          updatedAt: e.updated_at,
+          payerName: memberName((e as any).payer),
           groupId: e.group_id,
           groupName: groupMap[e.group_id]?.name ?? '',
           groupEmoji: groupMap[e.group_id]?.emoji ?? '💸',
@@ -60,15 +66,13 @@ export function useAllActivity() {
 
       for (const s of settleRes.data ?? []) {
         const gid = (s as any).group_id
-        const from = (s as any).from_profile
-        const to = (s as any).to_profile
         byGroup[gid]?.push({
           type: 'settlement',
           id: s.id,
           amount: Number(s.amount),
           status: s.status as 'pending' | 'confirmed',
-          fromName: from?.display_name ?? from?.name ?? '…',
-          toName: to?.display_name ?? to?.name ?? '…',
+          fromName: memberName((s as any).from_member),
+          toName: memberName((s as any).to_member),
           createdAt: s.created_at,
           groupId: gid,
           groupName: groupMap[gid]?.name ?? '',

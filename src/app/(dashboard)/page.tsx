@@ -342,10 +342,11 @@ export default function HomePage() {
         />
       )}
 
-      {balancePerson && balancePerson.profile && (
+      {balancePerson && (
         <BalanceSheet
           open={!!balancePerson}
           onClose={() => setBalancePerson(null)}
+          name={balancePerson.name}
           profile={balancePerson.profile}
           slot={balancePerson.slot}
           net={balancePerson.net}

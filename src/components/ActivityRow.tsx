@@ -11,6 +11,7 @@ export function ActivityRow({ item, showGroup = false }: {
     const subtitle = showGroup
       ? `${item.payerName} · ${item.groupEmoji} ${item.groupName}`
       : `${item.payerName} · ${new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+    const edited = item.updatedAt && item.updatedAt !== item.createdAt
 
     return (
       <div style={{ background: T.surface, borderRadius: T.r.md, padding: '11px 14px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: T.shadowSm }}>
@@ -19,7 +20,7 @@ export function ActivityRow({ item, showGroup = false }: {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {item.description}
+            {item.description}{edited && <span style={{ fontSize: 10.5, color: T.inkFaint, marginLeft: 5 }}>(edited)</span>}
           </div>
           <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{subtitle}</div>
         </div>

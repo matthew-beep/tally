@@ -241,6 +241,7 @@ export interface RecentExpense {
   amount: number
   expense_date: string
   created_at: string
+  updated_at: string
   group_id: string
   groupName: string
   groupEmoji: string
@@ -265,7 +266,7 @@ export function useRecentActivity() {
 
       const { data, error } = await supabase
         .from('expenses')
-        .select('id, description, category, amount, expense_date, created_at, group_id, group:groups(name, emoji), payer:group_members!paid_by(name, user_id, profile:profiles!group_members_user_id_fkey(name, display_name))')
+        .select('id, description, category, amount, expense_date, created_at, updated_at, group_id, group:groups(name, emoji), payer:group_members!paid_by(name, user_id, profile:profiles!group_members_user_id_fkey(name, display_name))')
         .in('group_id', groupIds)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
@@ -280,6 +281,7 @@ export function useRecentActivity() {
         amount: Number(e.amount),
         expense_date: e.expense_date,
         created_at: e.created_at,
+        updated_at: e.updated_at,
         group_id: e.group_id,
         groupName: e.group?.name ?? '',
         groupEmoji: e.group?.emoji ?? '💸',

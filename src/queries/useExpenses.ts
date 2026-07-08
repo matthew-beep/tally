@@ -43,6 +43,73 @@ export function useDeleteExpense(groupId: string) {
   })
 }
 
+// Amount/description/paid_by only — split membership stays fixed (no UI to
+// change it yet). Existing owed_amount values are rescaled proportionally to
+// the new amount, preserving split_type/shape. Rounding remainder goes to
+// paid_by, per convention. paid_by must already own a split row; the caller
+// is responsible for keeping the payer picker scoped to existing members
+// until reassigning splits on payer change is supported.
+export function useUpdateExpense(groupId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ expense, description, amount, paid_by }: {
+      expense: Expense
+      description: string
+      amount: number
+      paid_by: string
+    }) => {
+      const roundedAmount = Math.round(amount * 100) / 100
+      const oldSplits = expense.splits ?? []
+      if (oldSplits.length === 0) throw new Error('Expense has no splits to rescale')
+      if (!oldSplits.some(s => s.group_member_id === paid_by)) {
+        throw new Error('New payer must already be part of the split')
+      }
+
+      const ratio = roundedAmount / Number(expense.amount)
+      const rescaled = oldSplits.map(s => ({
+        group_member_id: s.group_member_id,
+        owed_amount: Math.round(Number(s.owed_amount) * ratio * 100) / 100,
+      }))
+      const sum  = rescaled.reduce((a, s) => a + s.owed_amount, 0)
+      const diff = Math.round((roundedAmount - sum) * 100) / 100
+      if (diff !== 0) {
+        const payerSplit = rescaled.find(s => s.group_member_id === paid_by)!
+        payerSplit.owed_amount = Math.round((payerSplit.owed_amount + diff) * 100) / 100
+      }
+
+      // Update first: if this fails (e.g. amount <= 0), splits are untouched.
+      const { error: updateError } = await supabase
+        .from('expenses')
+        .update({ description: description.trim(), amount: roundedAmount, paid_by })
+        .eq('id', expense.id)
+      if (updateError) throw updateError
+
+      const { error: deleteError } = await supabase
+        .from('expense_splits')
+        .delete()
+        .eq('expense_id', expense.id)
+      if (deleteError) throw deleteError
+
+      const { error: insertError } = await supabase
+        .from('expense_splits')
+        .insert(rescaled.map(s => ({
+          expense_id: expense.id,
+          group_member_id: s.group_member_id,
+          owed_amount: s.owed_amount,
+        })))
+      if (insertError) throw insertError
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses', groupId] })
+      qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
+      qc.invalidateQueries({ queryKey: ['recent-activity'] })
+      qc.invalidateQueries({ queryKey: ['all-activity'] })
+    },
+  })
+}
+
 export function useAddExpense(groupId: string) {
   const supabase = createClient()
   const qc = useQueryClient()

@@ -2,6 +2,8 @@
 
 Tally is a free expense-splitting app. Groups of people log shared costs, the app tracks who paid what, and calculates the minimum transfers to zero everyone out. Like Splitwise, but free and with no paywalled features.
 
+> **As-built documentation lives in `docs/`** (schema.md, flows.md, features.md). This file is the original design spec and has drifted in places — most notably the identity model: money tables are now keyed by `group_members.id` (surrogate PK), not profile IDs, and `profiles.id = auth.users.id` directly. Where this spec and `docs/` disagree, `docs/` and the migrations win.
+
 ---
 
 ## Stack
