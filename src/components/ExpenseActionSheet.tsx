@@ -348,7 +348,11 @@ export function ExpenseActionSheet({ expense, members, groupId, onClose }: Props
         {expense.splits && expense.splits.length > 0 && (
           <div style={{ padding: '12px 18px 14px', borderBottom: `0.5px solid ${T.line}` }}>
             <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 9 }}>
-              Split equally · ${(Number(expense.amount) / expense.splits.length).toFixed(2)} each
+              {expense.split_type === 'equal'
+                ? `Split equally · $${(Number(expense.amount) / expense.splits.length).toFixed(2)} each`
+                : expense.split_type === 'exact' ? 'Split by exact amounts'
+                : expense.split_type === 'percentage' ? 'Split by percentage'
+                : 'Split by items'}
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {expense.splits.map(split => {

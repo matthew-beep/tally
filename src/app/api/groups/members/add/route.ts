@@ -29,7 +29,7 @@ export async function POST(request: Request) {
           name: entry.name,
           status: 'pending',
           invited_by: invitedBy,
-        })
+        }, { onConflict: 'group_id,user_id' })
       if (error) errors.push(`user ${entry.profileId}: ${error.message}`)
     } else {
       // Guests are group_members rows with user_id = null — no profile needed until Phase 2

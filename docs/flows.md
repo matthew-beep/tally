@@ -56,17 +56,19 @@ Writes go through `POST /api/groups/members/add`: real users upsert as
 
 - Accept → `useAcceptGroupInvite`: UPDATE to `active`; DB trigger notifies
   the inviter. Invitee now sees the group.
-- Decline → `useDeclineGroupInvite` DELETEs the pending row (trigger notifies
-  inviter). If the invitee was already included in expenses, the full
-  conversion lives in `POST /api/invite/decline`, which turns their seat into
-  a guest so historical splits survive.
+- Decline → `useDeclineGroupInvite` POSTs `/api/invite/decline`, which
+  branches on financial history (checked via service role):
+  - **No splits/expenses/settlements** → DELETE the pending row; the DELETE
+    trigger notifies the inviter.
+  - **Already in financial records** → the seat converts to a guest:
+    `UPDATE group_members SET user_id = NULL, status = 'active'`. Splits
+    keep pointing at the same `group_members` row, so history and balances
+    survive. The UPDATE trigger (`20260711000000_decline_to_guest.sql`)
+    sends `group_invite_declined` — and is guarded so the conversion never
+    fires a false `group_invite_accepted`.
 
-> ⚠️ **Known-stale code**: `api/invite/decline/route.ts` still writes
-> `expense_splits.user_id` (column dropped in the `group_member_model`
-> migration) and inserts a `group_members` row without the now-required
-> `name`. It will fail at runtime and needs a rewrite against the member
-> model (splits already point at the `group_members` row — converting a
-> member to a guest is now just `UPDATE group_members SET user_id = NULL`).
+  Never DELETE a member row directly on decline — `expense_splits` cascade
+  on member delete, which would silently corrupt balances.
 
 **Pending members can be included in expenses.** `useGroupMembers` returns
 `pending` + `active` on purpose — you can log a dinner split with someone

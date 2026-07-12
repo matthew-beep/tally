@@ -87,6 +87,8 @@ export interface Notification {
   recipient_id: string
   type:
     | 'group_invite'
+    | 'group_invite_accepted'
+    | 'group_invite_declined'
     | 'settlement_confirm'
     | 'settlement_confirmed'
     | 'settlement_denied'

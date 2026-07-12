@@ -212,7 +212,7 @@ export function AddMemberModal({ open, onClose, group, existingMemberIds, contex
   function handleRowClick(p: ProfileSnippet) {
     if (context === 'group') {
       setAddedIds(prev => new Set([...prev, p.id]))
-      addMember.mutate(p.id, {
+      addMember.mutate(p, {
         onError: () => setAddedIds(prev => { const s = new Set(prev); s.delete(p.id); return s }),
       })
     } else {

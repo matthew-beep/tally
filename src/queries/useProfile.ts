@@ -41,6 +41,22 @@ export function useUpdateProfile() {
   })
 }
 
+export function useMarkNotificationsRead() {
+  const supabase = createClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      if (ids.length === 0) return
+      const { error } = await supabase
+        .from('notifications')
+        .update({ read: true })
+        .in('id', ids)
+      if (error) throw error
+    },
+    // No invalidation on purpose: info rows stay visible for the rest of this
+    // visit and drop off on the next refetch, instead of vanishing mid-read.
+  })
+}
+
 export type ProfileSnippet = Pick<Profile, 'id' | 'name' | 'display_name' | 'avatar_url' | 'add_code' | 'handle'>
 
 export function useSearchProfiles(query: string) {

@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { T, FH, F, FMONO } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { HandleInput } from '@/components/HandleInput'
 import type { HandleState } from '@/components/HandleInput'
-import { useCurrentProfile, useNotifications, useUpdateProfile } from '@/queries/useProfile'
+import { useCurrentProfile, useMarkNotificationsRead, useNotifications, useUpdateProfile } from '@/queries/useProfile'
 import { useConfirmSettlement, useDenySettlement } from '@/queries/useSettlements'
 import { useAcceptGroupInvite, useDeclineGroupInvite } from '@/queries/useMembers'
 import { useTheme } from '@/lib/theme'
@@ -111,11 +111,42 @@ function ProfileSettings() {
   )
 }
 
+// Read-only rows: rendered once, auto-marked read. Actionable types
+// (group_invite, settlement_confirm) keep their own card sections above.
+const INFO_TYPES: Notification['type'][] = [
+  'group_invite_accepted',
+  'group_invite_declined',
+  'settlement_confirmed',
+  'settlement_denied',
+]
+
+function infoLabel(n: Notification): string {
+  switch (n.type) {
+    case 'group_invite_accepted': return `✓ Your invite to ${n.group?.name ?? 'a group'} was accepted`
+    case 'group_invite_declined': return `Your invite to ${n.group?.name ?? 'a group'} was declined`
+    case 'settlement_confirmed':  return '✓ Payment confirmed'
+    case 'settlement_denied':     return '✗ Payment denied'
+    default: return ''
+  }
+}
+
 export default function MePage() {
   const router = useRouter()
   const { data: profile } = useCurrentProfile()
   const { data: notifications = [] } = useNotifications()
   const { isDark, toggle } = useTheme()
+  const markRead = useMarkNotificationsRead()
+  const markedIds = useRef<Set<string>>(new Set())
+
+  const infoNotifications = notifications.filter(n => INFO_TYPES.includes(n.type))
+
+  useEffect(() => {
+    const ids = infoNotifications.map(n => n.id).filter(id => !markedIds.current.has(id))
+    if (ids.length === 0) return
+    ids.forEach(id => markedIds.current.add(id))
+    markRead.mutate(ids)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [infoNotifications.map(n => n.id).join(',')])
 
   async function signOut() {
     const supabase = createClient()
@@ -176,21 +207,23 @@ export default function MePage() {
           </div>
         )}
 
-        {/* Other notifications */}
-        {notifications.filter(n => n.type !== 'settlement_confirm').length > 0 && (
+        {/* Info notifications — no action required, auto-marked read on view */}
+        {infoNotifications.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10 }}>
               Notifications
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {notifications.filter(n => n.type !== 'settlement_confirm').map(n => (
+              {infoNotifications.map(n => (
                 <Card key={n.id} style={{ padding: '12px 14px' }}>
                   <div style={{ fontSize: 13, color: T.ink }}>
-                    {n.type === 'settlement_confirmed' ? '✓ Payment confirmed' : '✗ Payment denied'}
+                    {infoLabel(n)}
                   </div>
-                  <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 4 }}>
-                    ${Number(n.settlement?.amount ?? 0).toFixed(2)}
-                  </div>
+                  {(n.type === 'settlement_confirmed' || n.type === 'settlement_denied') && (
+                    <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 4 }}>
+                      ${Number(n.settlement?.amount ?? 0).toFixed(2)}
+                    </div>
+                  )}
                 </Card>
               ))}
             </div>

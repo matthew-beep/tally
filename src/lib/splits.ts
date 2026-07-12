@@ -33,6 +33,29 @@ export function makePercentSplits(
   return splits
 }
 
+// Proportionally rescale existing splits to a new expense amount.
+// Rounding remainder goes to the payer's row so the sum stays exact.
+export function rescaleSplits(
+  splits: { group_member_id: string; owed_amount: number }[],
+  newAmount: number,
+  payerId: string
+): { group_member_id: string; owed_amount: number }[] {
+  const roundedAmount = Math.round(newAmount * 100) / 100
+  const oldTotal = splits.reduce((a, s) => a + Number(s.owed_amount), 0)
+  const ratio = roundedAmount / oldTotal
+  const rescaled = splits.map(s => ({
+    group_member_id: s.group_member_id,
+    owed_amount: Math.round(Number(s.owed_amount) * ratio * 100) / 100,
+  }))
+  const sum  = rescaled.reduce((a, s) => a + s.owed_amount, 0)
+  const diff = Math.round((roundedAmount - sum) * 100) / 100
+  if (diff !== 0) {
+    const payerSplit = rescaled.find(s => s.group_member_id === payerId)!
+    payerSplit.owed_amount = Math.round((payerSplit.owed_amount + diff) * 100) / 100
+  }
+  return rescaled
+}
+
 export function makeExactSplits(
   expenseId: string,
   splits: { group_member_id: string; owed_amount: number }[]

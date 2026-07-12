@@ -5,16 +5,26 @@ import { createClient, getAuthUser } from '@/lib/supabase'
 import type { ProfileSnippet } from '@/queries/useProfile'
 
 export function useAddGroupMember(groupId: string) {
-  const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (profileId: string) => {
-      const user = await getAuthUser(supabase)
-      // Upsert prevents duplicate pending rows — PK on (group_id, user_id) is the guard.
-      const { error } = await supabase
-        .from('group_members')
-        .upsert({ group_id: groupId, user_id: profileId, status: 'pending', invited_by: user.id })
-      if (error) throw error
+    mutationFn: async (profile: ProfileSnippet) => {
+      // Single write path for member adds — same route as group creation.
+      const res = await fetch('/api/groups/members/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          members: [{
+            type: 'user',
+            profileId: profile.id,
+            name: profile.display_name ?? profile.name,
+          }],
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? 'Failed to add member')
+      }
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['group_members', groupId] })
@@ -57,26 +67,31 @@ export function useDeclineGroupInvite() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ groupId, notificationId }: { groupId: string; notificationId: string }) => {
-      const user = await getAuthUser(supabase)
-      await Promise.all([
-        // DELETE fires notify_group_invite_declined trigger automatically.
-        // The full guest-profile conversion + expense_splits transfer happens in
-        // POST /api/invite/decline (needs service role to bypass RLS on splits).
-        supabase
-          .from('group_members')
-          .delete()
-          .eq('group_id', groupId)
-          .eq('user_id', user.id)
-          .eq('status', 'pending'),
+      // The route decides: no financial history → DELETE the pending row
+      // (fires notify_group_invite_declined); already in splits → convert the
+      // seat to a guest so history survives. Never DELETE directly here —
+      // expense_splits cascade on member delete and balances would corrupt.
+      const [res] = await Promise.all([
+        fetch('/api/invite/decline', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ groupId }),
+        }),
         supabase
           .from('notifications')
           .update({ read: true })
           .eq('id', notificationId),
       ])
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? 'Failed to decline invite')
+      }
     },
-    onSuccess: () => {
+    onSuccess: (_, { groupId }) => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
       qc.invalidateQueries({ queryKey: ['groups'] })
+      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
+      qc.invalidateQueries({ queryKey: ['global-balances'] })
     },
   })
 }

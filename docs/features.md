@@ -28,7 +28,7 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 |---|---|
 | `POST /api/groups/create` | Insert group + creator (active) + invitees (pending) + guests (active, `user_id NULL`) |
 | `POST /api/groups/members/add` | Same member semantics for an existing group |
-| `POST /api/invite/decline` | Convert declining invitee's seat to a guest ⚠️ stale — see flows.md |
+| `POST /api/invite/decline` | Decline invite: no history → delete row; in splits already → convert seat to guest (see flows.md) |
 | `POST /api/ocr` | Phase 3 receipt-OCR proxy — stub |
 
 ## Query hooks (`src/queries/`)
@@ -42,8 +42,8 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 | `useGroups`, `useGroup` | `useGroups.ts` | My groups (active memberships only), single group |
 | `useGroupMembers` | `useGroups.ts` | Members incl. pending (splittable before accept) |
 | `useCreateGroup`, `useDeleteGroup` | `useGroups.ts` | Create (via API route), hard delete |
-| `useAddGroupMember` | `useMembers.ts` | Legacy direct upsert — UI paths use the API route |
-| `useAcceptGroupInvite`, `useDeclineGroupInvite` | `useMembers.ts` | Pending → active / DELETE |
+| `useAddGroupMember` | `useMembers.ts` | Posts to `/api/groups/members/add` (single write path with group creation) |
+| `useAcceptGroupInvite`, `useDeclineGroupInvite` | `useMembers.ts` | Pending → active / POST `/api/invite/decline` (delete or guest conversion) |
 | `useRecentCollaborators` | `useMembers.ts` | Recents for the member combobox |
 | `useExpenses` | `useExpenses.ts` | Group expenses + splits + payer (soft-deleted excluded) |
 | `useAddExpense` | `useExpenses.ts` | Insert expense + splits |
