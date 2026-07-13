@@ -48,22 +48,34 @@ lives in Postgres, not instance memory. Limits are set ~10x above honest
 usage: they cap worst-case damage, not shape behavior. Log 429s, tune later.
 
 - [x] `src/lib/rateLimit.ts` — written, **not yet wired into any route**.
-  Exports `overLimit(admin, userId, rule)` → boolean (fail-open, logs
-  `[rate-limit]` lines for Vercel) and `RATE_LIMITS` (groupCreate 10/hr,
-  memberInvite 30/hr). Requires the service-role client so RLS doesn't
-  undercount.
-- [ ] **Wire `/api/groups/create`** — `RATE_LIMITS.groupCreate`, return 429
-  + Retry-After when `overLimit` is true.
-- [ ] **Wire `/api/groups/members/add`** — `RATE_LIMITS.memberInvite`; note
-  guests insert with `invited_by NULL` so only real-user invites count
-  (exactly the notification fan-out surface).
+  One function: `isOverLimit(admin, source, identifier, limit, windowMs)`.
+  `source` (`{ table, userCol, timeCol }`) is a plain parameter, not a
+  per-action wrapper — no `groupCreateLimiter`/`memberInviteLimiter`
+  ceremony. Counts existing domain rows, fail-open, logs `[rate-limit]`
+  lines. Swapping the source of truth (Postgres → Redis/Upstash later)
+  means a differently-shaped `isOverLimit` with the same
+  `(identifier, limit, windowMs)` call convention — callers switch which
+  function they import, nothing else changes.
+- [x] **Wired `/api/groups/create`** — 10/hr via `created_by`/`created_at`;
+  429 + `Retry-After: 3600` when hit.
+- [x] **Wired `/api/groups/members/add`** — 30/hr via `invited_by`/
+  `joined_at`; guests insert with `invited_by NULL` so only real-user
+  invites count. 429 + `Retry-After: 3600` when hit.
 - [ ] **`/api/invite/decline`** — no limiter needed: requires an existing
   pending membership, so it's self-limiting.
-- [ ] **Search debounce** — `AddMemberModal` fires `useSearchProfiles` per
-  keystroke (new query key each char, ILIKE over all profiles). Debounce
-  ~250ms + `placeholderData: keepPreviousData`. Do the `useMemberSearch`
-  extraction (Backlog → Hooks) as part of this.
-- [ ] **Supabase auth limits** 🟡 — dashboard review only (built-in), no code.
+- [x] **Search debounce** — new shared `useDebouncedValue` hook
+  (`src/hooks/useDebouncedValue.ts`); `AddMemberModal` now debounces at
+  250ms before hitting `useSearchProfiles` (was firing on every keystroke).
+  `MemberCombobox` already had its own inline 250ms debounce — deduped onto
+  the shared hook. `useSearchProfiles` also got `placeholderData:
+  keepPreviousData` so results don't flash empty between ticks. The
+  `useMemberSearch` extraction (Backlog → Hooks) is still open — this just
+  fixed the debounce gap, didn't do the full hook extraction.
+- [ ] **Supabase auth limits** 🟡 — dashboard review only (built-in), no
+  code. Tally is Google-OAuth-only, so the email-based limits (magic
+  link/password reset) don't apply — the one worth checking is the
+  sign-in/session rate cap, in case a burst of invite-driven signups (e.g.
+  everyone in a group joining around the same time) would hit it.
 
 **Known limitation (accept for MVP):** expense/settlement writes go client →
 PostgREST directly with the user's JWT, bypassing Next entirely — nothing at

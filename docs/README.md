@@ -9,6 +9,7 @@ design spec), the code and these docs win. Notable drift is called out inline.
 | [schema.md](./schema.md) | Database schema as deployed, identity model, triggers, RLS |
 | [flows.md](./flows.md) | End-to-end user flows with the code that implements each step |
 | [features.md](./features.md) | Feature → code map: routes, query hooks, components, libs |
+| [feature-status.md](./feature-status.md) | Point-in-time review: what's done vs. missing, mobile + desktop |
 
 ## What Tally is
 

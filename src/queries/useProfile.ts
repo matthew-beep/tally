@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { createClient, getAuthUser } from '@/lib/supabase'
 import type { Profile, Notification } from '@/types'
 
@@ -89,6 +89,9 @@ export function useSearchProfiles(query: string) {
       return (data ?? []) as ProfileSnippet[]
     },
     enabled: query.length >= 2,
+    // Keep showing the previous match while the next keystroke's query is
+    // in flight, instead of flashing an empty list between debounce ticks.
+    placeholderData: keepPreviousData,
   })
 }
 

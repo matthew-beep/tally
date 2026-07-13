@@ -8,6 +8,7 @@ import { Avatar } from '@/components/Avatar'
 import { useSearchProfiles } from '@/queries/useProfile'
 import type { ProfileSnippet } from '@/queries/useProfile'
 import { useAddGroupMember, useRecentCollaborators } from '@/queries/useMembers'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 const ADD_CODE_RE = /^[A-Z0-9]{8}$/
 
@@ -157,7 +158,10 @@ export function AddMemberModal({ open, onClose, group, existingMemberIds, contex
   const { data: recents = [] } = useRecentCollaborators()
   const trimmed = query.trim()
   const isAddCode = ADD_CODE_RE.test(trimmed.toUpperCase())
-  const { data: searchResults = [] } = useSearchProfiles(isAddCode ? '' : trimmed)
+  // Debounce the DB-bound fuzzy search only — isAddCode/hero-card logic
+  // below stays on the immediate value since it's a local regex, not a query.
+  const debouncedQuery = useDebouncedValue(trimmed, 250)
+  const { data: searchResults = [] } = useSearchProfiles(isAddCode ? '' : debouncedQuery)
 
   const selectedIds = useMemo(() => new Set(selected.map(p => p.id)), [selected])
   const allExcludeIds = useMemo(() => [...existingMemberIds, ...addedIds], [existingMemberIds, addedIds])

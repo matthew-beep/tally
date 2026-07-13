@@ -5,6 +5,7 @@ import { T, F, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { useSearchProfiles } from '@/queries/useProfile'
 import type { ProfileSnippet } from '@/queries/useProfile'
+import { useDebouncedValue } from '@/hooks/useDebouncedValue'
 
 export type MemberEntry =
   | { type: 'user'; profile: ProfileSnippet }
@@ -73,12 +74,7 @@ export function MemberCombobox({ value, onChange, excludeIds = [], placeholder =
   const containerRef = useRef<HTMLDivElement>(null)
 
   const trimmed = query.trim()
-  const [debouncedQuery, setDebouncedQuery] = useState('')
-
-  useEffect(() => {
-    const id = setTimeout(() => setDebouncedQuery(trimmed), 250)
-    return () => clearTimeout(id)
-  }, [trimmed])
+  const debouncedQuery = useDebouncedValue(trimmed, 250)
 
   const { data: searchResults = [], isLoading } = useSearchProfiles(debouncedQuery)
 

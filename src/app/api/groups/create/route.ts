@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase-server'
+import { isOverLimit, HOUR } from '@/lib/rateLimit'
 
 type MemberEntry =
   | { type: 'user'; profileId: string; name: string }
@@ -15,6 +16,19 @@ export async function POST(request: Request) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const userId = session.user.id
+
+  const admin = createServiceRoleClient()
+  const rateLimited = await isOverLimit(
+    admin,
+    { table: 'groups', userCol: 'created_by', timeCol: 'created_at' },
+    userId, 10, HOUR
+  )
+  if (rateLimited) {
+    return NextResponse.json(
+      { error: 'Too many groups created — try again later' },
+      { status: 429, headers: { 'Retry-After': String(HOUR / 1000) } }
+    )
+  }
 
   const { data: group, error: groupError } = await supabase
     .from('groups')
