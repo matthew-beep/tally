@@ -42,7 +42,6 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 | `useGroups`, `useGroup` | `useGroups.ts` | My groups (active memberships only), single group |
 | `useGroupMembers` | `useGroups.ts` | Members incl. pending (splittable before accept) |
 | `useCreateGroup`, `useDeleteGroup` | `useGroups.ts` | Create (via API route), hard delete |
-| `useAddGroupMember` | `useMembers.ts` | Posts to `/api/groups/members/add` (single write path with group creation) |
 | `useAcceptGroupInvite`, `useDeclineGroupInvite` | `useMembers.ts` | Pending → active / POST `/api/invite/decline` (delete or guest conversion) |
 | `useRecentCollaborators` | `useMembers.ts` | Recents for the member combobox |
 | `useExpenses` | `useExpenses.ts` | Group expenses + splits + payer (soft-deleted excluded) |
@@ -77,9 +76,8 @@ never cached in the DB — recomputation happens on read.
 | `AddExpenseForm` / `AddExpenseSheet` | Add-expense form, mobile sheet + desktop modal branches |
 | `ExpenseActionSheet` | Expense tap → actions / edit drawer / delete confirm |
 | `MemberCombobox`, `SuggestedMembers` | Member search input + recents |
-| `AddMemberModal`, `NewGroupModal` | Add members / create group |
 | `GroupActionMenu`, `DeleteGroupSheet` | Group ··· menu, delete confirmation |
-| `Avatar`, `AmountDisplay`, `BalanceBadge` | Design-system atoms (slot-colored avatars, money anatomy) |
+| `Avatar`, `BalanceBadge` | Design-system atoms (slot-colored avatars, balance chips) |
 | `modal/*` | Modal/sheet primitives — `ModalOrSheet` picks by viewport |
 | `home/BalanceSheet`, `home/PersonProfileSheet` | Home balance breakdowns |
 | `dashboard/Sidebar`, `TabBar` | Desktop / mobile navigation |

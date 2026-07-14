@@ -23,8 +23,9 @@ in `src/queries/`, pages in `src/app/`, shared UI in `src/components/`.
 
 ## Create a group
 
-1. FAB / "New group" opens `NewGroupModal` (name, emoji,
-   `MemberCombobox` to pre-add members — real users and free-text guests).
+1. FAB / "New group" → `/groups/new` (`src/app/(dashboard)/groups/new/page.tsx`)
+   — name, emoji, `MemberCombobox` to pre-add members (real users and
+   free-text guests).
 2. Submit → `useCreateGroup` (`useGroups.ts`) → `POST /api/groups/create`
    (`src/app/api/groups/create/route.ts`), which inserts:
    - the `groups` row,
@@ -39,10 +40,10 @@ in `src/queries/`, pages in `src/app/`, shared UI in `src/components/`.
 
 Three entry paths, one write path:
 
-- **Search** — `AddMemberModal` → `useSearchProfiles` (`useProfile.ts`)
-  detects input mode: `@…` → handle fuzzy; 8-char alphanumeric → exact
-  `add_code`; else name/display_name/handle fuzzy. Recents come from
-  `useRecentCollaborators` (`useMembers.ts`).
+- **Search** — the inline add-member panel on `/groups/[id]`
+  (`MemberCombobox` → `useSearchProfiles`, `useProfile.ts`) detects input
+  mode: `@…` → handle fuzzy; 8-char alphanumeric → exact `add_code`; else
+  name/display_name/handle fuzzy. Submit POSTs `/api/groups/members/add`.
 - **Invite link** — `/invite/[token]` (`src/app/invite/[token]/page.tsx`).
   Clicking is consent, so joining is immediate (`status: 'active'`).
 - **QR / add code** — `/add/[add_code]` resolves a profile by `add_code`

@@ -4,34 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient, getAuthUser } from '@/lib/supabase'
 import type { ProfileSnippet } from '@/queries/useProfile'
 
-export function useAddGroupMember(groupId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (profile: ProfileSnippet) => {
-      // Single write path for member adds — same route as group creation.
-      const res = await fetch('/api/groups/members/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          groupId,
-          members: [{
-            type: 'user',
-            profileId: profile.id,
-            name: profile.display_name ?? profile.name,
-          }],
-        }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.error ?? 'Failed to add member')
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
-    },
-  })
-}
-
 export function useAcceptGroupInvite() {
   const supabase = createClient()
   const qc = useQueryClient()

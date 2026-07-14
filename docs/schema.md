@@ -135,6 +135,10 @@ notifications (
 `expense_items` / `expense_item_assignments` (itemized splits) are designed in
 CLAUDE.md but **do not exist yet** — itemized mode is a UI placeholder.
 
+> The `create_group_with_members` RPC (from `20260617...`) was dead code —
+> group creation goes through `POST /api/groups/create` — and broken under
+> the member model. Dropped in `20260713000000_drop_stale_group_rpc.sql`.
+
 ## Triggers — app code never writes notifications or history
 
 | Trigger | Table / event | Effect |
@@ -143,16 +147,22 @@ CLAUDE.md but **do not exist yet** — itemized mode is a UI placeholder.
 | `touch_updated_at` | `expenses` UPDATE | Sets `updated_at = now()` — `updated_at != created_at` ⇒ "(edited)" |
 | `log_expense_edit` | `expenses` BEFORE UPDATE | Snapshots the old row into `expense_history` |
 | `notify_group_invite` | `group_members` INSERT | `group_invite` → invitee (skipped for guests: `user_id IS NULL`) |
-| `notify_group_invite_accepted` | `group_members` UPDATE pending→active | `group_invite_accepted` → `invited_by` |
-| `notify_group_invite_declined` | `group_members` DELETE of pending | `group_invite_declined` → `invited_by` |
+| `notify_group_invite_accepted` | `group_members` UPDATE | Two branches (since `20260711_decline_to_guest`): pending→active **with `user_id` still set** → `group_invite_accepted` → `invited_by`; pending row with `user_id` cleared (decline-with-history → guest conversion) → `group_invite_declined` → `invited_by` |
+| `notify_group_invite_declined` | `group_members` DELETE of pending | `group_invite_declined` → `invited_by` (the no-history decline path; declines with financial history go through the UPDATE conversion above instead) |
 | `notify_settlement_created` | `settlements` INSERT | `settlement_confirm` → payee (resolved via `group_members.user_id`; skipped for guests) |
 | `notify_settlement_confirmed` | `settlements` UPDATE pending→confirmed | `settlement_confirmed` → payer |
 | `notify_settlement_denied` | `settlements` DELETE of pending | `settlement_denied` → payer |
 
 ## RLS
 
-All app tables have RLS on. The recurring pattern — membership is checked by
-matching `group_members.user_id` directly against `auth.uid()` (valid because
+All app tables have RLS on. Note: only the policies for
+`expenses`/`settlements`/`expense_history` are visible in tracked migrations —
+the rest live in the untracked base schema (Supabase dashboard). Until a
+baseline snapshot is captured (`npx supabase db diff --linked`, see TODO →
+Prod readiness), the dashboard is the only place to verify them.
+
+The recurring pattern — membership is checked by matching
+`group_members.user_id` directly against `auth.uid()` (valid because
 `profiles.id = auth.users.id`):
 
 ```sql
@@ -178,8 +188,9 @@ Two fixes worth knowing (both in `supabase/migrations/`):
 - **Soft delete** — every expense query feeding balances/activity filters
   `deleted_at IS NULL`. RLS does not do this for you.
 - **Split sum** — `expense_splits` must sum exactly to `expenses.amount`;
-  rounding remainder goes to the payer (`src/lib/splits.ts`,
-  `useUpdateExpense`).
+  rounding remainder goes to the payer. All split construction and rescaling
+  lives in `src/lib/splits.ts` (`makeEqualSplits` / `makePercentSplits` /
+  `makeExactSplits` / `rescaleSplits`), covered by `splits.test.ts`.
 - **Pending settlements count** toward balances (optimistic); confirmation is
   a trust indicator, not a ledger event.
 - **Handles** are stored lowercase; search with `ilike`.

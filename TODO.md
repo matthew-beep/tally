@@ -35,6 +35,17 @@ Steps 1–4 ≈ two solid sessions and the app is safe to hand to real users.
 - [x] **`ExpenseActionSheet` split header** — now branches on `split_type`
   (equally · $X each / exact amounts / percentage / items).
 - [x] **Deleted `src/lib/mockData.ts`**.
+- [x] **Silent add-member failure** — `handleAddMembers`
+  (`groups/[id]/page.tsx`) had a `try { } finally { }` with no `catch`; any
+  failure (network, validation, or the new 429 from rate limiting) became
+  an unhandled rejection with zero user feedback. Added `addError` state,
+  surfaced in both the desktop and mobile add-member panels, parsed from
+  the route's `{ error }` body when present.
+- [x] **Dead code removed** (2026-07-13) — `AddMemberModal`,
+  `NewGroupModal`, `BalanceBreakdownModal`, `AmountDisplay`, `AppShell`,
+  `useAddGroupMember`, and a `DROP FUNCTION` migration for the stale
+  `create_group_with_members` RPC (needs `db push`). Details under
+  Consolidation.
 
 ### 3. Rate limiting 🟢 (implementation) / 🟡 (sign off on the numbers)
 
@@ -187,6 +198,54 @@ Group detail 2-column layout (§19) shipped.
 - [ ] **19e** 🟢 — convert `ExpenseActionSheet` from floating cards to a Vaul
   bottom sheet (`Sheet` component) for drag-to-dismiss + spring animation
 - [ ] **19f** — wire group action menu items (blocked on "Now" step 5)
+
+### Consolidation / dead code (from 2026-07-13 duplication audit)
+
+**Dead code — deleted 2026-07-13** (all recoverable from git history):
+- [x] `AddMemberModal.tsx` (496) + `useAddGroupMember` — deleted. If the
+  richer add-member UX (QR / invite-link / recents in one dialog) is wanted
+  later, resurrect from git or rebuild on `MemberCombobox`.
+- [x] `NewGroupModal.tsx` (132) — deleted; `groups/new/page.tsx` is the one
+  create path.
+- [x] `BalanceBreakdownModal.tsx` (111) — deleted. Note for the "balance
+  cards expand" polish item: this was a per-person breakdown modal —
+  resurrect from git if it fits rather than rebuilding.
+- [x] `AppShell.tsx` (14) — deleted.
+- [x] `AmountDisplay.tsx` (48) — deleted. If the style-guide money anatomy
+  is ever enforced app-wide, rebuild it then and migrate the ~40 inline
+  `toFixed(2)` call sites in one sweep.
+- [x] `create_group_with_members` RPC —
+  `20260713000000_drop_stale_group_rpc.sql` written; **needs
+  `npx supabase db push`** to take effect in prod.
+
+**Logic implemented more than once:**
+- [ ] 🟢 **Balance math ×3** — `lib/balance.ts` (tested), `useGlobalBalances`
+  (reimplements nets/pairwise/gross inline, 292 lines), and group detail
+  `page.tsx` (inline pairwise nets). **Design settled — see "Shared balance
+  core" in `docs/review-todo.md`** (calcPairwiseNets + summarizeBalances,
+  seat-space core, identity fold in the hook). Decided worth doing
+  2026-07-13; build on request.
+- [ ] 🟢 **Avatar slot color ×8, two conventions** — `hashSlot(id)` defined
+  identically in 5 files (home, SuggestedMembers, AddMemberModal,
+  BalanceBreakdownModal, MemberCombobox), `slotFor(members, id)`
+  (index-based) in 3 (group detail, settle, ExpenseActionSheet). The two
+  conventions give the SAME person DIFFERENT colors on different screens
+  (hash of id vs position in member list). Pick one (index-based matches
+  the style guide's "deterministic by slot"), export it once (e.g. from
+  `lib/memberDisplay.ts`), delete the other 7 copies.
+- [ ] 🟢 **Display-name fallback** — `lib/memberDisplay.ts` exists but 10
+  files still inline `display_name ?? name` (mostly on `ProfileSnippet`,
+  which the helper doesn't accept). Add a profile-shaped overload and
+  migrate call sites.
+- [ ] 🟢 **Invalidation key lists** — the same 5-key invalidation block
+  (`expenses`, `settlements`, `global-balances`, `recent-activity`,
+  `all-activity`) is copy-pasted across `useExpenses`/`useSettlements`
+  mutations. Extract an `invalidateMoneyData(qc, groupId)` helper so a new
+  aggregate key can't be forgotten in one of five places.
+- [ ] 🟢 **Mobile/desktop duplicate add-member JSX** in group detail —
+  two hand-written copies of the same panel; extract one component.
+- [ ] Modal system fragmentation — already tracked (Desktop → modal sizing
+  audit + review checklist Phase 6).
 
 ### Hooks extraction 🟢
 

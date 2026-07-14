@@ -61,8 +61,9 @@ cards on every viewport; needs a desktop treatment (centered modal or
 popover), alongside the planned §19e Vaul bottom-sheet conversion for mobile.
 - **Modal sizing stragglers** — only `AddExpenseForm`, `BalanceSheet`, and
 `PersonProfileSheet` use the viewport-aware `ModalOrSheet` primitive;
-`AddMemberModal`, `NewGroupModal`, `GroupActionMenu`, `DeleteGroupSheet`
-are hand-rolled and need a desktop sizing audit.
+`GroupActionMenu` and `DeleteGroupSheet` are hand-rolled and need a desktop
+sizing audit. (`AddMemberModal`/`NewGroupModal` were dead code, deleted
+2026-07-13.)
 - **Group settings** — needs design from scratch, both form factors, since
 nothing exists yet.
 - **Itemized split builder** — the mobile non-saving preview is a starting

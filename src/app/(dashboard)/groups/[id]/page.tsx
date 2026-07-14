@@ -43,10 +43,12 @@ export default function GroupDetailPage() {
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
   const [pendingMembers,  setPendingMembers]  = useState<MemberEntry[]>([])
   const [adding,          setAdding]          = useState(false)
+  const [addError,        setAddError]        = useState<string | null>(null)
 
   async function handleAddMembers() {
     if (!pendingMembers.length) return
     setAdding(true)
+    setAddError(null)
     try {
       const members = pendingMembers.map(entry =>
         entry.type === 'user'
@@ -58,10 +60,15 @@ export default function GroupDetailPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, members }),
       })
-      if (!res.ok) throw new Error('Failed to add members')
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        throw new Error(body?.error ?? 'Failed to add members')
+      }
       qc.invalidateQueries({ queryKey: ['group_members', groupId] })
       setPendingMembers([])
       setAddMemberOpen(false)
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add members')
     } finally {
       setAdding(false)
     }
@@ -70,6 +77,7 @@ export default function GroupDetailPage() {
   function cancelAddMember() {
     setAddMemberOpen(false)
     setPendingMembers([])
+    setAddError(null)
   }
 
   const { data: group,        isLoading: loadingGroup   } = useGroup(groupId)
@@ -165,6 +173,9 @@ export default function GroupDetailPage() {
         excludeIds={members.filter(m => m.user_id).map(m => m.user_id!)}
         autoFocus
       />
+      {addError && (
+        <div style={{ fontSize: 12, color: T.coralInk, marginTop: 8 }}>{addError}</div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
         <button
           onClick={cancelAddMember}
@@ -269,6 +280,9 @@ export default function GroupDetailPage() {
               excludeIds={members.filter(m => m.user_id).map(m => m.user_id!)}
               autoFocus
             />
+            {addError && (
+              <div style={{ fontSize: 12, color: T.coralInk, marginTop: 8 }}>{addError}</div>
+            )}
             <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
               <button
                 onClick={cancelAddMember}
