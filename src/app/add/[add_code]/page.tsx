@@ -6,6 +6,7 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { useProfileByAddCode } from '@/queries/useProfile'
 import { useGroups, useProfileGroups } from '@/queries/useGroups'
+import { postJson } from '@/lib/api'
 
 export default function AddByCodePage() {
   const params = useParams()
@@ -17,7 +18,8 @@ export default function AddByCodePage() {
   const { data: targetGroupIds = [] } = useProfileGroups(target?.id)
 
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
-  const [adding, setAdding] = useState(false)
+  const [adding,   setAdding]   = useState(false)
+  const [addError, setAddError] = useState<string | null>(null)
 
   const eligible = myGroups.filter(g => !targetGroupIds.includes(g.id))
   const effectiveSelected = selectedGroupId ?? eligible[0]?.id ?? null
@@ -27,17 +29,15 @@ export default function AddByCodePage() {
   async function handleAdd() {
     if (!target || !effectiveSelected) return
     setAdding(true)
+    setAddError(null)
     try {
-      const res = await fetch('/api/groups/members/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          groupId: effectiveSelected,
-          members: [{ type: 'user', profileId: target.id, name: target.display_name ?? target.name }],
-        }),
+      await postJson('/api/groups/members/add', {
+        groupId: effectiveSelected,
+        members: [{ type: 'user', profileId: target.id, name: target.display_name ?? target.name }],
       })
-      if (!res.ok) throw new Error('Failed to add member')
       router.push(`/groups/${effectiveSelected}`)
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Failed to add member')
     } finally {
       setAdding(false)
     }
@@ -193,6 +193,9 @@ export default function AddByCodePage() {
             </div>
           )}
 
+          {addError && (
+            <div style={{ fontSize: 13, color: T.coralInk, marginTop: 16 }}>{addError}</div>
+          )}
           <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
             <button
               onClick={() => router.push('/groups')}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { postJson } from '@/lib/api'
 import { T, F, FH } from '@/design/tokens'
 
 type MemberStatus = 'pending' | 'none'
@@ -17,6 +18,7 @@ export default function InvitePage() {
   const [group,        setGroup]        = useState<{ id: string; name: string; emoji: string } | null>(null)
   const [memberStatus, setMemberStatus] = useState<MemberStatus>('none')
   const [submitting,   setSubmitting]   = useState(false)
+  const [error,        setError]        = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -80,14 +82,13 @@ export default function InvitePage() {
   async function handleDecline() {
     if (!group || submitting) return
     setSubmitting(true)
+    setError(null)
 
     if (memberStatus === 'pending') {
-      const res = await fetch('/api/invite/decline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId: group.id }),
-      })
-      if (!res.ok) {
+      try {
+        await postJson('/api/invite/decline', { groupId: group.id })
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Something went wrong — try again')
         setSubmitting(false)
         return
       }
@@ -177,6 +178,9 @@ export default function InvitePage() {
         </div>
 
         {/* Actions */}
+        {error && (
+          <div style={{ fontSize: 13, color: T.coralInk, textAlign: 'center', marginBottom: 12 }}>{error}</div>
+        )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
             onClick={handleAccept}

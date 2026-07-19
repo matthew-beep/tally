@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient, getAuthUser } from '@/lib/supabase'
+import { postJson } from '@/lib/api'
 import type { Group, GroupMember } from '@/types'
 
 // Shared by useGroups and useMyGroupIds (an ids view via select) — the one
@@ -118,13 +119,10 @@ export function useCreateGroup() {
       creatorName: string
       members: ({ type: 'user'; profileId: string; name: string } | { type: 'guest'; name: string })[]
     }) => {
-      const res = await fetch('/api/groups/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, emoji, creatorName, members }),
-      })
-      if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create group')
-      return res.json() as Promise<{ id: string; membersError: string | null }>
+      return postJson<{ id: string; membersError: string | null }>(
+        '/api/groups/create',
+        { name, emoji, creatorName, members },
+      )
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['groups'] })

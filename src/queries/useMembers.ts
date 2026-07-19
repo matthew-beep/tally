@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient, getAuthUser } from '@/lib/supabase'
+import { postJson } from '@/lib/api'
 import type { ProfileSnippet } from '@/queries/useProfile'
 
 export function useAcceptGroupInvite() {
@@ -42,21 +43,13 @@ export function useDeclineGroupInvite() {
       // (fires notify_group_invite_declined); already in splits → convert the
       // seat to a guest so history survives. Never DELETE directly here —
       // expense_splits cascade on member delete and balances would corrupt.
-      const [res] = await Promise.all([
-        fetch('/api/invite/decline', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ groupId }),
-        }),
+      await Promise.all([
+        postJson('/api/invite/decline', { groupId }),
         supabase
           .from('notifications')
           .update({ read: true })
           .eq('id', notificationId),
       ])
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.error ?? 'Failed to decline invite')
-      }
     },
     onSuccess: (_, { groupId }) => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
