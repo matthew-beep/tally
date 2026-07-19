@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { T, FH, F, FMONO } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { Card } from '@/components/Card'
@@ -132,6 +133,7 @@ function infoLabel(n: Notification): string {
 
 export default function MePage() {
   const router = useRouter()
+  const qc = useQueryClient()
   const { data: profile } = useCurrentProfile()
   const { data: notifications = [] } = useNotifications()
   const { isDark, toggle } = useTheme()
@@ -151,6 +153,9 @@ export default function MePage() {
   async function signOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
+    // Redundant with the auth-change listener in Providers — kept as
+    // insurance so the explicit path never depends on it.
+    qc.clear()
     router.push('/login')
   }
 
