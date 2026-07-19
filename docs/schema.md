@@ -96,7 +96,9 @@ expense_splits (
   id              uuid PK,
   expense_id      uuid → expenses ON DELETE CASCADE NOT NULL,
   group_member_id uuid → group_members ON DELETE CASCADE NOT NULL,
-  owed_amount     numeric(10,2) NOT NULL   -- splits must sum to expenses.amount
+  owed_amount     numeric(10,2) NOT NULL,  -- splits must sum to expenses.amount
+  UNIQUE (expense_id, group_member_id)     -- added 2026-07-19: turns a silent
+                                           -- RLS no-op on edit into a loud error
 )
 
 settlements (
@@ -155,24 +157,30 @@ CLAUDE.md but **do not exist yet** — itemized mode is a UI placeholder.
 
 ## RLS
 
-All app tables have RLS on. Note: only the policies for
-`expenses`/`settlements`/`expense_history` are visible in tracked migrations —
-the rest live in the untracked base schema (Supabase dashboard). Until a
-baseline snapshot is captured (`npx supabase db diff --linked`, see TODO →
-Prod readiness), the dashboard is the only place to verify them.
+All app tables have RLS on — fully audited against the live database
+2026-07-19; the per-table policy summary and severity-ranked findings are
+recorded in [review-todo.md](./review-todo.md) (RLS dashboard check).
+Most policies still live only in the untracked base schema (dashboard);
+a baseline snapshot (`npx supabase db pull`, see TODO → Prod readiness)
+remains open, and until it lands the local dev DB does **not** match
+prod policies — which is exactly how two silent critical bugs survived
+testing (see `rls_critical_fixes` below).
 
-The recurring pattern — membership is checked by matching
-`group_members.user_id` directly against `auth.uid()` (valid because
+Membership gating goes through `get_my_group_ids()`, a `SECURITY DEFINER`
+helper (definer mode is what stops the `group_members` SELECT policy from
+recursing into itself; `user_id = auth.uid()` is valid because
 `profiles.id = auth.users.id`):
 
 ```sql
-group_id IN (
-  SELECT gm.group_id FROM group_members gm
-  WHERE gm.user_id = auth.uid() AND gm.status = 'active'
-)
+group_id IN (SELECT get_my_group_ids())
 ```
 
-Two fixes worth knowing (both in `supabase/migrations/`):
+⚠️ The helper does **not** filter `status = 'active'` — pending and left
+members retain full read access. Known open finding; the fix (status
+filter in the fn + a pending-invitee `groups` preview policy so invite
+notifications keep showing the group name) is scoped in review-todo.
+
+Fixes worth knowing (all in `supabase/migrations/`):
 
 - **`fix_expense_update_rls`** — any active group member may UPDATE any
   expense (edits + soft delete). The earlier payer-only policy made other
@@ -180,6 +188,16 @@ Two fixes worth knowing (both in `supabase/migrations/`):
 - **`fix_expense_select_rls`** — the SELECT policy must **not** filter
   `deleted_at IS NULL`, or the soft-delete UPDATE rejects its own result row.
   Soft-delete filtering is a query-layer concern, enforced in every hook.
+- **`rls_critical_fixes`** (2026-07-19, applied) — added the missing
+  `group_members` UPDATE policy (without it, accept-invite's client-side
+  status update silently matched 0 rows) and `expense_splits` DELETE
+  policy (without it, expense edit's delete-then-reinsert kept old splits
+  and doubled balances); deduped the one corrupted — soft-deleted —
+  expense; added the `expense_splits` UNIQUE constraint; dropped the
+  forgeable `notifications` INSERT policy (triggers are SECURITY DEFINER
+  and need no policy). Applied manually via SQL editor: run
+  `npx supabase migration repair --status applied 20260719000000` after
+  linking, before any future `db push`.
 
 ## Invariants (enforced in code, not schema)
 
