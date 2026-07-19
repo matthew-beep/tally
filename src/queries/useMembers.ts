@@ -29,7 +29,6 @@ export function useAcceptGroupInvite() {
       qc.invalidateQueries({ queryKey: ['notifications'] })
       qc.invalidateQueries({ queryKey: ['groups'] })
       qc.invalidateQueries({ queryKey: ['group_members', groupId] })
-      qc.invalidateQueries({ queryKey: ['global-balances'] })
     },
   })
 }
@@ -63,7 +62,6 @@ export function useDeclineGroupInvite() {
       qc.invalidateQueries({ queryKey: ['notifications'] })
       qc.invalidateQueries({ queryKey: ['groups'] })
       qc.invalidateQueries({ queryKey: ['group_members', groupId] })
-      qc.invalidateQueries({ queryKey: ['global-balances'] })
     },
   })
 }

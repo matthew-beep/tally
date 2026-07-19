@@ -19,29 +19,33 @@ drop the rest, and note anything that changed your mind about existing plans.
   resolved 2026-07-13: all dead code deleted (recoverable from git).
 - [ ] **`DeleteGroupSheet` policy** (Phase 4) — should group delete require
   all balances at $0.00 (per original spec)? Currently unenforced.
-- [ ] **Shared balance core** — design settled (2026-07-13), worth doing,
-  not yet built. The dashboard is a *fold over* group views — same math,
-  different identity layer (seat id per group vs profile id globally;
-  guests are seat-only). Approach:
-  - `lib/balance.ts`: add `calcPairwiseNets(myId, expenses, settlements)`
-    (pure, seat-space, one group — the algorithm currently duplicated in
-    group detail `page.tsx` ~95–118 and `useGlobalBalances` ~183–216) and
-    `summarizeBalances(pairwise) → { net, owedToMe, iOwe }`.
-  - Group detail: replace the inline pairwise block with one call.
-  - `useGlobalBalances`: per group → `calcPairwiseNets` → translate seat →
-    profile via existing `effectiveId` → merge into `pairwisePerGroup`;
-    hero gross/net from `summarizeBalances` (deletes the separate
-    gross loops with the `Math.max(0)` floor — hero then exactly equals
-    the sum of the person rows; edge-case numbers shift, which is a fix).
-  - `buildPeopleFlow` unchanged; its `PersonEntry`+`parts` shape is the
-    unified people-relation shape (group page = single-part special case —
-    future shared hero/person-row components hang off this).
-  - Tests incl. consistency invariant:
-    `summarizeBalances(calcPairwiseNets(me,…)).net === calcNetBalances(…)[me]`.
-  - Order: lib + tests green → group-page swap → hook restructure →
-    compare both screens' numbers in dev.
+- [x] ~~**Shared balance core**~~ — built 2026-07-18 as designed.
+  `calcPairwiseNets` + `summarizeBalances` in `lib/balance.ts` with the
+  consistency invariant test — which caught a real settlement-direction
+  bug on the first implementation attempt (third-party settlements
+  debiting my pairwise). Group page swapped to the lib calls; hero
+  grosses now come from `summarizeBalances` (the `Math.max(0)` floors are
+  gone — hero equals the sum of person rows; edge-case numbers shifted,
+  which is the fix). **Still open: eyeball both screens' numbers in dev
+  before the next release.**
 - [ ] **Desktop verification** — fill in the blanked Desktop cells in
   [feature-status.md](./feature-status.md) as each screen is exercised.
+- [x] ~~**Per-group caches as the canonical data layer**~~ — adopted and
+  built 2026-07-18 (proposed 2026-07-14). As-built description now lives
+  in [data-loading-architecture.md](./data-loading-architecture.md)
+  (rewritten; it supersedes that doc's earlier proposal). What landed:
+  `groupsQueryOptions` root (`['groups']`; `useMyGroupIds` is a `select`
+  view over it, not a query), `useAllGroupData` fan-out sharing the
+  single-group hooks' query options, `useGlobalBalances` + `useAllActivity`
+  rewritten as pure derivations (no cache keys of their own, pages
+  untouched), invalidation lists pruned to per-group keys only. Build
+  notes: dead `useRecentActivity` + `RecentExpense` deleted (zero
+  consumers); unused `GlobalBalances` fields (`transfers`, gross-by-person
+  maps) dropped; `useActivity`'s hand-rolled display-name fallback replaced
+  with `lib/memberDisplay`. Known constraint recorded in the arch doc:
+  canonical caches can never be paginated while balance math is
+  client-side; server-side RPC + paginated feed query are the escape
+  hatches.
 
 ## Consolidation pass 2 (2026-07-13, pre-review sweep)
 
@@ -65,12 +69,11 @@ are batch-someday polish; #8 is a ten-second delete.
    Fix: `src/lib/api.ts` → `postJson(path, body)` that always throws the
    server's `{ error }` message (fallback `Request failed (status)`);
    migrate all five. Future routes inherit correct behavior.
-2. - [ ] **[consolidate] Feed merge ×2** — group detail page inlines a
-   tagged merge of expenses+settlements (`_type`, sort `created_at`, group
-   by month); `useActivity.ts` builds its own (`type`, grouped by group).
-   Extract `mergeFeed(expenses, settlements)` → one sorted tagged timeline;
-   both consumers shape from it. This is also the seam where feed
-   pagination lands later (merged timeline, not expenses alone).
+2. - [x] ~~**[consolidate] Feed merge ×2**~~ — done 2026-07-18:
+   `mergeFeed` in `lib/feed.ts` (tested), both consumers shape from it.
+   Contract decision: sort is `created_at` only; `expense_date` is
+   bucketing metadata (backdated expenses surface at the top). Still the
+   seam where feed pagination lands later.
 3. - [ ] **[consolidate] Three components hand-roll the sheet apparatus** —
    `DeleteGroupSheet`, `GroupActionMenu`, `ExpenseActionSheet` each do
    their own `createPortal` + overlay + Escape handler +

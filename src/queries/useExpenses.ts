@@ -5,10 +5,12 @@ import { createClient } from '@/lib/supabase'
 import { rescaleSplits } from '@/lib/splits'
 import type { Expense } from '@/types'
 
-export function useExpenses(groupId: string) {
+// Shared by useExpenses (single group) and useAllGroupData (fan-out) so
+// both read and write the same ['expenses', groupId] cache entry.
+export function expensesQueryOptions(groupId: string) {
   const supabase = createClient()
-  return useQuery({
-    queryKey: ['expenses', groupId],
+  return {
+    queryKey: ['expenses', groupId] as const,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
@@ -21,7 +23,11 @@ export function useExpenses(groupId: string) {
       return (data ?? []) as Expense[]
     },
     enabled: !!groupId,
-  })
+  }
+}
+
+export function useExpenses(groupId: string) {
+  return useQuery(expensesQueryOptions(groupId))
 }
 
 export function useDeleteExpense(groupId: string) {
@@ -37,9 +43,6 @@ export function useDeleteExpense(groupId: string) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', groupId] })
-      qc.invalidateQueries({ queryKey: ['global-balances'] })
-      qc.invalidateQueries({ queryKey: ['recent-activity'] })
-      qc.invalidateQueries({ queryKey: ['all-activity'] })
     },
   })
 }
@@ -94,9 +97,6 @@ export function useUpdateExpense(groupId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', groupId] })
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
-      qc.invalidateQueries({ queryKey: ['global-balances'] })
-      qc.invalidateQueries({ queryKey: ['recent-activity'] })
-      qc.invalidateQueries({ queryKey: ['all-activity'] })
     },
   })
 }
@@ -137,13 +137,10 @@ export function useAddExpense(groupId: string) {
       return expense as Expense
     },
     onSuccess: () => {
+      // Per-group keys only: home/activity aggregates derive from these
+      // caches, so they recompute without their own invalidation.
       qc.invalidateQueries({ queryKey: ['expenses', groupId] })
       qc.invalidateQueries({ queryKey: ['settlements', groupId] })
-      // Invalidate home page aggregates so balance hero and activity feed
-      // reflect the new expense immediately on navigation back.
-      qc.invalidateQueries({ queryKey: ['global-balances'] })
-      qc.invalidateQueries({ queryKey: ['recent-activity'] })
-      qc.invalidateQueries({ queryKey: ['all-activity'] })
     },
   })
 }

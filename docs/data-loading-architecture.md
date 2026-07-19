@@ -1,123 +1,100 @@
 # Data Loading Architecture
 
-## Current state
+_Rewritten 2026-07-18. This describes the as-built architecture after the
+per-group-canonical migration. The previous version of this doc described
+the pre-migration state (duplicate membership fetches, per-screen aggregate
+queries) and proposed a milder fix; that proposal was superseded by the
+design below. History in git._
 
-Every query that needs the user's group list runs its own waterfall:
+## The model
+
+Per-group cache entries are canonical. Everything cross-group is a pure
+client-side fold over them — computed on render, never stored.
 
 ```
-getAuthUser → group_members (groupIds) → actual data
-getAuthUser → group_members (groupIds) → actual data
-getAuthUser → group_members (groupIds) → actual data
+['groups']                            ← root: my groups (rows + ids)
+    │
+    ▼ fan-out (useAllGroupData)
+['expenses', gid]                     ← canonical, per group
+['settlements', gid]                  ← canonical, per group
+['group_members', gid]                ← canonical, per group
+    │
+    ▼ pure folds (lib/balance.ts, lib/feed.ts)
+calcNetBalances · calcPairwiseNets · summarizeBalances · mergeFeed
+    │
+    ▼ derivation hooks (no cache keys of their own)
+useGlobalBalances · useAllActivity
+    │
+    ▼ screens
+home hero + person rows · groups list badges · activity feed · group detail
 ```
 
-### Home screen (`/`)
+Two principles, extending "balances are computed, never stored":
 
-| Hook | Round-trips | What it fetches |
+- **Aggregates are computed, never stored.** There is no cached cross-group
+  object. The dashboard's numbers are `useMemo` folds over whatever
+  per-group entries the screen subscribes to.
+- **Identity translation happens between layers, never inside them.** The
+  pure functions operate in seat space (`group_members.id`). The dashboard
+  derivations translate seat → profile id (`effectiveId`) at the merge, so
+  real users aggregate across groups while guests stay seat-scoped.
+
+## The pieces
+
+| Piece | File | Role |
 |---|---|---|
-| `useGlobalBalances` | auth → memberships → parallel(expenses, settlements, members) → profiles | Full balance math across all groups |
-| `useRecentActivity` | auth → memberships → expenses with group+payer joins | Latest 15 expenses for activity panel |
+| `groupsQueryOptions` / `useGroups` | `queries/useGroups.ts` | Root query `['groups']`: my active memberships joined to group rows. Mounted in the dashboard shell (Sidebar), so it's warm on every page. |
+| `useMyGroupIds` | `queries/useMyGroupIds.ts` | Ids view over `['groups']` via `select` — not a query of its own, so ids and metadata can never disagree. Structural sharing keeps the ids array referentially stable across metadata-only refetches. Swap back to a dedicated skinny query if `['groups']` ever gets heavy. |
+| `expensesQueryOptions` etc. | `useExpenses` / `useSettlements` / `useGroups` | Shared query options (key + fetcher) used by both the single-group hooks and the fan-out — this is what makes the caches canonical. |
+| `useAllGroupData` | `queries/useAllGroupData.ts` | `useQueries` fan-out over ids × {expenses, settlements, members}. Returns byGroup records + aggregate `isLoading`. |
+| `useGlobalBalances` | `queries/useGlobalBalances.ts` | Derivation: per-group `calcNetBalances` + `calcPairwiseNets` (seat space) → translate → `net`, `netPerGroup`, `pairwisePerGroup`; hero grosses from `summarizeBalances` (no `Math.max(0)` floors — hero equals the sum of person rows). `profileMap` comes from the members joins; no profiles query. |
+| `useAllActivity` | `queries/useActivity.ts` | Derivation: `mergeFeed` per group → `ActivityItem` shaping (names via `lib/memberDisplay`) → bucketed by group. |
 
-Two independent membership fetches. Expenses fetched twice — different shapes, same underlying rows.
+## What loads when
 
-### Groups page (`/groups`)
+- **Home / groups list / activity** (cross-group): `['groups']` resolves →
+  fan-out fires in parallel → folds compute. First screen pays for the
+  fetch; every later navigation reads warm cache (revalidating per
+  `staleTime`/refocus).
+- **Group detail** (deep link): four scoped queries only —
+  `['groups', id]`, `['group_members', id]`, `['expenses', id]`,
+  `['settlements', id]`. No root, no fan-out, other groups untouched.
+  Navigating out to a cross-group screen later reuses this group's warm
+  entries.
+- **Auth/authz**: middleware redirects unauthenticated users before render;
+  RLS returns empty results (not errors) for groups you're not in — the
+  folds compute over empty arrays and the page shows not-found.
 
-| Hook | Round-trips |
-|---|---|
-| `useGroups` | auth → group_members with group join |
+## Invalidation rules
 
-Third membership fetch, separate from the two above.
-
-### Activity page (`/activity`)
-
-| Hook | Round-trips |
-|---|---|
-| `useAllActivity` | auth → memberships → parallel(expenses, settlements) |
-
-Fourth membership fetch.
-
-### Group detail (`/groups/:id`)
-
-| Hook | Round-trips |
-|---|---|
-| `useGroup` | single group row |
-| `useGroupMembers` | members + profiles for that group |
-| `useExpenses` | expenses + splits for that group |
-| `useSettlements` | settlements for that group |
-
-These are scoped to a single group so the membership lookup isn't needed — fine as-is.
-
----
-
-## Problems
-
-**Duplicate membership fetches.** `useGlobalBalances`, `useRecentActivity`, `useAllActivity`, and `useGroups` all independently hit `group_members` for the same user. On initial load these fire concurrently, so 3–4 identical queries go out at the same time.
-
-**Waterfall structure.** Every query has a sequential dependency: auth → memberships → actual data. The data fetch can't start until memberships resolve.
-
-**Expenses fetched twice on home screen.** `useGlobalBalances` fetches expenses as `(group_id, paid_by, splits)` for balance math. `useRecentActivity` fetches the same expense rows again with different joins for the UI. Different enough shapes that they can't share a cache entry.
-
----
-
-## Proposed approach
-
-### 1. Shared `useMyGroupIds` hook
-
-Extract the membership lookup into its own query with a stable cache key. Any hook that calls it gets the result from cache after the first resolution — no duplicate DB hits.
-
-```ts
-// queries/useMyGroupIds.ts
-export function useMyGroupIds() {
-  return useQuery({
-    queryKey: ['my-group-ids'],
-    queryFn: async () => {
-      const user = await getAuthUser(supabase)
-      const { data } = await supabase
-        .from('group_members')
-        .select('group_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-      return data?.map(m => m.group_id) ?? []
-    },
-    staleTime: 60_000,
-  })
-}
-```
-
-`useGlobalBalances`, `useRecentActivity`, `useAllActivity`, and `useGroups` all call `useMyGroupIds()` and wait on `enabled: groupIds !== undefined` before firing their data query. The first caller fetches, the rest read from cache.
-
-### 2. `useGroups` can piggyback on `useMyGroupIds`
-
-`useGroups` currently fetches `group_members` with a `groups(*)` join. With `useMyGroupIds` cached, it can skip the membership query and just fetch `groups` directly by ID.
-
-```ts
-export function useGroups() {
-  const { data: groupIds } = useMyGroupIds()
-  return useQuery({
-    queryKey: ['groups'],
-    queryFn: () => supabase.from('groups').select('*').in('id', groupIds!),
-    enabled: !!groupIds?.length,
-  })
-}
-```
-
-### 3. Consider merging `useGlobalBalances` and `useRecentActivity`
-
-Both are only used on the home screen. They share the same `groupIds` dependency and both hit expenses. Merging them into one query avoids the duplicate expense fetch and eliminates one waterfall chain entirely.
-
-The merged query returns `{ balances, recentExpenses }` — home screen components destructure what they need.
-
----
-
-## Invalidation rules (unchanged)
-
-Any mutation that changes group membership or financial data must invalidate the affected keys:
+Mutations invalidate only the small keys they touch; every aggregate
+recomputes automatically because it derives from those caches.
 
 | Event | Keys to invalidate |
 |---|---|
-| Add/remove expense | `['expenses', groupId]`, `['global-balances']`, `['recent-activity']`, `['all-activity']` |
-| Settle up | `['settlements', groupId]`, `['global-balances']`, `['all-activity']` |
-| Create group | `['groups']`, `['my-group-ids']` |
-| Delete group | `['groups']`, `['my-group-ids']`, `['global-balances']`, `['all-activity']` |
-| Accept/decline invite | `['groups']`, `['my-group-ids']`, `['global-balances']` |
+| Add / edit / delete expense | `['expenses', gid]` (+ `['settlements', gid]` where relevant) |
+| Settle up / confirm / deny | `['settlements', gid]`, `['notifications']` |
+| Membership change (create/delete group, accept/decline invite, leave) | `['groups']`, `['group_members', gid]`, `['notifications']` as relevant |
 
-`['my-group-ids']` must be invalidated any time group membership changes — it's the root dependency for all downstream queries.
+`['groups']` is the root: invalidating it prefix-matches `['groups', id]`
+detail entries too, and a changed ids result re-drives the fan-out. There
+are no aggregate cache keys to remember — that bug class is gone.
+
+## Constraints and escape hatches
+
+- **The canonical expense/settlement caches can never be paginated** while
+  balance math runs client-side — balances need complete history. When
+  history size hurts (payload/recompute, not query time), the exits are:
+  balances move server-side (RPC/view summing splits, mirroring the
+  `lib/balance.ts` functions, tested against them), and the feed becomes a
+  separate paginated `UNION ALL` query. Both slot in per-surface without
+  changing this architecture. Until then, client folds keep optimistic
+  updates trivial and the math in one tested language.
+- **Fan-out request count** scales with group count (3 requests/group,
+  parallel over HTTP/2). Fine at realistic group counts; batch-and-seed
+  (`setQueryData` per group from one batched fetch) is the escape hatch if
+  it ever isn't.
+- **Optional warmth**: shell-level data (`['groups']`, recents) is already
+  mounted on every dashboard page via Sidebar/comboboxes. Idle or
+  intent-based prefetch of per-group money data can be layered on with
+  `queryClient.prefetchQuery` without any architectural change.

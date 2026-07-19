@@ -15,7 +15,8 @@ import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
-import { calcNetBalances, simplifyDebts } from '@/lib/balance'
+import { calcNetBalances, simplifyDebts, calcPairwiseNets } from '@/lib/balance'
+import { mergeFeed, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement } from '@/types'
 
@@ -100,50 +101,20 @@ export default function GroupDetailPage() {
   const myTransfers = myId ? transfers.filter(t => t.from === myId || t.to === myId) : []
 
   // Pairwise nets from my perspective — positive = they owe me, negative = I owe them
-  const pairwiseNets: Record<string, number> = {}
-  if (myId) {
-    for (const e of expenses) {
-      const mySplit = e.splits?.find((s: { group_member_id: string }) => s.group_member_id === myId)
-      if (e.paid_by === myId) {
-        for (const s of (e.splits ?? [])) {
-          if (s.group_member_id === myId) continue
-          pairwiseNets[s.group_member_id] = (pairwiseNets[s.group_member_id] ?? 0) + Number(s.owed_amount)
-        }
-      } else if (mySplit) {
-        pairwiseNets[e.paid_by] = (pairwiseNets[e.paid_by] ?? 0) - Number(mySplit.owed_amount)
-      }
-    }
-    for (const s of settlements) {
-      if (s.from_member_id === myId) {
-        pairwiseNets[s.to_member_id] = (pairwiseNets[s.to_member_id] ?? 0) + Number(s.amount)
-      } else if (s.to_member_id === myId) {
-        pairwiseNets[s.from_member_id] = (pairwiseNets[s.from_member_id] ?? 0) - Number(s.amount)
-      }
-    }
-    for (const k of Object.keys(pairwiseNets)) {
-      pairwiseNets[k] = Math.round(pairwiseNets[k] * 100) / 100
-    }
-  }
+  const pairwiseNets = myId ? calcPairwiseNets(myId, expenses, settlements) : {}
 
   const oweMeEntries = Object.entries(pairwiseNets).filter(([, v]) => v > 0.01)
   const IOweEntries  = Object.entries(pairwiseNets).filter(([, v]) => v < -0.01)
   const hasBalance   = oweMeEntries.length > 0 || IOweEntries.length > 0
   const netPositive  = myBal >= 0
 
-  // Feed — month-grouped
-  type FeedItem =
-    | { _type: 'expense';    _date: string; data: Expense }
-    | { _type: 'settlement'; _date: string; data: Settlement }
-
-  const feed: FeedItem[] = [
-    ...expenses.map(e    => ({ _type: 'expense'    as const, _date: e.expense_date, data: e })),
-    ...settlements.map(s => ({ _type: 'settlement' as const, _date: s.settled_date, data: s })),
-  ].sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime())
+  // Feed — sorted by created_at (mergeFeed), month-bucketed by expense/settled date
+  const feed = mergeFeed(expenses, settlements)
 
   const dateOrder: string[] = []
   const byDate: Record<string, FeedItem[]> = {}
   for (const item of feed) {
-    const label = monthLabel(item._date)
+    const label = monthLabel(item.type === 'expense' ? item.data.expense_date : item.data.settled_date)
     if (!byDate[label]) { byDate[label] = []; dateOrder.push(label) }
     byDate[label].push(item)
   }
@@ -494,7 +465,7 @@ export default function GroupDetailPage() {
                   <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
                     {byDate[date].map((item, i) => {
 
-                      if (item._type === 'expense') {
+                      if (item.type === 'expense') {
                         const e          = item.data
                         const payer      = memberById[e.paid_by]
                         const payerName  = payer ? displayName(payer) : '…'

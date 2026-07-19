@@ -30,6 +30,23 @@ export function calcNetBalances(
   )
 }
 
+// Collapses one member's pairwise map into hero numbers. owedToMe and iOwe
+// are gross magnitudes (both positive); net = owedToMe - iOwe. Entries within
+// ±0.01 count as settled — the same epsilon simplifyDebts uses.
+export function summarizeBalances(
+  pairwise: Record<string, number>
+): { owedToMe: number; iOwe: number; net: number } {
+  let owedToMe = 0
+  let iOwe = 0
+  for (const v of Object.values(pairwise)) {
+    if (v > 0.01) owedToMe += v
+    else if (v < -0.01) iOwe -= v
+  }
+  owedToMe = Math.round(owedToMe * 100) / 100
+  iOwe     = Math.round(iOwe * 100) / 100
+  return { owedToMe, iOwe, net: Math.round((owedToMe - iOwe) * 100) / 100 }
+}
+
 export function simplifyDebts(net: Record<string, number>): DebtTransfer[] {
   const debtors = Object.entries(net)
     .filter(([, v]) => v < -0.01)
@@ -58,4 +75,36 @@ export function simplifyDebts(net: Record<string, number>): DebtTransfer[] {
   }
 
   return out
+}
+
+export function calcPairwiseNets(memberId: string, expenses: Expense[], settlements: Settlement[]): Record<string, number> {
+  expenses = expenses.filter(e => e.deleted_at === null)
+
+  const net: Record<string, number> = {}
+
+  for (const e of expenses) {
+    if (e.paid_by === memberId) { // if paid by me
+      for (const s of e.splits ?? []) {
+        if (s.group_member_id === memberId) continue
+        net[s.group_member_id] = (net[s.group_member_id] ?? 0) + s.owed_amount
+      }
+    } else { // if not paid by me
+      for (const s of e.splits ?? []) {
+        if (s.group_member_id !== memberId) continue
+        net[e.paid_by] = (net[e.paid_by] ?? 0) - s.owed_amount
+      }
+    }
+  }
+
+  for (const s of settlements) {
+    if (s.from_member_id === memberId) {
+      net[s.to_member_id] = (net[s.to_member_id] ?? 0) + s.amount
+    } else if (s.to_member_id === memberId) {
+      net[s.from_member_id] = (net[s.from_member_id] ?? 0) - s.amount
+    }
+  }
+
+  return Object.fromEntries(
+    Object.entries(net).map(([k, v]) => [k, Math.round(v * 100) / 100])
+  )
 }

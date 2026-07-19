@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcNetBalances, simplifyDebts } from './balance'
+import { calcNetBalances, simplifyDebts, calcPairwiseNets, summarizeBalances } from './balance'
 import type { Expense, Settlement } from '@/types'
 
 const G = 'group-1'
@@ -155,5 +155,154 @@ describe('simplifyDebts', () => {
     const transfers = simplifyDebts({ a: 50, b: 25, c: -40, d: -35 })
     transfers.forEach(t => expect(t.amount).toBeLessThanOrEqual(50))
     expect(transfers.length).toBeLessThanOrEqual(3) // n-1 transfers max for 4 people
+  })
+})
+
+// Pairwise nets from one member's perspective: positive = they owe me,
+// negative = I owe them. Inputs are already group-scoped (same as the
+// per-group query caches), so no groupId parameter.
+describe('calcPairwiseNets', () => {
+  it('credits me per person for splits on expenses I paid', () => {
+    const pair = calcPairwiseNets('a', [
+      expense({ paid_by: 'a', splits: [
+        { group_member_id: 'a', owed_amount: 10 },
+        { group_member_id: 'b', owed_amount: 10 },
+        { group_member_id: 'c', owed_amount: 10 },
+      ]}),
+    ], [])
+    expect(pair).toEqual({ b: 10, c: 10 })
+  })
+
+  it('debits me by my split when someone else paid', () => {
+    const pair = calcPairwiseNets('a', [
+      expense({ paid_by: 'b', splits: [
+        { group_member_id: 'a', owed_amount: 12.5 },
+        { group_member_id: 'b', owed_amount: 12.5 },
+      ]}),
+    ], [])
+    expect(pair).toEqual({ b: -12.5 })
+  })
+
+  it('is unaffected by expenses I am not part of', () => {
+    const pair = calcPairwiseNets('a', [
+      expense({ paid_by: 'b', splits: [
+        { group_member_id: 'b', owed_amount: 8 },
+        { group_member_id: 'c', owed_amount: 8 },
+      ]}),
+    ], [])
+    expect(pair.b ?? 0).toBe(0)
+    expect(pair.c ?? 0).toBe(0)
+  })
+
+  it('excludes soft-deleted expenses', () => {
+    const pair = calcPairwiseNets('a', [
+      expense({
+        paid_by: 'a',
+        deleted_at: '2026-07-01T00:00:00Z',
+        splits: [
+          { group_member_id: 'a', owed_amount: 50 },
+          { group_member_id: 'b', owed_amount: 50 },
+        ],
+      }),
+    ], [])
+    expect(pair.b ?? 0).toBe(0)
+  })
+
+  it('applies settlements in both directions', () => {
+    const pair = calcPairwiseNets('a', [
+      expense({ paid_by: 'b', splits: [
+        { group_member_id: 'a', owed_amount: 20 },
+        { group_member_id: 'b', owed_amount: 20 },
+      ]}),
+    ], [
+      settlement('a', 'b', 5), // I paid b $5 → my debt shrinks
+      settlement('b', 'a', 2), // b paid me $2 → my debt grows back
+    ])
+    expect(pair).toEqual({ b: -17 })
+  })
+
+  it('rounds accumulated float error to cents', () => {
+    const pair = calcPairwiseNets('a', [
+      expense({ paid_by: 'a', splits: [
+        { group_member_id: 'a', owed_amount: 0.1 },
+        { group_member_id: 'b', owed_amount: 0.1 },
+      ]}),
+      expense({ paid_by: 'a', splits: [
+        { group_member_id: 'a', owed_amount: 0.2 },
+        { group_member_id: 'b', owed_amount: 0.2 },
+      ]}),
+    ], [])
+    expect(pair.b).toBe(0.3) // not 0.30000000000000004
+  })
+})
+
+describe('summarizeBalances', () => {
+  it('splits pairwise nets into gross owedToMe / iOwe and net', () => {
+    expect(summarizeBalances({ b: 10, c: -4, d: 2.5 }))
+      .toEqual({ owedToMe: 12.5, iOwe: 4, net: 8.5 })
+  })
+
+  it('returns zeros for empty input', () => {
+    expect(summarizeBalances({})).toEqual({ owedToMe: 0, iOwe: 0, net: 0 })
+  })
+
+  it('treats sub-cent residue as settled (epsilon)', () => {
+    expect(summarizeBalances({ b: 0.005, c: -0.004 }))
+      .toEqual({ owedToMe: 0, iOwe: 0, net: 0 })
+  })
+
+  it('rounds gross sums to cents', () => {
+    const { owedToMe } = summarizeBalances({ b: 0.1, c: 0.2 })
+    expect(owedToMe).toBe(0.3)
+  })
+
+  it('does not floor gross at zero when settlements overshoot', () => {
+    // Someone overpays me: pairwise flips negative. The old hero math
+    // clamped this with Math.max(0); the summary must report it as iOwe
+    // so the hero always equals the sum of the person rows.
+    expect(summarizeBalances({ b: -3 }))
+      .toEqual({ owedToMe: 0, iOwe: 3, net: -3 })
+  })
+})
+
+// The invariant that makes the dashboard fold trustworthy: summing my
+// pairwise nets must equal my row in the full group net calculation.
+describe('pairwise ↔ net consistency', () => {
+  it('summarize(calcPairwiseNets(me)).net === calcNetBalances(...)[me] for every member', () => {
+    const members = ['a', 'b', 'c', 'd']
+    const expenses = [
+      expense({ paid_by: 'a', splits: [
+        { group_member_id: 'a', owed_amount: 3.34 },
+        { group_member_id: 'b', owed_amount: 3.33 },
+        { group_member_id: 'c', owed_amount: 3.33 },
+      ]}),
+      expense({ paid_by: 'b', splits: [
+        { group_member_id: 'b', owed_amount: 20.01 },
+        { group_member_id: 'c', owed_amount: 19.99 },
+      ]}),
+      expense({ paid_by: 'c', splits: [
+        { group_member_id: 'a', owed_amount: 0.01 },
+        { group_member_id: 'c', owed_amount: 0.02 },
+      ]}),
+      expense({
+        paid_by: 'd',
+        deleted_at: '2026-07-01T00:00:00Z',
+        splits: [
+          { group_member_id: 'd', owed_amount: 40 },
+          { group_member_id: 'a', owed_amount: 40 },
+        ],
+      }),
+    ]
+    const settlements = [
+      settlement('c', 'b', 5.55),
+      settlement('b', 'a', 3.33),
+      settlement('a', 'c', 10), // overshoot — a ends up owed by c
+    ]
+
+    const net = calcNetBalances(G, expenses, settlements, members)
+    for (const me of members) {
+      const { net: pairNet } = summarizeBalances(calcPairwiseNets(me, expenses, settlements))
+      expect(pairNet, `member ${me}`).toBe(net[me])
+    }
   })
 })

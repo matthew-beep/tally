@@ -2,12 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient, getAuthUser } from '@/lib/supabase'
-import type { Group } from '@/types'
+import type { Group, GroupMember } from '@/types'
 
-export function useGroups() {
+// Shared by useGroups and useMyGroupIds (an ids view via select) — the one
+// ['groups'] cache entry is the root of the cross-group dependency tree.
+// Any mutation that changes membership must invalidate ['groups'].
+export function groupsQueryOptions() {
   const supabase = createClient()
-  return useQuery({
-    queryKey: ['groups'],
+  return {
+    queryKey: ['groups'] as const,
     queryFn: async () => {
       const user = await getAuthUser(supabase)
       const { data, error } = await supabase
@@ -20,7 +23,11 @@ export function useGroups() {
       if (error) throw error
       return (data?.map(row => (row as any).groups).filter(Boolean) ?? []) as Group[]
     },
-  })
+  }
+}
+
+export function useGroups() {
+  return useQuery(groupsQueryOptions())
 }
 
 export function useGroup(id: string) {
@@ -40,10 +47,12 @@ export function useGroup(id: string) {
   })
 }
 
-export function useGroupMembers(groupId: string) {
+// Shared by useGroupMembers (single group) and useAllGroupData (fan-out) so
+// both read and write the same ['group_members', groupId] cache entry.
+export function groupMembersQueryOptions(groupId: string) {
   const supabase = createClient()
-  return useQuery({
-    queryKey: ['group_members', groupId],
+  return {
+    queryKey: ['group_members', groupId] as const,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('group_members')
@@ -55,10 +64,14 @@ export function useGroupMembers(groupId: string) {
         .eq('group_id', groupId)
         .in('status', ['pending', 'active'])
       if (error) throw error
-      return data ?? []
+      return (data ?? []) as GroupMember[]
     },
     enabled: !!groupId,
-  })
+  }
+}
+
+export function useGroupMembers(groupId: string) {
+  return useQuery(groupMembersQueryOptions(groupId))
 }
 
 export function useProfileGroups(profileId: string | undefined) {
@@ -88,8 +101,6 @@ export function useDeleteGroup() {
     },
     onSuccess: (_, groupId) => {
       qc.invalidateQueries({ queryKey: ['groups'] })
-      qc.invalidateQueries({ queryKey: ['global-balances'] })
-      qc.invalidateQueries({ queryKey: ['recent-activity'] })
       qc.removeQueries({ queryKey: ['groups', groupId] })
       qc.removeQueries({ queryKey: ['group_members', groupId] })
       qc.removeQueries({ queryKey: ['expenses', groupId] })
@@ -117,7 +128,6 @@ export function useCreateGroup() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['groups'] })
-      qc.invalidateQueries({ queryKey: ['global-balances'] })
     },
   })
 }
