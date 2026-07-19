@@ -16,6 +16,7 @@ import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { calcNetBalances, simplifyDebts, calcPairwiseNets } from '@/lib/balance'
+import { postJson } from '@/lib/api'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement } from '@/types'
@@ -56,15 +57,7 @@ export default function GroupDetailPage() {
           ? { type: 'user' as const, profileId: entry.profile.id, name: entry.profile.display_name ?? entry.profile.name }
           : { type: 'guest' as const, name: entry.name }
       )
-      const res = await fetch('/api/groups/members/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId, members }),
-      })
-      if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        throw new Error(body?.error ?? 'Failed to add members')
-      }
+      await postJson('/api/groups/members/add', { groupId, members })
       qc.invalidateQueries({ queryKey: ['group_members', groupId] })
       setPendingMembers([])
       setAddMemberOpen(false)
@@ -228,7 +221,8 @@ export default function GroupDetailPage() {
       <div className="group-detail-mobile-strip" style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <div style={{ display: 'flex' }}>
           {members.map((m, i) => (
-            <div key={m.id} style={{ marginLeft: i > 0 ? -8 : 0, zIndex: members.length - i, width: 26, height: 26, borderRadius: '50%', border: `2px solid ${T.bg}`, flexShrink: 0, overflow: 'hidden' }}>
+            /* Pending members render dimmed — no room for a chip at 22px */
+            <div key={m.id} style={{ marginLeft: i > 0 ? -8 : 0, zIndex: members.length - i, width: 26, height: 26, borderRadius: '50%', border: `2px solid ${T.bg}`, flexShrink: 0, overflow: 'hidden', opacity: m.status === 'pending' ? 0.45 : 1 }}>
               <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={22} isYou={m.user_id === profile?.id} />
             </div>
           ))}
@@ -331,6 +325,7 @@ export default function GroupDetailPage() {
               {members.map((m, i) => {
                 const name     = displayName(m)
                 const isYou    = m.user_id === profile?.id
+                const pending  = m.status === 'pending'
                 const bal      = net[m.id] ?? 0
                 const balColor = Math.abs(bal) < 0.01 ? T.inkFaint : bal > 0 ? T.mintInk : T.coralInk
                 const balStr   = Math.abs(bal) < 0.01
@@ -340,12 +335,19 @@ export default function GroupDetailPage() {
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', borderRadius: T.r.md }}>
                     <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={32} isYou={isYou} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: T.ink, lineHeight: 1.2 }}>{isYou ? 'You' : name.split(' ')[0]}</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: pending ? T.inkMuted : T.ink, lineHeight: 1.2 }}>{isYou ? 'You' : name.split(' ')[0]}</div>
                       {m.profile?.handle && <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, marginTop: 1 }}>@{m.profile.handle}</div>}
                     </div>
-                    <div style={{ fontFamily: FH, fontSize: 13.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0, color: balColor }}>
-                      {balStr}
-                    </div>
+                    {pending ? (
+                      /* Same visual as BalanceBadge's "settled" pill — extract a Pill atom if a third use appears */
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: T.r.pill, background: T.line, color: T.inkMuted, flexShrink: 0 }}>
+                        ⏳ invited
+                      </span>
+                    ) : (
+                      <div style={{ fontFamily: FH, fontSize: 13.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0, color: balColor }}>
+                        {balStr}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -373,13 +375,14 @@ export default function GroupDetailPage() {
               {/* Member preview — mobile only; desktop has left column */}
               <div className="group-detail-empty-members" style={{ width: '100%', background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', marginTop: 16, boxShadow: T.shadowSm }}>
                 {members.map((m, i) => {
-                  const name  = displayName(m)
-                  const isYou = m.user_id === profile?.id
+                  const name    = displayName(m)
+                  const isYou   = m.user_id === profile?.id
+                  const pending = m.status === 'pending'
                   return (
                     <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
                       <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={34} isYou={isYou} />
-                      <div style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: T.ink }}>{isYou ? 'You' : name}</div>
-                      <div style={{ fontSize: 13, color: T.inkFaint, fontFamily: FMONO }}>—</div>
+                      <div style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: pending ? T.inkMuted : T.ink }}>{isYou ? 'You' : name}</div>
+                      <div style={{ fontSize: 13, color: T.inkFaint, fontFamily: FMONO }}>{pending ? '⏳' : '—'}</div>
                     </div>
                   )
                 })}
