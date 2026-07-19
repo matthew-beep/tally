@@ -12,13 +12,77 @@ drop the rest, and note anything that changed your mind about existing plans.
 
 ## Decisions to make during the review (pre-seeded)
 
-- [ ] **RLS dashboard check** (Phase 1 exit question) — record here, per
-  table: RLS on/off + policy summary. This unblocks the baseline-migration
-  item in TODO → Prod readiness.
+- [x] **RLS dashboard check** — recorded 2026-07-19 from live pg_tables /
+  pg_policies. **RLS enabled on all public tables.** Policy summary and
+  findings (severity-ranked):
+  - **[bug][critical] `group_members` — no UPDATE policy.** Accept-invite
+    (`useMembers.ts` client-side `update({status:'active'})`) silently
+    matches 0 rows: notification marks read, membership stays pending,
+    group never appears, accepted-trigger never fires. Invite-*link* path
+    uses a server route, which is why this hid. Also blocks leave
+    (`status='left'`). Fix: UPDATE policy `user_id = auth.uid()` (+
+    consider restricting the transition).
+  - **[bug][critical] `expense_splits` — no DELETE policy.** Expense edit
+    (`useUpdateExpense` delete-then-reinsert) silently keeps old splits and
+    inserts new ones (no unique on expense_id+member) → balances
+    double-count on every edit. Run the dupe + split-sum checks; clean up
+    any corruption. Fix: DELETE (and UPDATE) policy scoped like INSERT.
+  - **[security][high] `profiles` SELECT = `status='active'` only** — no
+    role/auth restriction: anon key can dump all profiles **including
+    email** (+ add_code). Violates "email never shown to other users".
+    Fix: column-level grants or public view without email.
+  - **[security][med] `notifications` INSERT (any authed)** — triggers are
+    SECURITY DEFINER and need no policy; this only enables forged
+    notifications to arbitrary recipients. Drop it.
+  - **[security][med] `group_members` INSERT (any authed, any row)** —
+    self-join to any group by UUID, spam-adds, forged invited_by. Join +
+    search-add now go through server routes → tighten or drop.
+  - **[integrity][med] `group_members` DELETE `user_id = auth.uid()`** —
+    "leave" per spec is UPDATE to 'left'; a real DELETE cascades into
+    expense_splits and corrupts history. Remove/replace once UPDATE
+    policy exists.
+  - **[integrity][low] `settlements` UPDATE allows either party** — payer
+    can self-confirm; restrict confirm to `to_member_id`.
+  - **[integrity][low] `groups` INSERT** doesn't pin
+    `created_by = auth.uid()`; expenses UPDATE permits re-parenting
+    between my own groups.
+  - **[ok]** expenses soft-delete-only (no DELETE policy) correct;
+    expense_history SELECT-only correct (trigger writes);
+    `expense_items`/`assignments` lack UPDATE/DELETE — revisit with
+    itemized (Phase 2).
+  - **[security][high] `get_my_group_ids()` has NO status filter**
+    (verified 2026-07-19: SECURITY DEFINER ✓, pinned search_path ✓, but
+    `WHERE user_id = auth.uid()` only) — **pending and left members have
+    full read access** to group data. Fix needs two parts: add
+    `AND status = 'active'` to the fn, **plus** a narrow `groups` SELECT
+    policy for pending invitees (invite notifications show the group name
+    via this leak today — filter alone breaks invite previews).
+  - **[confirmed] Edit-corruption exists in prod**: expense `18cd87f6…`
+    has 2× splits for all 3 members. Absent from the live split-sum check
+    → expense is (almost certainly) soft-deleted, so live balances are
+    clean. Migration `20260719000000_rls_critical_fixes.sql` adds the two
+    missing policies, dedupes (guarded: aborts if LIVE dupes exist), adds
+    UNIQUE (expense_id, group_member_id), drops the notifications INSERT
+    policy. **Applied + verified 2026-07-19** (policies present, dupes
+    gone, constraint in place — via SQL editor, so run
+    `supabase migration repair --status applied 20260719000000` before
+    any future `db push`). App-level retest still pending: accept an
+    invite end-to-end, edit an expense.
+  - **[followup]** Policies exist only in the dashboard, not migrations —
+    local dev DB ≠ prod, which is how the two critical bugs hid. Baseline
+    migration (`supabase db pull`) is now urgent. Still open after the
+    critical migration: get_my_group_ids status filter (+ invitee-preview
+    policy), tighten `group_members` INSERT, remove/replace `group_members`
+    DELETE, payee-only settlement confirm.
 - [x] ~~`AddMemberModal.tsx` / `BalanceBreakdownModal.tsx` fate~~ —
   resolved 2026-07-13: all dead code deleted (recoverable from git).
-- [ ] **`DeleteGroupSheet` policy** (Phase 4) — should group delete require
-  all balances at $0.00 (per original spec)? Currently unenforced.
+- [x] **`DeleteGroupSheet` policy** — decided 2026-07-19: **yes, group
+  delete requires all balances at $0.00** (per original spec). Not yet
+  implemented. Two layers needed: client check in `DeleteGroupSheet`
+  (disable + explain when any member's net ≠ 0), and a DB guard —
+  the delete runs client-side under the "creator can delete" RLS policy,
+  so a UI-only check is bypassable; enforce with a trigger or move the
+  delete behind an API route that verifies balances first.
 - [x] ~~**Shared balance core**~~ — built 2026-07-18 as designed.
   `calcPairwiseNets` + `summarizeBalances` in `lib/balance.ts` with the
   consistency invariant test — which caught a real settlement-direction
@@ -30,6 +94,18 @@ drop the rest, and note anything that changed your mind about existing plans.
   before the next release.**
 - [ ] **Desktop verification** — fill in the blanked Desktop cells in
   [feature-status.md](./feature-status.md) as each screen is exercised.
+- [x] **Invite links deferred** — decided 2026-07-19: no UI exposes the
+  invite link yet, and the flow is (almost certainly) broken for
+  brand-new invitees anyway — the page resolves the token via a
+  client-side `groups` query, but the SELECT policies are
+  membership-based, so a membership-less user gets "Invite not found"
+  (see Phase 2 API-route read). Deferred with the whole token flow in
+  favor of core functionality (group settings, settling). When picked
+  back up: token resolution needs a `SECURITY DEFINER` `resolve_invite(token)`
+  returning only `(id, name, emoji)` (or a service-role route) — a
+  permissive `groups` read policy is NOT an option (would leak
+  `invite_token` columns → join-anything). The tightened self-only
+  `group_members` INSERT policy already permits the future link-join.
 - [x] ~~**Per-group caches as the canonical data layer**~~ — adopted and
   built 2026-07-18 (proposed 2026-07-14). As-built description now lives
   in [data-loading-architecture.md](./data-loading-architecture.md)
@@ -54,21 +130,14 @@ display-name fallback, invalidation lists — all in TODO → Consolidation).
 Ranked: #1–2 are the high-value items; #3 pairs with planned work; #4–7
 are batch-someday polish; #8 is a ten-second delete.
 
-1. - [ ] **[consolidate][bug] `postJson` helper — no standard fetch exists.**
-   Five call sites hand-roll `fetch('/api/…')` with four different failure
-   behaviors:
-   - `invite/[token]/page.tsx:90` — **silently swallows failure**
-     (`setSubmitting(false); return` — no message, no throw). A bug in its
-     own right, same class as the add-member one fixed 2026-07-13.
-   - `add/[add_code]/page.tsx:39` — generic throw, discards server message
-     (429 rate-limit text invisible here)
-   - `useGroups.ts:115` — parses `.error` but no `.catch` on `res.json()`;
-     a non-JSON error response (gateway 502) crashes with a parse error
-   - `useMembers.ts` decline + group detail `handleAddMembers` — the good
-     pattern (parse with `.catch(() => null)`, readable fallback)
-   Fix: `src/lib/api.ts` → `postJson(path, body)` that always throws the
-   server's `{ error }` message (fallback `Request failed (status)`);
-   migrate all five. Future routes inherit correct behavior.
+1. - [x] ~~**[consolidate][bug] `postJson` helper**~~ — done 2026-07-19:
+   `src/lib/api.ts` → `postJson(path, body)`, always throws the server's
+   `{ error }` (fallback `Request failed (status)`), defensive JSON parse.
+   All five call sites migrated. The two sites with no error UI got it:
+   invite decline (was a **silent swallow** — now shows the message) and
+   `add/[add_code]` (was a generic throw that escaped as an unhandled
+   rejection — now caught + rendered). Rate-limit 429 text now surfaces
+   everywhere. Future routes inherit correct behavior.
 2. - [x] ~~**[consolidate] Feed merge ×2**~~ — done 2026-07-18:
    `mergeFeed` in `lib/feed.ts` (tested), both consumers shape from it.
    Contract decision: sort is `created_at` only; `expense_date` is
@@ -105,7 +174,55 @@ _(findings)_
 
 ## Phase 2 — Trust boundary
 
-_(findings)_
+API-route read 2026-07-19 (all three routes + supabase-server.ts; answers
+the checklist's three pre-flagged questions):
+
+- [ ] **[bug][med] `groups/create` — worse than flagged.** Creator's
+  membership row is in the *same* insert batch as invitees, so one bad
+  invitee row (stale profileId) fails the whole statement → **orphaned
+  group with zero members, route still returns 200 + id** and the client
+  redirects into it. Fix: insert creator separately first (or restore a
+  transactional RPC); surface invitee failures properly.
+- [ ] **[security][med-high] `members/add` — no caller-membership check.**
+  The route verifies only *a session* + rate limit; any authed user who
+  knows a group UUID can inject pending invites/guests into it (writes go
+  through the session client under the loose `group_members` INSERT
+  policy — same hole as the RLS finding, mirrored in the route). Also:
+  guest inserts have `invited_by NULL` so they bypass the rate limiter
+  entirely. Fix: require caller to be an active member; tighten with the
+  RLS INSERT follow-up (decide which layer owns the check — likely both).
+- [x] **Checklist Q "can upsert demote active → pending?" — no, by
+  accident.** The upsert *code* would demote and overwrite `name`, but
+  ON CONFLICT DO UPDATE must pass the UPDATE policy for the existing row,
+  and `group_members` UPDATE is self-only (was: absent) → conflict path
+  errors instead. Consequence: **re-inviting an existing pending member
+  errors** rather than no-oping. Fix: `ignoreDuplicates: true`
+  (DO NOTHING) for clean re-invite semantics.
+- [x] **`invite/decline` scope — clean.** Verifies the caller's own
+  *pending* membership via the session client before any service-role
+  write; admin writes are keyed to that verified seat id. ⚠️ **But it
+  silently depends on `get_my_group_ids()` NOT filtering status** (a
+  pending member must SELECT their own row). The planned status-filter
+  fix MUST ship with an "own membership row" SELECT policy
+  (`user_id = auth.uid()`) or decline 404s — same for the invite page's
+  membership check. Add to the RLS follow-up bundle.
+- [ ] **[confirmed] `getSession()` in all three routes** (appendix item) —
+  server-side session is read from the cookie without auth-server
+  verification; switch to `supabase.auth.getUser()`.
+
+- [x] **[bug] Query cache survived auth changes** — found live 2026-07-19
+  (test-account sign-in greeted as previous user). `signOut()` never
+  touched the QueryClient and no query keys include a user id, so account
+  B was served account A's cached profile/groups/balances — with
+  `staleTime: 60s`, potentially *without any refetch*, until staleness or
+  refocus. Fixed same day: auth boundary = cache boundary —
+  `onAuthStateChange` listener in `providers.tsx` clears the cache
+  whenever the session's user id changes (id comparison, not event names —
+  SIGNED_IN fires on token refresh too; `undefined` sentinel avoids
+  clearing on initial observation), plus a redundant `qc.clear()` in the
+  explicit `signOut()` path. Known cosmetic quirk: clearing while the
+  dashboard is mounted triggers momentary refetches as a signed-out user
+  before the redirect unmounts them — harmless, discarded.
 
 ## Phase 3 — Entry & auth-adjacent pages
 
@@ -113,7 +230,17 @@ _(findings)_
 
 ## Phase 4 — Core UI: the money screens
 
-_(findings)_
+- [x] **[bug] Pending members rendered identically to active** — found live
+  2026-07-19 (created group + search-invited someone; no pending signal
+  anywhere). Data layer was correct (RPC inserts `status: 'pending'`,
+  trigger notifies); all three member renderings on group detail just
+  ignored `m.status`. Spec calls for a ⏳ badge; extra weight because
+  pending members are deliberately splittable (as-built drift, see
+  group-member-model.md) — organiser could split with a non-consenting
+  invitee with zero indication. Fixed same day: "⏳ invited" pill in the
+  desktop members column (styled to match BalanceBadge's settled pill —
+  extract a Pill atom on third use), dimmed avatars in the mobile strip,
+  ⏳ in the empty-state preview.
 
 ## Phase 5 — Dashboard shell & remaining screens
 

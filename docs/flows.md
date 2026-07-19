@@ -20,6 +20,12 @@ in `src/queries/`, pages in `src/app/`, shared UI in `src/components/`.
 5. `/onboarding` (`src/app/onboarding/page.tsx`) — pick an @handle with
    real-time availability check (`HandleInput`), saved lowercase via
    `useUpdateProfile`, then redirect to `?redirect` or `/`.
+6. **Auth boundary = cache boundary**: `providers.tsx` watches
+   `onAuthStateChange` and clears the whole TanStack cache whenever the
+   session's user id changes (sign-out, expiry, user switch — compared by
+   id, so token refreshes don't nuke the warm cache). `signOut()` on the Me
+   page also clears explicitly, as insurance. Without this, account B was
+   served account A's cached balances (found live 2026-07-19).
 
 ## Create a group
 
@@ -74,6 +80,9 @@ Writes go through `POST /api/groups/members/add`: real users upsert as
 **Pending members can be included in expenses.** `useGroupMembers` returns
 `pending` + `active` on purpose — you can log a dinner split with someone
 before they tap Accept. Pending gates their consent/visibility, not the math.
+Because of that, pending members are visibly marked on group detail
+(2026-07-19): "⏳ invited" pill in the members column, dimmed avatars in the
+mobile strip, ⏳ in the empty-state preview.
 
 ## Add an expense
 
@@ -88,8 +97,9 @@ before they tap Accept. Pending gates their consent/visibility, not the math.
    nothing saved).
 4. Save → `src/lib/splits.ts` builds `owed_amount` rows (rounding remainder
    to the first/payer row) → `useAddExpense` inserts the expense then its
-   splits, and invalidates `expenses`, `settlements`, `global-balances`,
-   `recent-activity`, `all-activity`.
+   splits, and invalidates the per-group keys (`['expenses', gid]`,
+   `['settlements', gid]`) — home/activity aggregates are derivations over
+   those caches and recompute on their own.
 
 ## Edit / delete an expense
 
@@ -121,9 +131,15 @@ Balance pipeline (never stored, always derived):
    expenses excluded; pending settlements included (optimistic).
 2. `simplifyDebts(net)` — greedy min-transfer list, used for "who pays who"
    suggestions.
-3. Cross-group: `useGlobalBalances` (`useGlobalBalances.ts`) maps member IDs
-   to profile IDs so the same person nets across groups; also computes gross
-   owed/owing per person for the home cards.
+3. Pairwise: `calcPairwiseNets(mySeatId, expenses, settlements)` — one
+   member's per-counterparty map (positive = they owe me), the shape behind
+   every "owes you / you owe" row; `summarizeBalances` folds it into
+   `{ owedToMe, iOwe, net }` for hero numbers.
+4. Cross-group: `useGlobalBalances` runs the per-group pairwise in seat
+   space, translates seats → profile ids, merges across groups, and takes
+   hero grosses from `summarizeBalances` — so the home hero always equals
+   the sum of the person rows. Pure derivation over the per-group caches
+   (see data-loading-architecture.md).
 
 Settle up (`/groups/[id]/settle`):
 
@@ -147,6 +163,7 @@ Two separate systems:
   Read via `useNotifications` (unread only). Invite accept/decline and
   settlement confirm/deny actions live on the Me page
   (`src/app/(dashboard)/me/page.tsx`).
-- **Activity** (derived; history): merged expenses + settlements sorted by
-  `created_at` — `useActivity.ts` for the Activity tab,
-  `useRecentActivity` for the home feed. No events table.
+- **Activity** (derived; history): `mergeFeed` (`src/lib/feed.ts`) merges
+  expenses + settlements into one `created_at`-sorted timeline; the group
+  page buckets it by month, `useAllActivity` by group. No events table, no
+  activity queries of their own — both derive from the per-group caches.

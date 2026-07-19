@@ -4,7 +4,7 @@
 
 | Route | File | Auth | Purpose |
 |---|---|---|---|
-| `/` | `(dashboard)/page.tsx` | ✓ | Home — balance hero, groups panel, recent activity, people you owe / owe you |
+| `/` | `(dashboard)/page.tsx` | ✓ | Home — balance hero + per-person balances (tap for per-group breakdown) |
 | `/groups` | `(dashboard)/groups/page.tsx` | ✓ | Groups list |
 | `/groups/new` | `(dashboard)/groups/new/page.tsx` | ✓ | Create group |
 | `/groups/[id]` | `(dashboard)/groups/[id]/page.tsx` | ✓ | Group detail — balances, members, expense/settlement feed, action sheets |
@@ -39,7 +39,9 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 | `useSearchProfiles` | `useProfile.ts` | 3-mode member search (@handle / add_code / fuzzy) |
 | `useProfileByAddCode` | `useProfile.ts` | QR add-code lookup |
 | `useNotifications` | `useProfile.ts` | Unread notifications with settlement/group joins |
-| `useGroups`, `useGroup` | `useGroups.ts` | My groups (active memberships only), single group |
+| `useGroups`, `useGroup` | `useGroups.ts` | My groups (active memberships only), single group. `groupsQueryOptions` is the root of the cross-group dependency tree |
+| `useMyGroupIds` | `useMyGroupIds.ts` | Ids view over the `['groups']` cache via `select` — not a query of its own |
+| `useAllGroupData` | `useAllGroupData.ts` | `useQueries` fan-out: expenses/settlements/members per group, sharing the single-group hooks' cache keys |
 | `useGroupMembers` | `useGroups.ts` | Members incl. pending (splittable before accept) |
 | `useCreateGroup`, `useDeleteGroup` | `useGroups.ts` | Create (via API route), hard delete |
 | `useAcceptGroupInvite`, `useDeclineGroupInvite` | `useMembers.ts` | Pending → active / POST `/api/invite/decline` (delete or guest conversion) |
@@ -50,20 +52,23 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 | `useDeleteExpense` | `useExpenses.ts` | Soft delete (`deleted_at`) |
 | `useSettlements`, `useCreateSettlement` | `useSettlements.ts` | Group settlements; record as pending |
 | `useConfirmSettlement`, `useDenySettlement` | `useSettlements.ts` | Confirm / deny (delete) |
-| `useGlobalBalances` | `useGlobalBalances.ts` | Cross-group nets, gross owed/owing per person |
-| `useRecentActivity` | `useGlobalBalances.ts` | Home feed (last expenses across groups) |
-| `useAllActivity` | `useActivity.ts` | Activity tab (expenses + settlements merged) |
+| `useGlobalBalances` | `useGlobalBalances.ts` | **Derivation, no query of its own** — folds the per-group caches into cross-group nets, per-person pairwise, hero grosses |
+| `useAllActivity` | `useActivity.ts` | **Derivation** — `mergeFeed` per group, shaped + bucketed by group |
 
-Mutation hooks invalidate every aggregate they affect (`global-balances`,
-`recent-activity`, `all-activity`, plus the group-scoped keys). Balances are
+Mutations invalidate only the per-group keys they touch (`['expenses', gid]`
+etc.); the cross-group hooks are pure folds over those caches, so they
+recompute without their own invalidation. Full model in
+[data-loading-architecture.md](./data-loading-architecture.md). Balances are
 never cached in the DB — recomputation happens on read.
 
 ## Domain libs (`src/lib/`)
 
 | File | Purpose |
 |---|---|
-| `balance.ts` | `calcNetBalances` (net per member) + `simplifyDebts` (greedy min-transfer) |
-| `splits.ts` | `makeEqualSplits` / `makePercentSplits` / `makeExactSplits` — rounding remainder to first row |
+| `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold), `simplifyDebts` (greedy min-transfer) — all pure, tested incl. pairwise↔net invariant |
+| `feed.ts` | `mergeFeed` — expenses + settlements → one `created_at`-sorted tagged timeline |
+| `api.ts` | `postJson` — the one way to call internal API routes; always throws the server's `{ error }` |
+| `splits.ts` | `makeEqualSplits` / `makePercentSplits` / `makeExactSplits` / `rescaleSplits` — rounding remainder to first row |
 | `categories.ts` | 7 emoji categories, keyword auto-detect from description |
 | `memberDisplay.ts` | `displayName` / `avatarProfile` — profile fallback chain for members & guests |
 | `supabase.ts` / `supabase-server.ts` | Browser client / server + service-role clients |
