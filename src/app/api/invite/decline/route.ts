@@ -15,14 +15,16 @@ export async function POST(request: Request) {
   if (!groupId) return NextResponse.json({ error: 'groupId required' }, { status: 400 })
 
   const supabase = await createServerSupabaseClient()
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Session client on purpose: the caller must be able to see this row
+  // themselves (own-row SELECT policy) — proves it's their own membership.
   const { data: membership, error: memberErr } = await supabase
     .from('group_members')
     .select('id')
     .eq('group_id', groupId)
-    .eq('user_id', session.user.id)
+    .eq('user_id', user.id)
     .eq('status', 'pending')
     .single()
 
