@@ -63,6 +63,12 @@
   display: none;
 }
 
+/* Base: natural height, page itself scrolls (mobile). Desktop overrides
+   this into the bounded scroll panel — see the 1024px block below. */
+.home-people-list {
+  overflow: hidden;
+}
+
 /* Groups/activity previews — desktop only, home stays balance-focused on mobile */
 .home-desktop-only {
   display: none;
@@ -183,8 +189,28 @@
     width: 100%;
   }
 
+  /* Page frame is pinned to the viewport — People is the one section that
+     can grow unbounded (friend count), so it gets the scroll box instead
+     of the page. Hero and Recent groups stay fixed height. */
   .home-main {
     border-right: 0.5px solid var(--tally-line);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* No flex-grow — hug content height. flex-shrink (default) only kicks in,
+     and the list scrolls internally, once total content exceeds .home-main. */
+  .home-people {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .home-people-list {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   /* Needs-attention rail — structure only for now, no data feeding it yet */
@@ -198,9 +224,8 @@
   }
 
   .home-desktop-only {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
+    display: block;
+    flex-shrink: 0;
   }
 
   .home-hero {
