@@ -174,6 +174,25 @@ _(findings)_
 
 ## Phase 2 — Trust boundary
 
+- [ ] **[bug] Accept/decline invite never notifies the inviter.** Found
+  2026-07-21 via the baseline schema dump (side effect, unrelated to the
+  RLS work). `notify_group_invite_accepted()` and
+  `notify_group_invite_declined()` exist as functions but **no trigger
+  calls either** — live DB has only `AFTER INSERT ON group_members`
+  (the initial invite), no `AFTER UPDATE`/`AFTER DELETE`.
+  `20260711000000_decline_to_guest.sql` only ever replaced the function
+  body; it never contained the `CREATE TRIGGER`, silently assuming one
+  existed from the dashboard baseline — it didn't. **Also**: even with the
+  trigger wired, `notifications_type_check` only permits 4 of the 6
+  documented types (missing `group_invite_accepted`/`group_invite_declined`)
+  — fire the trigger without widening the constraint and the accept/decline
+  UPDATE itself starts failing. Fix is two-part, must ship together:
+  widen the CHECK constraint, then add
+  `CREATE TRIGGER on_group_member_updated AFTER UPDATE ON group_members
+  FOR EACH ROW EXECUTE FUNCTION notify_group_invite_accepted()`. Today's
+  seat updates work fine — this is silent-notification-loss only, not
+  data corruption.
+
 API-route read 2026-07-19 (all three routes + supabase-server.ts; answers
 the checklist's three pre-flagged questions):
 
