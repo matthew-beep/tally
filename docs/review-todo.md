@@ -68,12 +68,16 @@ drop the rest, and note anything that changed your mind about existing plans.
     `supabase migration repair --status applied 20260719000000` before
     any future `db push`). App-level retest still pending: accept an
     invite end-to-end, edit an expense.
-  - **[followup]** Policies exist only in the dashboard, not migrations —
-    local dev DB ≠ prod, which is how the two critical bugs hid. Baseline
-    migration (`supabase db pull`) is now urgent. Still open after the
-    critical migration: get_my_group_ids status filter (+ invitee-preview
-    policy), tighten `group_members` INSERT, remove/replace `group_members`
-    DELETE, payee-only settlement confirm.
+  - **[followup] Done 2026-07-19, migration `20260719120000_rls_followup_tightenings.sql`
+    (commit `605bf24`).** `get_my_group_ids()` now filters `status = 'active'`
+    (+ own-row and pending-preview SELECT policies so decline/invite
+    notifications still resolve), `group_members` INSERT is self-only,
+    client-side `group_members` DELETE dropped (cascade hazard), settlement
+    confirm restricted to the payee. Shipped as a unit with the route
+    hardening below — routes deployed first, migration applied after.
+    Baseline migration itself landed 2026-07-21 (`482424b`, squashed to one
+    replayable schema dump — local `db reset`/`db pull --linked` now agree
+    with prod, zero drift).
 - [x] ~~`AddMemberModal.tsx` / `BalanceBreakdownModal.tsx` fate~~ —
   resolved 2026-07-13: all dead code deleted (recoverable from git).
 - [x] **`DeleteGroupSheet` policy** — decided 2026-07-19: **yes, group
@@ -196,38 +200,35 @@ _(findings)_
 API-route read 2026-07-19 (all three routes + supabase-server.ts; answers
 the checklist's three pre-flagged questions):
 
-- [ ] **[bug][med] `groups/create` — worse than flagged.** Creator's
-  membership row is in the *same* insert batch as invitees, so one bad
-  invitee row (stale profileId) fails the whole statement → **orphaned
-  group with zero members, route still returns 200 + id** and the client
-  redirects into it. Fix: insert creator separately first (or restore a
-  transactional RPC); surface invitee failures properly.
-- [ ] **[security][med-high] `members/add` — no caller-membership check.**
-  The route verifies only *a session* + rate limit; any authed user who
-  knows a group UUID can inject pending invites/guests into it (writes go
-  through the session client under the loose `group_members` INSERT
-  policy — same hole as the RLS finding, mirrored in the route). Also:
-  guest inserts have `invited_by NULL` so they bypass the rate limiter
-  entirely. Fix: require caller to be an active member; tighten with the
-  RLS INSERT follow-up (decide which layer owns the check — likely both).
+- [x] ~~**[bug][med] `groups/create` — worse than flagged.**~~ — **Fixed
+  2026-07-19, commit `605bf24`.** Creator's membership row is now inserted
+  separately, first; on failure the group is rolled back (deleted) instead
+  of left orphaned. Invitee insert is a separate batch after, failures
+  reported via `membersError` in the response instead of swallowed.
+- [x] ~~**[security][med-high] `members/add` — no caller-membership
+  check.**~~ — **Fixed 2026-07-19, commit `605bf24`.** Route now checks
+  the caller has an `active` `group_members` row (via service-role client)
+  before any write, returns 403 otherwise. Guest inserts carry
+  `invited_by` too, closing the rate-limiter bypass.
 - [x] **Checklist Q "can upsert demote active → pending?" — no, by
   accident.** The upsert *code* would demote and overwrite `name`, but
   ON CONFLICT DO UPDATE must pass the UPDATE policy for the existing row,
   and `group_members` UPDATE is self-only (was: absent) → conflict path
   errors instead. Consequence: **re-inviting an existing pending member
-  errors** rather than no-oping. Fix: `ignoreDuplicates: true`
-  (DO NOTHING) for clean re-invite semantics.
+  errors** rather than no-oping. **Fix shipped 2026-07-19 (`605bf24`):
+  `ignoreDuplicates: true` on the upsert — re-invite is now a clean no-op.**
 - [x] **`invite/decline` scope — clean.** Verifies the caller's own
   *pending* membership via the session client before any service-role
-  write; admin writes are keyed to that verified seat id. ⚠️ **But it
-  silently depends on `get_my_group_ids()` NOT filtering status** (a
-  pending member must SELECT their own row). The planned status-filter
-  fix MUST ship with an "own membership row" SELECT policy
-  (`user_id = auth.uid()`) or decline 404s — same for the invite page's
-  membership check. Add to the RLS follow-up bundle.
-- [ ] **[confirmed] `getSession()` in all three routes** (appendix item) —
-  server-side session is read from the cookie without auth-server
-  verification; switch to `supabase.auth.getUser()`.
+  write; admin writes are keyed to that verified seat id. Depended on
+  `get_my_group_ids()` NOT filtering status so a pending member could
+  SELECT their own row — **resolved 2026-07-19 (`605bf24`)**: the
+  status-filter migration shipped together with an own-row SELECT policy
+  and a pending-preview policy, so decline and the invite page's
+  membership check both still resolve correctly.
+- [x] ~~**[confirmed] `getSession()` in all three routes**~~ (appendix
+  item) — **Fixed 2026-07-19, commit `605bf24`.** All three routes
+  (`groups/create`, `members/add`, `invite/decline`) call
+  `supabase.auth.getUser()`.
 
 - [x] **[bug] Query cache survived auth changes** — found live 2026-07-19
   (test-account sign-in greeted as previous user). `signOut()` never

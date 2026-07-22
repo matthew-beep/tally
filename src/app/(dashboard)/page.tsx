@@ -4,13 +4,16 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
+import { BalanceBadge } from '@/components/BalanceBadge'
 import { HeroSkeleton } from '@/components/HomeScreenSkeleton'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { useGlobalBalances } from '@/queries/useGlobalBalances'
+import { useGroups } from '@/queries/useGroups'
+import { useAllActivity } from '@/queries/useActivity'
 import { PersonProfileSheet } from '@/components/home/PersonProfileSheet'
 import { BalanceSheet } from '@/components/home/BalanceSheet'
-import { avatarProfile } from '@/lib/memberDisplay'
-import type { Profile } from '@/types'
+import { avatarProfile, firstName } from '@/lib/memberDisplay'
+import type { Profile, ActivityItem } from '@/types'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -97,7 +100,7 @@ function TopBar() {
       <div>
         <div style={{ fontSize: 11, fontWeight: 600, color: T.inkMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Home</div>
         <div className="home-topbar-greeting" style={{ fontWeight: 700, fontFamily: FH, letterSpacing: -0.5, color: T.ink, marginTop: 1 }}>
-          {greeting}{profile ? ` ${(profile.display_name ?? profile.name).split(' ')[0]}` : ''}
+          {greeting}{profile ? ` ${firstName(profile.display_name ?? profile.name)}` : ''}
         </div>
       </div>
       <div className="home-topbar-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -119,7 +122,7 @@ function TopBar() {
 
 // ── Hero ────────────────────────────────────────────────────────────────────
 
-function HeroCard({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalances>['data']> }) {
+function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalBalances>['data']>; people: PersonEntry[] }) {
   const myId = gb.myId
   const total = Math.round((gb.net[myId] ?? 0) * 100) / 100
   const isPositive = total >= 0
@@ -129,20 +132,31 @@ function HeroCard({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalances>
   const mainColor = isPositive ? T.mintInk : T.coralInk
   const softBg = isPositive ? T.mintSoft : T.coralSoft
 
+  // people is already sorted by |net| descending (buildPeopleFlow)
+  const largest = people[0]
+
+  const stats = [
+    { v: String(people.length), l: people.length === 1 ? 'person unsettled' : 'people unsettled', c: T.ink },
+    largest && {
+      v: `${largest.direction === 'owed' ? '+' : '−'}$${Math.abs(largest.net).toFixed(0)}`,
+      l: `largest · ${firstName(largest.name)}`,
+      c: largest.direction === 'owed' ? T.mintInk : T.coralInk,
+    },
+  ].filter(Boolean) as { v: string; l: string; c: string }[]
+
   return (
     <div style={{
       position: 'relative', overflow: 'hidden',
       background: T.cardBg, borderRadius: 22,
       border: T.cardBorder, boxShadow: T.cardShadow,
-      padding: '20px 22px',
     }}>
       <div style={{
-        position: 'absolute', top: -50, right: -50,
-        width: 160, height: 160, borderRadius: '50%',
+        position: 'absolute', top: -80, right: -60,
+        width: 260, height: 260, borderRadius: '50%',
         background: softBg, opacity: 0.55, filter: 'blur(4px)',
         pointerEvents: 'none',
       }} />
-      <div style={{ position: 'relative' }}>
+      <div style={{ padding: '26px 30px 22px', position: 'relative' }}>
         <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: T.inkMuted }}>
           Net balance
         </div>
@@ -166,6 +180,19 @@ function HeroCard({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalances>
           ))}
         </div>
       </div>
+      {stats.length > 0 && (
+        <div style={{
+          display: 'grid', gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
+          borderTop: `0.5px solid ${T.line}`, position: 'relative',
+        }}>
+          {stats.map((s, i) => (
+            <div key={s.l} style={{ padding: '12px 30px 14px', borderLeft: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
+              <div style={{ fontFamily: FH, fontSize: 17, fontWeight: 600, letterSpacing: -0.3, color: s.c, fontVariantNumeric: 'tabular-nums' }}>{s.v}</div>
+              <div style={{ fontSize: 10.5, color: T.inkMuted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.l}</div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -174,16 +201,18 @@ function HeroCard({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalances>
 
 function PersonCard({
   person,
+  isLast,
   onAvatarTap,
   onRowTap,
 }: {
   person: PersonEntry
+  isLast: boolean
   onAvatarTap: () => void
   onRowTap: () => void
 }) {
   const owed = person.direction === 'owed'
   const amtColor = owed ? T.mintInk : T.coralInk
-  const firstName = person.name.split(' ')[0]
+  const name = firstName(person.name)
   const groupHint = person.parts
     .slice(0, 2)
     .map(p => `${p.groupEmoji} ${p.groupName}`)
@@ -196,11 +225,9 @@ function PersonCard({
     <div
       onClick={onRowTap}
       style={{
-        background: T.cardBg,
-        border: T.cardBorder,
-        boxShadow: T.cardShadow,
-        borderRadius: 18, padding: '12px 16px',
-        display: 'flex', alignItems: 'center', gap: 13,
+        padding: '11px 18px',
+        borderBottom: isLast ? 'none' : `0.5px solid ${T.line}`,
+        display: 'flex', alignItems: 'center', gap: 12,
         cursor: 'pointer',
         userSelect: 'none',
       }}
@@ -210,27 +237,21 @@ function PersonCard({
         onClick={e => { e.stopPropagation(); onAvatarTap() }}
         style={{ flexShrink: 0, cursor: 'pointer' }}
       >
-        <Avatar profile={avatarProfile({ name: person.name, profile: person.profile })} slot={person.slot} size={44} />
+        <Avatar profile={avatarProfile({ name: person.name, profile: person.profile })} slot={person.slot} size={30} />
       </div>
 
-      {/* Name + group hint */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.25, lineHeight: 1.2, color: T.ink }}>
-          {firstName}
-        </div>
-        <div style={{ fontSize: 11, marginTop: 2.5, color: T.inkMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {/* Name + group hint, inline */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 10 }}>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: T.ink, flexShrink: 0 }}>{name}</span>
+        <span style={{ fontSize: 11.5, color: T.inkFaint, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {groupHint}
-        </div>
+        </span>
       </div>
 
-      {/* Amount + chevron */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 }}>
-        <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 700, letterSpacing: -0.5, lineHeight: 1, color: amtColor, fontVariantNumeric: 'tabular-nums' }}>
-          {owed ? '+' : '−'}${whole}
-        </div>
-        <svg width="5" height="10" viewBox="0 0 6 11" fill="none" style={{ opacity: 0.22, flexShrink: 0 }}>
-          <path d="M1 1l4 4.5L1 10" stroke={T.ink} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+      {/* Owed/owe label + amount */}
+      <span style={{ fontSize: 11, color: T.inkFaint, flexShrink: 0 }}>{owed ? 'owes you' : 'you owe'}</span>
+      <div style={{ fontFamily: FH, fontSize: 16, fontWeight: 700, letterSpacing: -0.3, fontVariantNumeric: 'tabular-nums', width: 76, textAlign: 'right', flexShrink: 0, color: amtColor }}>
+        {owed ? '+' : '−'}${whole}
       </div>
     </div>
   )
@@ -288,11 +309,12 @@ function OpenBalances({
       {people.length === 0
         ? <AllSquare />
         : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {people.map(p => (
+          <div style={{ background: T.cardBg, border: T.cardBorder, boxShadow: T.cardShadow, borderRadius: 18, overflow: 'hidden' }}>
+            {people.map((p, i) => (
               <PersonCard
                 key={p.id}
                 person={p}
+                isLast={i === people.length - 1}
                 onAvatarTap={() => onAvatarTap(p)}
                 onRowTap={() => onRowTap(p)}
               />
@@ -300,6 +322,137 @@ function OpenBalances({
           </div>
         )
       }
+    </div>
+  )
+}
+
+// ── RecentGroups ───────────────────────────────────────────────────────────
+
+function SectionHeader({ label, action }: { label: string; action?: { text: string; onClick: () => void } }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 10px' }}>
+      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted }}>
+        {label}
+      </span>
+      {action && (
+        <button
+          onClick={action.onClick}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', padding: 0, fontSize: 12, fontWeight: 700, color: T.sunInk }}
+        >
+          {action.text}
+        </button>
+      )}
+    </div>
+  )
+}
+
+const RECENT_GROUPS_LIMIT = 6
+
+function RecentGroups({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalances>['data']> }) {
+  const router = useRouter()
+  const { data: groups = [] } = useGroups()
+  const recent = groups.slice(0, RECENT_GROUPS_LIMIT)
+
+  if (recent.length === 0) return null
+
+  return (
+    <div>
+      <SectionHeader label="Recent groups" action={{ text: 'See all', onClick: () => router.push('/groups') }} />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {recent.map(g => {
+          const net = gb.netPerGroup[g.id]?.[gb.myId] ?? 0
+          return (
+            <div
+              key={g.id}
+              onClick={() => router.push(`/groups/${g.id}`)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 14px 8px 11px', borderRadius: T.r.pill,
+                background: T.cardBg, border: T.cardBorder, boxShadow: T.cardShadow,
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: 15 }}>{g.emoji}</span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink }}>{g.name}</span>
+              <BalanceBadge amount={net} />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── RecentActivity ─────────────────────────────────────────────────────────
+
+const RECENT_ACTIVITY_LIMIT = 6
+
+function RecentActivityRow({ item, isLast }: { item: ActivityItem; isLast: boolean }) {
+  const rowStyle = { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 18px', borderBottom: isLast ? 'none' : `0.5px solid ${T.line}`, cursor: 'pointer' } as const
+
+  if (item.type === 'expense') {
+    return (
+      <div style={rowStyle}>
+        <span style={{ fontSize: 15, width: 22, textAlign: 'center', flexShrink: 0 }}>{item.category ?? '💸'}</span>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.description}</span>
+          <span style={{ fontSize: 11.5, color: T.inkFaint, whiteSpace: 'nowrap' }}>{item.payerName} paid · {item.groupEmoji} {item.groupName}</span>
+        </div>
+        <span style={{ fontFamily: FH, fontSize: 13.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', width: 56, textAlign: 'right', flexShrink: 0, color: T.ink }}>
+          ${item.amount.toFixed(0)}
+        </span>
+      </div>
+    )
+  }
+
+  const confirmed = item.status === 'confirmed'
+  return (
+    <div style={rowStyle}>
+      <span style={{ fontSize: 15, width: 22, textAlign: 'center', flexShrink: 0 }}>{confirmed ? '✓' : '⏳'}</span>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: confirmed ? T.mintInk : T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.fromName} paid {item.toName}</span>
+        <span style={{ fontSize: 11.5, color: T.inkFaint, whiteSpace: 'nowrap' }}>{item.groupEmoji} {item.groupName}</span>
+      </div>
+      <span style={{ fontFamily: FH, fontSize: 13.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', width: 56, textAlign: 'right', flexShrink: 0, color: confirmed ? T.mintInk : T.ink }}>
+        ${item.amount.toFixed(0)}
+      </span>
+    </div>
+  )
+}
+
+function RecentActivity() {
+  const router = useRouter()
+  const { data: groups = [] } = useAllActivity()
+  const items = groups
+    .flatMap(g => g.items)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, RECENT_ACTIVITY_LIMIT)
+
+  if (items.length === 0) return null
+
+  return (
+    <div>
+      <SectionHeader label="Recent activity" action={{ text: 'See all', onClick: () => router.push('/activity') }} />
+      <div style={{ background: T.cardBg, border: T.cardBorder, boxShadow: T.cardShadow, borderRadius: 18, overflow: 'hidden' }}>
+        {items.map((item, i) => (
+          <RecentActivityRow key={item.id} item={item} isLast={i === items.length - 1} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── NeedsAttentionRail ─────────────────────────────────────────────────────
+// Structure only — nothing feeds this yet (settlement confirmations + group
+// invites land here once that data is wired up).
+
+function NeedsAttentionRail() {
+  return (
+    <div className="home-rail">
+      <SectionHeader label="Needs attention" />
+      <div style={{ fontSize: 12, color: T.inkFaint, lineHeight: 1.55 }}>
+        Nothing waiting on you. Payments to confirm and group invites will land here.
+      </div>
     </div>
   )
 }
@@ -318,18 +471,25 @@ export default function HomePage() {
       <TopBar />
 
       <div className="home-scroll">
-        {isLoading || !gb ? (
-          <HeroSkeleton />
-        ) : (
-          <>
-            <HeroCard gb={gb} />
-            <OpenBalances
-              people={people}
-              onAvatarTap={p => { if (p.userType === 'user') setProfilePerson(p) }}
-              onRowTap={p => setBalancePerson(p)}
-            />
-          </>
-        )}
+        <div className="home-main">
+          {isLoading || !gb ? (
+            <HeroSkeleton />
+          ) : (
+            <div className="home-content" style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
+              <HeroCard gb={gb} people={people} />
+              <OpenBalances
+                people={people}
+                onAvatarTap={p => { if (p.userType === 'user') setProfilePerson(p) }}
+                onRowTap={p => setBalancePerson(p)}
+              />
+              <div className="home-desktop-only">
+                <RecentGroups gb={gb} />
+                <RecentActivity />
+              </div>
+            </div>
+          )}
+        </div>
+        <NeedsAttentionRail />
       </div>
 
       {profilePerson?.profile && (

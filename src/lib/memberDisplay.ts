@@ -16,3 +16,8 @@ export function avatarProfile(m: MemberNameSource): AvatarSource {
 export function displayName(m: MemberNameSource): string {
   return m.profile?.display_name ?? m.profile?.name ?? m.name
 }
+
+/** First word of a name — for greetings and compact labels. */
+export function firstName(name: string): string {
+  return name.split(' ')[0]
+}

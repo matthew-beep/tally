@@ -70,8 +70,10 @@ usage: they cap worst-case damage, not shape behavior. Log 429s, tune later.
 - [x] **Wired `/api/groups/create`** — 10/hr via `created_by`/`created_at`;
   429 + `Retry-After: 3600` when hit.
 - [x] **Wired `/api/groups/members/add`** — 30/hr via `invited_by`/
-  `joined_at`; guests insert with `invited_by NULL` so only real-user
-  invites count. 429 + `Retry-After: 3600` when hit.
+  `joined_at`. Guest inserts originally had `invited_by NULL` and bypassed
+  the limiter entirely; fixed 2026-07-19 (`605bf24`) to set `invited_by` on
+  guest rows too, so the limit covers the whole insert surface. 429 +
+  `Retry-After: 3600` when hit.
 - [ ] **`/api/invite/decline`** — no limiter needed: requires an existing
   pending membership, so it's self-limiting.
 - [x] **Search debounce** — new shared `useDebouncedValue` hook
@@ -149,17 +151,17 @@ Creator (`created_by`) is the admin.
 
 ## Prod readiness (from 2026-07-11 codebase audit)
 
-- [ ] **Audit RLS coverage + capture a baseline migration** 🟡 — migrations
-  start at `20260526`; the core tables (profiles, groups, group_members,
-  expenses, expense_splits, notifications) were created outside version
-  control. From the repo, only `expense_history` has `ENABLE ROW LEVEL
-  SECURITY` and only expenses/settlements have policies — the real RLS state
-  of every other table is unknowable without inspecting prod. Run
-  `npx supabase db diff --linked` to snapshot the live schema into a baseline
-  migration, then verify every client-reachable table has RLS + policies.
-- [ ] **Switch API routes from `getSession()` to `getUser()`** 🟢 — all three
-  routes trust the unverified local JWT; `src/proxy.ts:33` documents exactly
-  why not to. Mechanical swap.
+- [x] **Audit RLS coverage + capture a baseline migration** — done
+  2026-07-19/21. RLS audit (`docs/review-todo.md`) found and fixed two
+  critical gaps (`group_members` UPDATE, `expense_splits` DELETE) plus a
+  followup tightening bundle (`605bf24`: `get_my_group_ids()` status
+  filter, self-only `group_members` INSERT, dropped client DELETE,
+  payee-only settlement confirm). Baseline migration squashed 2026-07-21
+  (`482424b`) — one replayable schema dump, `db reset`/`db pull --linked`
+  now match prod with zero drift.
+- [x] **Switch API routes from `getSession()` to `getUser()`** — done
+  2026-07-19, commit `605bf24`. All three routes call
+  `supabase.auth.getUser()`.
 - [ ] **Global mutation error surface** 🟢 — zero `onError` handling in any
   query hook and no `error.tsx` anywhere; failed mutations are silent. Add
   `MutationCache.onError` toast in `providers.tsx` + a root `error.tsx`.
