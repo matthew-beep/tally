@@ -15,7 +15,7 @@ import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
-import { calcNetBalances, simplifyDebts, calcPairwiseNets } from '@/lib/balance'
+import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
 import { postJson } from '@/lib/api'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName } from '@/lib/memberDisplay'
@@ -90,11 +90,12 @@ export default function GroupDetailPage() {
   const myId        = myMember?.id
   const myBal       = myId ? (net[myId] ?? 0) : 0
   const totalSpend  = expenses.reduce((s, e) => s + Number(e.amount), 0)
-  const transfers   = simplifyDebts(net)
-  const myTransfers = myId ? transfers.filter(t => t.from === myId || t.to === myId) : []
 
   // Pairwise nets from my perspective — positive = they owe me, negative = I owe them
   const pairwiseNets = myId ? calcPairwiseNets(myId, expenses, settlements) : {}
+
+  // Desktop members ledger — sorted by group standing, highest first
+  const orderedMembers = [...members].sort((a, b) => (net[b.id] ?? 0) - (net[a.id] ?? 0))
 
   const oweMeEntries = Object.entries(pairwiseNets).filter(([, v]) => v > 0.01)
   const IOweEntries  = Object.entries(pairwiseNets).filter(([, v]) => v < -0.01)
@@ -128,8 +129,8 @@ export default function GroupDetailPage() {
     )
   }
 
-  // Add member UI used in desktop left column
-  const addMemberUI = addMemberOpen ? (
+  // Add member form used in desktop left column (trigger button lives in the "Members" row header)
+  const addMemberForm = (
     <div style={{ background: T.surface, borderRadius: T.r.lg, padding: 14, boxShadow: T.shadow }}>
       <MemberCombobox
         value={pendingMembers}
@@ -156,19 +157,91 @@ export default function GroupDetailPage() {
         </button>
       </div>
     </div>
-  ) : (
-    <button
-      onClick={() => setAddMemberOpen(true)}
-      style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: T.sun, padding: '8px 0', letterSpacing: -0.1, textAlign: 'left' }}
-    >
-      + Add member
-    </button>
   )
 
   return (
     <div style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: F, color: T.ink }}>
 
-      {/* ── Header ── */}
+      {/* ── Desktop: top app bar — breadcrumb, group search (placeholder), notifications (placeholder), avatar ── */}
+      <div className="group-detail-topbar" style={{ height: 56, alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: `0.5px solid ${T.line}`, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.inkMuted }}>
+          <button
+            onClick={() => router.push('/groups')}
+            style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', color: 'inherit' }}
+          >
+            Groups
+          </button>
+          <span style={{ opacity: 0.5 }}>/</span>
+          <span style={{ color: T.ink, fontWeight: 700 }}>{group.name}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: T.r.pill, background: T.surfaceAlt, color: T.inkMuted, fontSize: 12.5, whiteSpace: 'nowrap' }}>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <circle cx="6.5" cy="6.5" r="4.5" stroke={T.inkMuted} strokeWidth="1.4"/>
+              <path d="M10 10l3 3" stroke={T.inkMuted} strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            Search this group
+          </div>
+          <button style={{ width: 34, height: 34, borderRadius: '50%', background: T.surfaceAlt, border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+              <path d="M10 3.5c-2.5 0-4.2 1.9-4.2 4.5v2.6L4.5 13h11l-1.3-2.4V8c0-2.6-1.7-4.5-4.2-4.5z" stroke={T.inkMuted} strokeWidth="1.4" strokeLinejoin="round"/>
+              <path d="M8.3 15.5a1.7 1.7 0 003.4 0" stroke={T.inkMuted} strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <Avatar profile={profile ?? undefined} slot={0} size={30} isYou />
+        </div>
+      </div>
+
+      {/* ── Desktop: group header band — identity, one-line net status, stats, primary actions ── */}
+      <div className="group-detail-header-band" style={{ padding: '22px 28px 20px', borderBottom: `0.5px solid ${T.line}`, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+          <div style={{ width: 52, height: 52, borderRadius: T.r.lg, background: T.surface, border: `0.5px solid ${T.line}`, boxShadow: T.shadowSm, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 27, flexShrink: 0 }}>
+            {group.emoji}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FH, fontSize: 26, fontWeight: 700, letterSpacing: -0.7, color: T.ink, lineHeight: 1.1 }}>{group.name}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.3, color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk }}>
+                {Math.abs(myBal) < 0.01 ? "You're settled up" : `${netPositive ? "You're owed" : 'You owe'} $${Math.abs(myBal).toFixed(2)}`}
+              </span>
+              <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }}/>
+              <span style={{ fontSize: 13, color: T.inkMuted }}>{members.length} {members.length === 1 ? 'member' : 'members'}</span>
+              <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }}/>
+              <span style={{ fontSize: 13, color: T.inkMuted }}>{expenses.length} {expenses.length === 1 ? 'expense' : 'expenses'}</span>
+              <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }}/>
+              <span style={{ fontSize: 13, color: T.inkMuted }}>${totalSpend.toFixed(0)} total spent</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
+            {Math.abs(myBal) >= 0.01 && (
+              <button
+                onClick={() => router.push(`/groups/${groupId}/settle`)}
+                style={{ padding: '9px 16px', borderRadius: T.r.md, background: 'transparent', color: T.ink, border: 0, boxShadow: `inset 0 0 0 1px ${T.lineStrong}`, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
+              >
+                Settle up
+              </button>
+            )}
+            <button
+              onClick={() => setAddExpenseOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: T.r.md, background: T.ink, color: T.bg, border: 0, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
+            >
+              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add expense
+            </button>
+            <button
+              onClick={() => setMenuOpen(true)}
+              style={{ width: 36, height: 36, borderRadius: T.r.md, background: T.surface, border: `0.5px solid ${T.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: T.shadowSm }}
+            >
+              <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="5.5"  r="1.6" fill={T.inkMuted}/>
+                <circle cx="10" cy="10.5" r="1.6" fill={T.inkMuted}/>
+                <circle cx="10" cy="15.5" r="1.6" fill={T.inkMuted}/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Mobile: header ── */}
       <header className="group-detail-header" style={{ padding: '8px 14px 6px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <button
           onClick={() => router.push('/groups')}
@@ -189,21 +262,6 @@ export default function GroupDetailPage() {
             {members.length} {members.length === 1 ? 'person' : 'people'}
             {totalSpend > 0 ? ` · $${totalSpend.toFixed(0)} total` : ''}
           </div>
-        </div>
-        {/* Desktop-only action buttons */}
-        <div className="group-detail-header-actions">
-          <button
-            onClick={() => setAddExpenseOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: T.r.md, background: T.ink, color: T.bg, border: 0, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
-          >
-            + Add expense
-          </button>
-          <button
-            onClick={() => router.push(`/groups/${groupId}/settle`)}
-            style={{ padding: '7px 14px', borderRadius: T.r.md, border: `1.5px solid ${T.lineStrong}`, background: 'transparent', cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700, color: T.ink }}
-          >
-            Settle up
-          </button>
         </div>
         <button
           onClick={() => setMenuOpen(true)}
@@ -270,59 +328,23 @@ export default function GroupDetailPage() {
       {/* ── 2-column body ── */}
       <div className="group-detail-body">
 
-        {/* ── Left column (desktop only) ── */}
+        {/* ── Left column (desktop only) — members ledger, sorted by standing. Net status now lives
+             in the header band above; balances aren't duplicated here. ── */}
         <div className="group-detail-left">
-
-          {/* Position hero */}
-          <div style={{ marginBottom: 22 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10 }}>Your Position</div>
-            <div style={{ fontFamily: FH, fontSize: 48, fontWeight: 700, letterSpacing: -2, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk, marginBottom: 6 }}>
-              {Math.abs(myBal) < 0.01 ? '—' : `${netPositive ? '+' : '−'}$${Math.abs(myBal).toFixed(2)}`}
-            </div>
-            <div style={{ fontSize: 12, color: T.inkMuted }}>
-              {Math.abs(myBal) < 0.01 ? 'All square' : netPositive ? 'Owed to you' : 'You owe this group'}
-            </div>
-          </div>
-
-          <div style={{ height: '0.5px', background: T.line, marginBottom: 20 }} />
-
-          {/* Suggested payments */}
-          {myTransfers.length > 0 && (
-            <>
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 12 }}>Suggested Payments</div>
-                {myTransfers.map((t, i) => {
-                  const fromM    = memberById[t.from]
-                  const toM      = memberById[t.to]
-                  const fromName = fromM ? displayName(fromM) : '…'
-                  const toName   = toM ? displayName(toM) : '…'
-                  const isFromMe = t.from === myId
-                  return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <Avatar profile={fromM ? avatarProfile(fromM) : undefined} slot={slotFor(members, t.from)} size={28} isYou={isFromMe} />
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                        <path d="M5 12h14M14 7l5 5-5 5" stroke={T.inkMuted} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      <Avatar profile={toM ? avatarProfile(toM) : undefined} slot={slotFor(members, t.to)} size={28} isYou={t.to === myId} />
-                      <span style={{ fontSize: 13, color: T.inkMuted, flex: 1, marginLeft: 2 }}>
-                        {isFromMe ? 'You' : fromName.split(' ')[0]} → {t.to === myId ? 'you' : toName.split(' ')[0]}
-                      </span>
-                      <span style={{ fontFamily: FH, fontSize: 15, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: isFromMe ? T.coralInk : T.mintInk, flexShrink: 0 }}>
-                        ${t.amount.toFixed(2)}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-              <div style={{ height: '0.5px', background: T.line, marginBottom: 20 }} />
-            </>
-          )}
-
-          {/* Members */}
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 8 }}>Members</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted }}>Members</span>
+              {!addMemberOpen && (
+                <button
+                  onClick={() => setAddMemberOpen(true)}
+                  style={{ fontSize: 12, fontWeight: 700, color: T.sunInk, background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', padding: '2px 4px' }}
+                >
+                  + Add
+                </button>
+              )}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {members.map((m, i) => {
+              {orderedMembers.map(m => {
                 const name     = displayName(m)
                 const isYou    = m.user_id === profile?.id
                 const pending  = m.status === 'pending'
@@ -331,19 +353,15 @@ export default function GroupDetailPage() {
                 const balStr   = Math.abs(bal) < 0.01
                   ? '$0.00'
                   : `${bal > 0 ? '+' : '−'}$${Math.abs(bal).toFixed(2)}`
+                const caption  = isYou ? 'your net' : Math.abs(bal) < 0.01 ? 'settled' : bal > 0 ? 'is owed' : 'owes the group'
                 return (
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', borderRadius: T.r.md }}>
-                    <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={32} isYou={isYou} />
+                    <Avatar profile={avatarProfile(m)} slot={slotFor(members, m.id)} size={32} isYou={isYou} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 700, color: pending ? T.inkMuted : T.ink, lineHeight: 1.2 }}>{isYou ? 'You' : name.split(' ')[0]}</div>
-                      {m.profile?.handle && <div style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, marginTop: 1 }}>@{m.profile.handle}</div>}
+                      <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 1 }}>{pending ? '⏳ invited' : caption}</div>
                     </div>
-                    {pending ? (
-                      /* Same visual as BalanceBadge's "settled" pill — extract a Pill atom if a third use appears */
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: T.r.pill, background: T.line, color: T.inkMuted, flexShrink: 0 }}>
-                        ⏳ invited
-                      </span>
-                    ) : (
+                    {!pending && (
                       <div style={{ fontFamily: FH, fontSize: 13.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', flexShrink: 0, color: balColor }}>
                         {balStr}
                       </div>
@@ -352,9 +370,11 @@ export default function GroupDetailPage() {
                 )
               })}
             </div>
-            <div style={{ paddingLeft: 8, marginTop: 4 }}>
-              {addMemberUI}
-            </div>
+            {addMemberOpen && (
+              <div style={{ marginTop: 10 }}>
+                {addMemberForm}
+              </div>
+            )}
           </div>
         </div>
 
@@ -479,6 +499,7 @@ export default function GroupDetailPage() {
                           : (mySplit ? Number(mySplit.owed_amount) : 0)
                         const myInvolved = youPaid || !!mySplit
                         const edited     = e.updated_at && e.updated_at !== e.created_at
+                        const inc        = (e.splits ?? []).map((s: { group_member_id: string }) => s.group_member_id)
 
                         return (
                           <div
@@ -493,8 +514,20 @@ export default function GroupDetailPage() {
                               <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {e.description}{edited && <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 5 }}>(edited)</span>}
                               </div>
-                              <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2 }}>
-                                {youPaid ? 'You paid' : `${payerName} paid`} · ${Number(e.amount).toFixed(2)}
+                              <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 7 }}>
+                                <span>{youPaid ? 'You paid' : `${payerName} paid`} · ${Number(e.amount).toFixed(2)}</span>
+                                {/* Desktop only — who the expense is split among */}
+                                <span className="group-detail-expense-split-info">
+                                  <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }}/>
+                                  <span>split {inc.length} ways</span>
+                                  <span style={{ display: 'inline-flex', marginLeft: 2 }}>
+                                    {inc.slice(0, 4).map((mid: string, k: number) => (
+                                      <span key={mid} style={{ marginLeft: k > 0 ? -6 : 0, borderRadius: '50%', border: `1.5px solid ${T.surface}`, display: 'inline-flex' }}>
+                                        <Avatar profile={memberById[mid] ? avatarProfile(memberById[mid]) : undefined} slot={slotFor(members, mid)} size={16} isYou={mid === myId} />
+                                      </span>
+                                    ))}
+                                  </span>
+                                </span>
                               </div>
                             </div>
                             {myInvolved && myAmt > 0 && (

@@ -282,11 +282,9 @@
   border-bottom: 0.5px solid var(--tally-line);
 }
 
-.group-detail-header-actions {
+.group-detail-topbar,
+.group-detail-header-band {
   display: none;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
 }
 
 .group-detail-body {
@@ -309,9 +307,21 @@
   padding: 16px 16px 100px;
 }
 
+.group-detail-expense-split-info {
+  display: none;
+}
+
 @media (min-width: 1024px) {
-  .group-detail-header-actions {
+  .group-detail-header {
+    display: none !important;
+  }
+
+  .group-detail-topbar {
     display: flex;
+  }
+
+  .group-detail-header-band {
+    display: block;
   }
 
   .group-detail-body {
@@ -345,5 +355,11 @@
 
   .group-detail-fab {
     display: none !important;
+  }
+
+  .group-detail-expense-split-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
   }
 }
