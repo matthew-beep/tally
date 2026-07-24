@@ -110,6 +110,53 @@ export function useDeleteGroup() {
   })
 }
 
+export function useUpdateGroup() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ groupId, name, emoji }: { groupId: string; name: string; emoji: string }) => {
+      const { error } = await supabase.from('groups').update({ name, emoji }).eq('id', groupId)
+      if (error) throw error
+    },
+    onSuccess: (_, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ['groups'] })
+      qc.invalidateQueries({ queryKey: ['groups', groupId] })
+    },
+  })
+}
+
+// Self-service leave — RLS ("group_members: self can update status") only allows
+// a member to flip their own row, and only to 'active' | 'left'. Never DELETE:
+// money tables FK to group_members.id and financial history must survive.
+export function useLeaveGroup() {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ groupId, memberId }: { groupId: string; memberId: string }) => {
+      const { error } = await supabase.from('group_members').update({ status: 'left' }).eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: (_, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ['groups'] })
+      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
+    },
+  })
+}
+
+// Removing another member is admin-only and no client-facing RLS policy permits
+// it (only self-row UPDATE exists) — goes through a service-role route instead.
+export function useRemoveMember() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ groupId, memberId }: { groupId: string; memberId: string }) => {
+      return postJson('/api/groups/members/remove', { groupId, memberId })
+    },
+    onSuccess: (_, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
+    },
+  })
+}
+
 export function useCreateGroup() {
   const qc = useQueryClient()
   return useMutation({

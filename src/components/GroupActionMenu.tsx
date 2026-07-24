@@ -12,6 +12,7 @@ interface Props {
   group: Group
   onAddMember: () => void
   onDeleteTap: () => void
+  onSettingsTap: () => void
 }
 
 const Chevron = () => (
@@ -20,7 +21,7 @@ const Chevron = () => (
   </svg>
 )
 
-export function GroupActionMenu({ open, onClose, group, onAddMember, onDeleteTap }: Props) {
+export function GroupActionMenu({ open, onClose, group, onAddMember, onDeleteTap, onSettingsTap }: Props) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   useBodyScrollLock(open)
@@ -46,7 +47,7 @@ export function GroupActionMenu({ open, onClose, group, onAddMember, onDeleteTap
       label: 'Group settings',
       sub: null,
       danger: false,
-      onClick: onClose,
+      onClick: () => { onSettingsTap(); onClose() },
     },
     {
       id: 'add-member',
@@ -72,7 +73,7 @@ export function GroupActionMenu({ open, onClose, group, onAddMember, onDeleteTap
       label: 'Leave group',
       sub: null,
       danger: false,
-      onClick: onClose,
+      onClick: () => { onSettingsTap(); onClose() },
     },
     {
       id: 'delete',
