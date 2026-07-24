@@ -6,18 +6,20 @@ import { useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { useBodyScrollLock } from '@/components/modal/useBodyScrollLock'
 import { useDeleteGroup } from '@/queries/useGroups'
-import type { Group, GroupMember, Expense } from '@/types'
+import { calcNetBalances } from '@/lib/balance'
+import type { Group, GroupMember, Expense, Settlement } from '@/types'
 
 interface Props {
   open: boolean
   onClose: () => void
   group: Group
   expenses: Expense[]
+  settlements: Settlement[]
   members: GroupMember[]
   groupId: string
 }
 
-export function DeleteGroupSheet({ open, onClose, group, expenses, members, groupId }: Props) {
+export function DeleteGroupSheet({ open, onClose, group, expenses, settlements, members, groupId }: Props) {
   const router      = useRouter()
   const deleteGroup = useDeleteGroup()
   const [mounted, setMounted] = useState(false)
@@ -40,7 +42,11 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, members, grou
 
   if (!open || !mounted) return null
 
-  const confirmed = typed.trim().toUpperCase() === 'DELETE'
+  const activeMembers = members.filter(m => m.status === 'active')
+  const net = calcNetBalances(groupId, expenses, settlements, activeMembers.map(m => m.id))
+  const unsettledCount = activeMembers.filter(m => Math.abs(net[m.id] ?? 0) >= 0.01).length
+  const canDelete = unsettledCount === 0
+  const confirmed = canDelete && typed.trim().toUpperCase() === 'DELETE'
 
   if (deleted) {
     return createPortal(
@@ -103,7 +109,9 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, members, grou
             {[
               { icon: '🗑️', text: `${expenses.length} expense${expenses.length !== 1 ? 's' : ''} deleted` },
               { icon: '👥', text: `Removed for all ${members.length} members` },
-              { icon: '⚠️', text: 'Unsettled balances will be lost' },
+              canDelete
+                ? { icon: '✅', text: 'All settled — ready to delete' }
+                : { icon: '⚠️', text: `${unsettledCount} member${unsettledCount > 1 ? 's have' : ' has'} unsettled balances` },
             ].map((row, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: T.coralInk }}>
                 <span style={{ fontSize: 15 }}>{row.icon}</span>
@@ -115,7 +123,9 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, members, grou
           {/* Type to confirm */}
           <div>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.3, color: T.inkMuted, marginBottom: 8 }}>
-              Type <span style={{ fontFamily: FMONO, color: T.coralInk, letterSpacing: 1.5 }}>DELETE</span> to confirm
+              {canDelete
+                ? <>Type <span style={{ fontFamily: FMONO, color: T.coralInk, letterSpacing: 1.5 }}>DELETE</span> to confirm</>
+                : 'Settle all balances before deleting'}
             </div>
             <div style={{ position: 'relative' }}>
               <input
@@ -123,7 +133,8 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, members, grou
                 value={typed}
                 onChange={e => setTyped(e.target.value)}
                 placeholder="DELETE"
-                style={{ width: '100%', padding: '13px 14px', borderRadius: T.r.md, boxSizing: 'border-box', background: T.surfaceAlt, border: confirmed ? `1.5px solid ${T.coral}` : `1px solid ${T.lineStrong}`, fontFamily: FMONO, fontSize: 15, fontWeight: 700, color: confirmed ? T.coralInk : T.ink, letterSpacing: confirmed ? 2 : 0.5, outline: 'none', transition: 'border 0.15s, color 0.15s' }}
+                disabled={!canDelete}
+                style={{ width: '100%', padding: '13px 14px', borderRadius: T.r.md, boxSizing: 'border-box', background: T.surfaceAlt, border: confirmed ? `1.5px solid ${T.coral}` : `1px solid ${T.lineStrong}`, fontFamily: FMONO, fontSize: 15, fontWeight: 700, color: confirmed ? T.coralInk : T.ink, letterSpacing: confirmed ? 2 : 0.5, outline: 'none', transition: 'border 0.15s, color 0.15s', opacity: canDelete ? 1 : 0.5 }}
               />
               {confirmed && (
                 <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>

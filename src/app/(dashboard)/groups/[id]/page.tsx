@@ -602,6 +602,7 @@ export default function GroupDetailPage() {
         group={group}
         onAddMember={() => setAddMemberOpen(true)}
         onDeleteTap={() => setDeleteOpen(true)}
+        onSettingsTap={() => router.push(`/groups/${groupId}/settings`)}
       />
 
       <DeleteGroupSheet
@@ -609,6 +610,7 @@ export default function GroupDetailPage() {
         onClose={() => setDeleteOpen(false)}
         group={group}
         expenses={expenses}
+        settlements={settlements}
         members={members}
         groupId={groupId}
       />
