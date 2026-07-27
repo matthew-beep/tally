@@ -7,15 +7,12 @@ import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements, useCreateSettlement } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { calcNetBalances, simplifyDebts } from '@/lib/balance'
-import { avatarProfile, displayName } from '@/lib/memberDisplay'
+import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
+import { SectionLabel } from '@/components/SectionLabel'
+import { formatAmount } from '@/lib/money'
 import { useRouter, useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import type { GroupMember } from '@/types'
-
-const TILE_LABEL: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, letterSpacing: 0.8,
-  textTransform: 'uppercase', color: T.inkMuted,
-}
 
 export default function SettleUpPage() {
   const params  = useParams()
@@ -106,7 +103,7 @@ export default function SettleUpPage() {
             </svg>
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted }}>{groupLabel}</div>
+            <SectionLabel>{groupLabel}</SectionLabel>
             <div style={{ fontFamily: FH, fontSize: 22, fontWeight: 700, letterSpacing: -0.6, color: T.ink, marginTop: 1 }}>Settle up</div>
           </div>
         </div>
@@ -140,14 +137,14 @@ export default function SettleUpPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 48 }}>
                     <Avatar profile={from ? avatarProfile(from) : undefined} slot={slotFor(t.from)} size={38} isYou={from?.user_id === profile?.id} />
                     <div style={{ fontSize: 11, fontWeight: 600, color: T.ink, textAlign: 'center', lineHeight: 1.1 }}>
-                      {from ? displayName(from).split(' ')[0] : '…'}
+                      {from ? firstName(displayName(from)) : '…'}
                     </div>
                   </div>
 
                   {/* Arrow + amount */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
                     <div style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.4, color: sel ? T.sunInk : T.ink }}>
-                      ${t.amount.toFixed(2)}
+                      {formatAmount(t.amount)}
                     </div>
                     <svg width={32} height={10} viewBox="0 0 32 10" fill="none">
                       <path d="M2 5h24M20 1l6 4-6 4" stroke={sel ? T.sun : T.lineStrong} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -163,7 +160,7 @@ export default function SettleUpPage() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 48 }}>
                     <Avatar profile={to ? avatarProfile(to) : undefined} slot={slotFor(t.to)} size={38} isYou={to?.user_id === profile?.id} />
                     <div style={{ fontSize: 11, fontWeight: 600, color: T.ink, textAlign: 'center', lineHeight: 1.1 }}>
-                      {to ? displayName(to).split(' ')[0] : '…'}
+                      {to ? firstName(displayName(to)) : '…'}
                     </div>
                   </div>
 
@@ -182,7 +179,7 @@ export default function SettleUpPage() {
 
           {/* Amount */}
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '14px 16px', marginBottom: 10 }}>
-            <div style={TILE_LABEL}>Amount</div>
+            <SectionLabel size="sm">Amount</SectionLabel>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginTop: 6 }}>
               <span style={{ fontFamily: FH, fontSize: 24, fontWeight: 500, color: T.inkMuted }}>$</span>
               <input
@@ -197,7 +194,7 @@ export default function SettleUpPage() {
 
           {/* Note */}
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px', marginBottom: 10 }}>
-            <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Note (optional)</div>
+            <SectionLabel size="sm" style={{ marginBottom: 8 }}>Note (optional)</SectionLabel>
             <input
               value={note}
               onChange={e => setNote(e.target.value)}
@@ -208,7 +205,7 @@ export default function SettleUpPage() {
 
           {/* Date */}
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px', marginBottom: 24 }}>
-            <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Payment date</div>
+            <SectionLabel size="sm" style={{ marginBottom: 8 }}>Payment date</SectionLabel>
             <input
               type="date"
               value={settledDate}

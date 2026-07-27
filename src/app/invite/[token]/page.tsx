@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { postJson } from '@/lib/api'
 import { T, F, FH } from '@/design/tokens'
+import { SectionLabel } from '@/components/SectionLabel'
 
 type MemberStatus = 'pending' | 'none'
 type PageState   = 'loading' | 'invalid' | 'ready' | 'declined'
@@ -158,12 +159,9 @@ export default function InvitePage() {
           boxShadow: T.shadow, marginBottom: 16,
         }}>
           <div style={{ fontSize: 56, lineHeight: 1, marginBottom: 16 }}>{group?.emoji}</div>
-          <div style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: 0.8,
-            textTransform: 'uppercase', color: T.inkMuted, marginBottom: 8,
-          }}>
+          <SectionLabel style={{ marginBottom: 8 }}>
             {memberStatus === 'pending' ? "You've been invited to" : "Join this group"}
-          </div>
+          </SectionLabel>
           <div style={{
             fontFamily: FH, fontSize: 28, fontWeight: 700,
             letterSpacing: -0.8, color: T.ink, marginBottom: 10,

@@ -131,8 +131,9 @@ drop the rest, and note anything that changed your mind about existing plans.
 
 Follow-up to the first duplication audit (balance math ×3, avatar slots ×8,
 display-name fallback, invalidation lists — all in TODO → Consolidation).
-Ranked: #1–2 are the high-value items; #3 pairs with planned work; #4–7
-are batch-someday polish; #8 is a ten-second delete.
+Status as of 2026-07-26: #1, #2, #3, #4, #5, #7, #8 all done; #6 done for
+its cheap tier (the `<Money>` hero component stays deliberately deferred —
+see #6 above). This list is fully closed out.
 
 1. - [x] ~~**[consolidate][bug] `postJson` helper**~~ — done 2026-07-19:
    `src/lib/api.ts` → `postJson(path, body)`, always throws the server's
@@ -147,30 +148,124 @@ are batch-someday polish; #8 is a ten-second delete.
    Contract decision: sort is `created_at` only; `expense_date` is
    bucketing metadata (backdated expenses surface at the top). Still the
    seam where feed pagination lands later.
-3. - [ ] **[consolidate] Three components hand-roll the sheet apparatus** —
-   `DeleteGroupSheet`, `GroupActionMenu`, `ExpenseActionSheet` each do
-   their own `createPortal` + overlay + Escape handler +
-   `document.body.style.overflow` lock while `components/modal/` already
-   ships `Modal`, `ActionSheet`, `ModalOverlay`, `useBodyScrollLock`
-   (4 inline scroll-locks, 4 esc-handlers outside the system). Bundle with
-   the planned 19e Vaul conversion — don't do separately.
-4. - [ ] **[style] `<SectionLabel>` atom** — the uppercase/letter-spaced
-   muted header style is copy-pasted ~35×.
-5. - [ ] **[style] `firstName()` helper** — `.split(' ')[0]` ×21; add next
-   to `displayName()` in `lib/memberDisplay.ts`, same PR as the
-   ProfileSnippet overload (TODO → Consolidation).
-6. - [ ] **[style] Money rendering** — sign-color ternary (mint/coral) ×10
-   + inline `toFixed(2)` ~×40 re-answer what the deleted `AmountDisplay`
-   was for. A minimal `formatAmount()` / `<Money>` atom absorbs ~50 sites
-   whenever consistent money anatomy is wanted.
-7. - [ ] **[style] Expense row rendered 4 ways** — group feed, `ActivityRow`,
-   `ExpenseActionSheet` header, share page each build emoji-tile +
-   description + meta + amount. Designs differ per context on purpose;
-   the emoji tile itself is identical in all four.
-8. - [ ] **[consolidate] `Btn.tsx` (52) — zero importers**, missed in the
-   dead-code purge (grep matched its own filename). Same situation as
-   `AmountDisplay`: unadopted atom, every real button is inline-styled.
-   Delete (or adopt).
+3. - [x] ~~**[consolidate] Three components hand-roll the sheet apparatus**~~
+   — **fully resolved, 2026-07-26.** `GroupActionMenu` deleted entirely
+   (see `TODO.md` § group settings entry point) — its trigger now routes
+   straight to `/groups/[id]/settings`, no menu. `DeleteGroupSheet` and
+   `ExpenseActionSheet` both migrated to `ModalOrSheet` — dropped their
+   own `createPortal`/backdrop/escape-handler/slide-up animations
+   entirely, picked up Vaul drag-to-dismiss on mobile and a real centered
+   modal on desktop for free. Zero components in `src/` hand-roll sheet
+   chrome anymore.
+   `ExpenseActionSheet` (§19e, `TODO.md`) built from the "Desktop A —
+   faithful port" direction explored in the `splitter` design project
+   (`Expense Action Desktop.html`): same three screens (actions/edit/
+   delete) stacked the way they read on mobile, just wider (~460px) and
+   calmer, at a centered desktop modal instead of the mobile card
+   stretched wide. Also picked up the `EmojiTile`/`SectionLabel`/
+   `formatAmount` atoms from earlier in this session along the way.
+   Deliberately did not adopt the design's fuller amount typography (sign
+   + $ at half opacity / big number / mono cents) — that's the deferred
+   `<Money>` hero component (#6 below), out of scope for a chrome-only
+   migration.
+   Typecheck + production build clean on both; neither exercised live in
+   a browser yet (drag-to-dismiss feel, desktop modal sizing, the
+   actions→edit→delete screen transitions within one open sheet).
+
+   **Follow-up bug + fix, same day:** first pass on `ExpenseActionSheet`
+   shipped with near-zero content padding on all three screens (one had a
+   stray `'4px 4px 4px'`, two had none) — content sat flush against the
+   sheet/modal edges on both mobile and desktop. Root cause: no shared
+   default existed to fall back on, so the padding was typed from memory
+   instead of a real source of truth. Investigating turned up
+   `src/components/modal/ModalContent.tsx` (`padding: '20px 24px'`) plus
+   `ModalHeader`/`ModalFooter` siblings, all exported from
+   `components/modal/index.ts` — a complete, already-built content/header/
+   footer composition for the modal system that **had zero consumers**
+   anywhere in the app (`BalanceSheet`, `PersonProfileSheet`,
+   `DeleteGroupSheet` all hand-roll their own ad-hoc padding divs too).
+   Same "built but never adopted" shape as the dead `Btn.tsx`/
+   `AmountDisplay.tsx` from the original consolidation audit.
+   Fix scoped to `ExpenseActionSheet`: all three screens now use
+   `<ModalContent>` for their padding. `ModalHeader`/`ModalFooter` were
+   deliberately **not** adopted here — none of the three screens have a
+   header shape that's just title-text-plus-close-X (they're rich identity
+   blocks: emoji tile + description, a title-plus-Save-button row, an
+   icon-plus-warning block), so forcing them in would mean redesigning the
+   content, not just fixing padding. `BalanceSheet`/`PersonProfileSheet`/
+   `DeleteGroupSheet` still don't use `ModalContent` — left as a known gap,
+   not retrofitted in this pass.
+   **Explicitly decided against:** a general spacing token scale
+   (`T.space` or similar) across the whole app. That's a much bigger,
+   deliberate design-system investment — CSS-in-JS here means it'd be a
+   constants object, not utility classes, and to pay off it needs
+   retrofitting into every padding/margin in the codebase, not just
+   modals. `ModalContent` alone already fixes the actual failure mode
+   (no default to fall back on for sheet/modal content specifically).
+4. - [x] ~~**[style] `<SectionLabel>` atom**~~ — **done 2026-07-26.**
+   `src/components/SectionLabel.tsx` — `size?: 'default'|'sm'` (11px/0.6 vs
+   10px/0.7, the two real clusters found across the 39 prior uses),
+   `color?` override for dynamic/danger-tone cases, `style?` passthrough for
+   per-site margin/padding/flex. Migrated ~33 call sites across 12 files
+   (group detail, group settings, settle page, home, me, onboarding,
+   add/[add_code], invite/[token], groups/new, `AddExpenseForm`,
+   `ExpenseActionSheet`, `PersonProfileSheet`, `BalanceSheet`, `Sidebar`),
+   including three local near-duplicates of the same idea collapsed into
+   it (`TILE_LABEL` in both `settle/page.tsx` and `AddExpenseForm.tsx`,
+   `fieldLabel` in `ExpenseActionSheet.tsx`, `labelStyle` in
+   `groups/new/page.tsx`, and the home page's own inline `SectionHeader`
+   component now delegates to it). Odd stragglers (0.3/0.5/0.55/0.8/0.9
+   letter-spacing, `'0.07em'`/`'0.08em'` string values) snapped onto the
+   two canonical variants — that's the point of the atom. **Deliberately
+   left alone**, because they're status pills/badges or per-row
+   micro-captions, not section headers: the Organizer/Pending pill
+   (`groups/new/page.tsx`), the "preview" tag (`onboarding/page.tsx`), the
+   "You pay"/"You receive" chip (`settle/page.tsx`), and the "owes
+   you"/"you owe" caption (`(dashboard)/page.tsx`). Typecheck + production
+   build both clean.
+5. - [x] ~~**[style] `firstName()` helper**~~ — **done 2026-07-26.** All 17
+   remaining raw `.split(' ')[0]` call sites migrated to `firstName()` from
+   `lib/memberDisplay.ts` (group detail, group settings, settle page,
+   `ExpenseActionSheet`, `MemberCombobox`, `AddExpenseForm`,
+   `PersonProfileSheet`, `BalanceSheet`, `SuggestedMembers`, `groups/new`,
+   `add/[add_code]`). Files with a local `const firstName = ...` import the
+   helper aliased as `getFirstName` to avoid self-shadowing. Typecheck
+   clean. The only remaining `.split(' ')[0]` in `src/` are the helper's
+   own implementation and `onboarding/page.tsx`'s handle-suggestion logic
+   (correctly untouched — that's slug generation, not a display name).
+6. - [x] ~~**[style] Money rendering — cheap tier done 2026-07-26.**~~
+   `src/lib/money.ts` → `formatAmount(n, { sign? })` — plain `"$12.34"`, or
+   with `sign: true` a `+`/`−` (U+2212) prefix, zero rendering plain with
+   no sign either way. Migrated ~30 display call sites across 13 files
+   (share page, group detail, group settings, settle page, `me`,
+   `MemberActionSheet`, `ExpenseActionSheet`, `ActivityRow`,
+   `BalanceSheet`, `AddExpenseForm`'s equal/percentage/exact/itemized
+   builders). Caught one real bug in the migration: a group-detail "you
+   owe / owes you" row derived its `+`/`−` from an external `youPaid`
+   boolean rather than the value's own sign — `formatAmount(n, {sign:true})`
+   trusts the number, so that site now passes a correctly-signed value in
+   (`youPaid ? myAmt : -myAmt`) instead. **Deliberately left alone** (not
+   in scope for this tier): form-input seed/dirty-check strings that need
+   a bare `"12.34"` with no `$` (settle page, `ExpenseActionSheet`,
+   `AddExpenseForm`'s exact-split defaults) — `formatAmount()` would
+   corrupt those; and the hero-amount typographic split (separate `$`
+   glyph + big whole number + small mono `.cents`, e.g. home page,
+   `BalanceSheet`, `AddExpenseForm`'s itemized total input) — that's the
+   `<Money>` anatomy component from the style guide, still deferred per
+   `TODO.md`'s original note (rebuild once, migrate ~5-10 hero spots in
+   one sweep, not opportunistically). Typecheck + production build clean.
+7. - [x] ~~**[style] Expense row rendered 4 ways**~~ — **partially done,
+   scoped down 2026-07-26.** As previously noted, the four renderings
+   differ on purpose — only the emoji tile was actually identical.
+   `src/components/EmojiTile.tsx` extracted and migrated into 3 of the 4
+   (group feed, `ActivityRow`'s expense row, `ExpenseActionSheet` header —
+   each kept its own size/radius/background, just deduplicated the
+   box+center-flex markup). The public share page's emoji (`expense/
+   [share_token]/page.tsx`) is a bare centered character with no
+   background box at all — a genuinely different treatment, left as-is
+   rather than forced into the atom. Typecheck + production build clean.
+8. - [x] ~~**[consolidate] `Btn.tsx` (52) — zero importers**~~ — **confirmed
+   deleted.** No `Btn.tsx` file and no importers anywhere in `src/`.
 
 ## Phase 1 — Schema & domain foundation
 

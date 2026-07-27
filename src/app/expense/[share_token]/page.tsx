@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase-server'
+import { formatAmount } from '@/lib/money'
 import { T, FH, FMONO } from '@/design/tokens'
 
 export default async function SharedExpensePage({ params }: { params: Promise<{ share_token: string }> }) {
@@ -36,14 +37,14 @@ export default async function SharedExpensePage({ params }: { params: Promise<{ 
         <div style={{ background: T.surface, borderRadius: T.r.lg, boxShadow: '0 2px 14px rgba(31,26,20,0.09)', padding: 20, marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16, paddingBottom: 16, borderBottom: `0.5px solid ${T.line}` }}>
             <div style={{ fontSize: 13, color: T.inkMuted }}>Total paid by {payer?.display_name ?? payer?.name}</div>
-            <div style={{ fontFamily: FMONO, fontWeight: 700, fontSize: 20 }}>${Number(expense.amount).toFixed(2)}</div>
+            <div style={{ fontFamily: FMONO, fontWeight: 700, fontSize: 20 }}>{formatAmount(Number(expense.amount))}</div>
           </div>
           {expense.splits?.map((split: any, i: number) => {
             const p = split.profile
             return (
               <div key={split.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < expense.splits.length - 1 ? `0.5px solid ${T.line}` : 'none' }}>
                 <div style={{ fontSize: 14, fontWeight: 500 }}>{p?.display_name ?? p?.name ?? '…'}</div>
-                <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 600 }}>${Number(split.owed_amount).toFixed(2)}</div>
+                <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 600 }}>{formatAmount(Number(split.owed_amount))}</div>
               </div>
             )
           })}

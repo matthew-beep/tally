@@ -5,6 +5,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { T, FH, F, FMONO } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { Card } from '@/components/Card'
+import { SectionLabel } from '@/components/SectionLabel'
+import { formatAmount } from '@/lib/money'
 import { Avatar } from '@/components/Avatar'
 import { HandleInput } from '@/components/HandleInput'
 import type { HandleState } from '@/components/HandleInput'
@@ -50,15 +52,11 @@ function ProfileSettings() {
 
   return (
     <Card style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted }}>
-        Edit profile
-      </div>
+      <SectionLabel>Edit profile</SectionLabel>
 
       {/* Display name */}
       <div>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted, marginBottom: 8 }}>
-          Display name
-        </div>
+        <SectionLabel style={{ marginBottom: 8 }}>Display name</SectionLabel>
         <input
           value={displayName}
           onChange={e => setDisplayName(e.target.value)}
@@ -74,9 +72,7 @@ function ProfileSettings() {
 
       {/* Handle */}
       <div>
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: T.inkMuted, marginBottom: 8 }}>
-          Handle
-        </div>
+        <SectionLabel style={{ marginBottom: 8 }}>Handle</SectionLabel>
         <HandleInput
           value={handle}
           onChange={setHandle}
@@ -185,9 +181,7 @@ export default function MePage() {
         {/* Group invites */}
         {notifications.filter(n => n.type === 'group_invite').length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10 }}>
-              Group invites
-            </div>
+            <SectionLabel style={{ marginBottom: 10 }}>Group invites</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {notifications
                 .filter(n => n.type === 'group_invite')
@@ -200,9 +194,7 @@ export default function MePage() {
         {/* Settlement confirmations */}
         {notifications.filter(n => n.type === 'settlement_confirm').length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10 }}>
-              Confirmation requests
-            </div>
+            <SectionLabel style={{ marginBottom: 10 }}>Confirmation requests</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {notifications
                 .filter(n => n.type === 'settlement_confirm')
@@ -215,9 +207,7 @@ export default function MePage() {
         {/* Info notifications — no action required, auto-marked read on view */}
         {infoNotifications.length > 0 && (
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10 }}>
-              Notifications
-            </div>
+            <SectionLabel style={{ marginBottom: 10 }}>Notifications</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {infoNotifications.map(n => (
                 <Card key={n.id} style={{ padding: '12px 14px' }}>
@@ -226,7 +216,7 @@ export default function MePage() {
                   </div>
                   {(n.type === 'settlement_confirmed' || n.type === 'settlement_denied') && (
                     <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 4 }}>
-                      ${Number(n.settlement?.amount ?? 0).toFixed(2)}
+                      {formatAmount(Number(n.settlement?.amount ?? 0))}
                     </div>
                   )}
                 </Card>
@@ -328,7 +318,7 @@ function SettlementConfirmCard({ notification }: { notification: Notification })
   return (
     <Card style={{ padding: '14px' }}>
       <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-        {fromName} says they paid you ${Number(s.amount).toFixed(2)}
+        {fromName} says they paid you {formatAmount(Number(s.amount))}
       </div>
       {s.note && <div style={{ fontSize: 12, color: T.inkMuted, marginBottom: 12 }}>{s.note}</div>}
       <div style={{ display: 'flex', gap: 8 }}>

@@ -81,7 +81,7 @@ never cached in the DB — recomputation happens on read.
 | `AddExpenseForm` / `AddExpenseSheet` | Add-expense form, mobile sheet + desktop modal branches |
 | `ExpenseActionSheet` | Expense tap → actions / edit drawer / delete confirm |
 | `MemberCombobox`, `SuggestedMembers` | Member search input + recents |
-| `GroupActionMenu`, `DeleteGroupSheet` | Group ··· menu, delete confirmation |
+| `DeleteGroupSheet` | Delete-group confirmation (opened from group settings' danger zone) |
 | `Avatar`, `BalanceBadge` | Design-system atoms (slot-colored avatars, balance chips) |
 | `modal/*` | Modal/sheet primitives — `ModalOrSheet` picks by viewport |
 | `home/BalanceSheet`, `home/PersonProfileSheet` | Home balance breakdowns |

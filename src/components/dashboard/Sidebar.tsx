@@ -8,6 +8,7 @@ import { useUIStore } from '@/store/ui'
 import { SliderPill } from '@/components/nav/SliderPill'
 import { useSlider } from '@/components/nav/useSlider'
 import { WebNavIcon, type WebNavIconName } from '@/components/nav/WebNavIcon'
+import { SectionLabel } from '@/components/SectionLabel'
 
 const PRIMARY_NAV: { id: string; label: string; icon: WebNavIconName; href: string; match: (p: string) => boolean }[] = [
   { id: 'home', label: 'Home', icon: 'home', href: '/', match: p => p === '/' },
@@ -143,18 +144,9 @@ export function Sidebar() {
           ))}
         </div>
 
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: 0.8,
-            textTransform: 'uppercase',
-            color: T.inkFaint,
-            padding: '16px 12px 7px',
-          }}
-        >
+        <SectionLabel size="sm" color={T.inkFaint} style={{ padding: '16px 12px 7px' }}>
           Groups
-        </div>
+        </SectionLabel>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', flex: 1, minHeight: 0 }}>
           {groups.length === 0 && (

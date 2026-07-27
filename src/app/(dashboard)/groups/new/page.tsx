@@ -7,8 +7,9 @@ import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
 import { SuggestedMembers } from '@/components/SuggestedMembers'
+import { SectionLabel } from '@/components/SectionLabel'
 import { useCreateGroup } from '@/queries/useGroups'
-import { avatarProfile } from '@/lib/memberDisplay'
+import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { useRecentCollaborators } from '@/queries/useMembers'
 import { useCurrentProfile, useSearchProfiles } from '@/queries/useProfile'
 import type { ProfileSnippet } from '@/queries/useProfile'
@@ -77,11 +78,6 @@ function MemberRow({
       )}
     </div>
   )
-}
-
-const labelStyle = {
-  fontSize: 10, fontWeight: 700, letterSpacing: '0.08em',
-  textTransform: 'uppercase' as const, color: T.inkMuted,
 }
 
 function Chevron() {
@@ -302,7 +298,7 @@ export default function NewGroupPage() {
                         add_code: null as string | null,
                         handle: null as string | null,
                       }
-                  const firstName = (p.display_name ?? p.name).split(' ')[0]
+                  const firstName = getFirstName(p.display_name ?? p.name)
                   const key = entry.type === 'guest' ? entry.tempId : entry.profile.id
                   return (
                     <div key={key} style={{
@@ -385,13 +381,7 @@ export default function NewGroupPage() {
 
           {/* Section label */}
           {(recents.length > 0 || mobileQueryDebounced.length >= 2) && (
-            <div style={{
-              padding: '0 20px 10px',
-              fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-              textTransform: 'uppercase' as const, color: T.inkMuted,
-            }}>
-              {sectionLabel}
-            </div>
+            <SectionLabel style={{ padding: '0 20px 10px' }}>{sectionLabel}</SectionLabel>
           )}
 
           {/* List card */}
@@ -583,7 +573,7 @@ export default function NewGroupPage() {
 
               {/* Name */}
               <div style={{ flex: 1, minWidth: 0, paddingTop: 6 }}>
-                <div style={labelStyle}>Group name</div>
+                <SectionLabel size="sm">Group name</SectionLabel>
                 <input
                   ref={nameInputRef}
                   value={name}
@@ -604,7 +594,7 @@ export default function NewGroupPage() {
             {/* Suggested strip */}
             {recents.length > 0 && (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...labelStyle, marginBottom: 10 }}>Suggested</div>
+                <SectionLabel size="sm" style={{ marginBottom: 10 }}>Suggested</SectionLabel>
                 <SuggestedMembers
                   profiles={recents}
                   selected={members}
@@ -616,7 +606,7 @@ export default function NewGroupPage() {
 
             {/* Members */}
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
-              <div style={labelStyle}>Members</div>
+              <SectionLabel size="sm">Members</SectionLabel>
               <div style={{ fontSize: 11, color: T.inkFaint, fontWeight: 600 }}>
                 name · @handle · 8-char code
               </div>
@@ -703,7 +693,7 @@ export default function NewGroupPage() {
 
           {/* Right — preview */}
           <aside>
-            <div style={{ ...labelStyle, marginBottom: 12 }}>Preview</div>
+            <SectionLabel size="sm" style={{ marginBottom: 12 }}>Preview</SectionLabel>
             <div style={{ background: T.surface, borderRadius: 18, boxShadow: T.shadowSm, padding: '14px 14px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{

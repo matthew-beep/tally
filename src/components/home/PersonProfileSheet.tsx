@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { ModalOrSheet } from '@/components/modal'
 import { Avatar } from '@/components/Avatar'
+import { firstName as getFirstName } from '@/lib/memberDisplay'
+import { SectionLabel } from '@/components/SectionLabel'
 import { T, FH, FMONO } from '@/design/tokens'
 import type { Profile } from '@/types'
 
@@ -24,7 +26,7 @@ interface PersonProfileSheetProps {
 export function PersonProfileSheet({ open, onClose, profile, slot, parts }: PersonProfileSheetProps) {
   const router = useRouter()
   const name = profile.display_name ?? profile.name
-  const firstName = name.split(' ')[0]
+  const firstName = getFirstName(name)
 
   const sharedGroups = parts.map(p => ({
     id: p.groupId,
@@ -75,9 +77,7 @@ export function PersonProfileSheet({ open, onClose, profile, slot, parts }: Pers
         {/* Shared groups */}
         {sharedGroups.length > 0 && (
           <div style={{ padding: '0 16px 14px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, padding: '0 4px 10px' }}>
-              Shared groups
-            </div>
+            <SectionLabel style={{ padding: '0 4px 10px' }}>Shared groups</SectionLabel>
             <div style={{ background: T.surface, borderRadius: 18, overflow: 'hidden', border: `0.5px solid ${T.line}` }}>
               {sharedGroups.map((g, i) => (
                 <div

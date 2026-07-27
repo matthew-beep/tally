@@ -6,6 +6,7 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { useBodyScrollLock } from '@/components/modal/useBodyScrollLock'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile, displayName } from '@/lib/memberDisplay'
+import { formatAmount } from '@/lib/money'
 import type { GroupMember } from '@/types'
 
 interface Props {
@@ -55,7 +56,7 @@ export function MemberActionSheet({ member, balance, slot, canRemove, removing, 
             )}
           </div>
           <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: T.r.pill, background: settled ? T.mintSoft : balance > 0 ? T.mintSoft : T.coralSoft, color: settled ? T.mintInk : balance > 0 ? T.mintInk : T.coralInk }}>
-            {settled ? 'Settled ✓' : `${balance > 0 ? '+' : '−'}$${Math.abs(balance).toFixed(2)}`}
+            {settled ? 'Settled ✓' : formatAmount(balance, { sign: true })}
           </span>
         </div>
 
@@ -64,7 +65,7 @@ export function MemberActionSheet({ member, balance, slot, canRemove, removing, 
             {!settled && (
               <div style={{ padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8, background: T.coralSoft }}>
                 <span style={{ fontSize: 12, color: T.coralInk, fontWeight: 600 }}>
-                  Settle ${Math.abs(balance).toFixed(2)} first before removing
+                  Settle {formatAmount(balance)} first before removing
                 </span>
               </div>
             )}

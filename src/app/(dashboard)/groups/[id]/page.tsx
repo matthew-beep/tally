@@ -5,12 +5,14 @@ import { useParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
+import { EmojiTile } from '@/components/EmojiTile'
+import { SectionLabel } from '@/components/SectionLabel'
+import { formatAmount } from '@/lib/money'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
 import { AddExpenseSheet } from '@/components/AddExpenseForm'
-import { DeleteGroupSheet } from '@/components/DeleteGroupSheet'
-import { GroupActionMenu } from '@/components/GroupActionMenu'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
+import { SettingsIcon } from 'lucide-react'
 import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
@@ -18,7 +20,7 @@ import { useCurrentProfile } from '@/queries/useProfile'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
 import { postJson } from '@/lib/api'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
-import { avatarProfile, displayName } from '@/lib/memberDisplay'
+import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement } from '@/types'
 
 function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
@@ -39,8 +41,6 @@ export default function GroupDetailPage() {
 
   const [addExpenseOpen,  setAddExpenseOpen]  = useState(false)
   const [addMemberOpen,   setAddMemberOpen]   = useState(false)
-  const [menuOpen,        setMenuOpen]        = useState(false)
-  const [deleteOpen,      setDeleteOpen]      = useState(false)
   const [balanceExpanded, setBalanceExpanded] = useState(false)
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
   const [pendingMembers,  setPendingMembers]  = useState<MemberEntry[]>([])
@@ -202,7 +202,7 @@ export default function GroupDetailPage() {
             <div style={{ fontFamily: FH, fontSize: 26, fontWeight: 700, letterSpacing: -0.7, color: T.ink, lineHeight: 1.1 }}>{group.name}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.3, color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk }}>
-                {Math.abs(myBal) < 0.01 ? "You're settled up" : `${netPositive ? "You're owed" : 'You owe'} $${Math.abs(myBal).toFixed(2)}`}
+                {Math.abs(myBal) < 0.01 ? "You're settled up" : `${netPositive ? "You're owed" : 'You owe'} ${formatAmount(myBal)}`}
               </span>
               <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }}/>
               <span style={{ fontSize: 13, color: T.inkMuted }}>{members.length} {members.length === 1 ? 'member' : 'members'}</span>
@@ -228,14 +228,10 @@ export default function GroupDetailPage() {
               <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add expense
             </button>
             <button
-              onClick={() => setMenuOpen(true)}
+              onClick={() => router.push(`/groups/${groupId}/settings`)}
               style={{ width: 36, height: 36, borderRadius: T.r.md, background: T.surface, border: `0.5px solid ${T.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: T.shadowSm }}
             >
-              <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
-                <circle cx="10" cy="5.5"  r="1.6" fill={T.inkMuted}/>
-                <circle cx="10" cy="10.5" r="1.6" fill={T.inkMuted}/>
-                <circle cx="10" cy="15.5" r="1.6" fill={T.inkMuted}/>
-              </svg>
+              <SettingsIcon size={17} color={T.inkMuted} />
             </button>
           </div>
         </div>
@@ -264,14 +260,10 @@ export default function GroupDetailPage() {
           </div>
         </div>
         <button
-          onClick={() => setMenuOpen(true)}
+          onClick={() => router.push(`/groups/${groupId}/settings`)}
           style={{ width: 36, height: 36, borderRadius: T.r.md, background: T.surface, border: `0.5px solid ${T.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: T.shadowSm }}
         >
-          <svg width="17" height="17" viewBox="0 0 20 20" fill="none">
-            <circle cx="10" cy="5.5"  r="1.6" fill={T.inkMuted}/>
-            <circle cx="10" cy="10.5" r="1.6" fill={T.inkMuted}/>
-            <circle cx="10" cy="15.5" r="1.6" fill={T.inkMuted}/>
-          </svg>
+          <SettingsIcon size={17} color={T.inkMuted} />
         </button>
       </header>
 
@@ -333,7 +325,7 @@ export default function GroupDetailPage() {
         <div className="group-detail-left">
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted }}>Members</span>
+              <SectionLabel size="sm">Members</SectionLabel>
               {!addMemberOpen && (
                 <button
                   onClick={() => setAddMemberOpen(true)}
@@ -350,15 +342,13 @@ export default function GroupDetailPage() {
                 const pending  = m.status === 'pending'
                 const bal      = net[m.id] ?? 0
                 const balColor = Math.abs(bal) < 0.01 ? T.inkFaint : bal > 0 ? T.mintInk : T.coralInk
-                const balStr   = Math.abs(bal) < 0.01
-                  ? '$0.00'
-                  : `${bal > 0 ? '+' : '−'}$${Math.abs(bal).toFixed(2)}`
+                const balStr   = formatAmount(bal, { sign: true })
                 const caption  = isYou ? 'your net' : Math.abs(bal) < 0.01 ? 'settled' : bal > 0 ? 'is owed' : 'owes the group'
                 return (
                   <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', borderRadius: T.r.md }}>
                     <Avatar profile={avatarProfile(m)} slot={slotFor(members, m.id)} size={32} isYou={isYou} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: pending ? T.inkMuted : T.ink, lineHeight: 1.2 }}>{isYou ? 'You' : name.split(' ')[0]}</div>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: pending ? T.inkMuted : T.ink, lineHeight: 1.2 }}>{isYou ? 'You' : firstName(name)}</div>
                       <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 1 }}>{pending ? '⏳ invited' : caption}</div>
                     </div>
                     {!pending && (
@@ -421,11 +411,11 @@ export default function GroupDetailPage() {
                   style={{ width: '100%', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: hasBalance ? 'pointer' : 'default', font: 'inherit', textAlign: 'left', padding: '16px', borderBottom: balanceExpanded ? `0.5px solid ${T.line}` : 'none' }}
                 >
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.55, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 7 }}>
+                    <SectionLabel size="sm" style={{ marginBottom: 7 }}>
                       {Math.abs(myBal) < 0.01 ? 'All square' : netPositive ? 'Owed to you' : 'You owe'}
-                    </div>
+                    </SectionLabel>
                     <div style={{ fontFamily: FH, fontSize: 30, fontWeight: 600, letterSpacing: -0.9, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk }}>
-                      {Math.abs(myBal) < 0.01 ? '—' : `$${Math.abs(myBal).toFixed(2)}`}
+                      {Math.abs(myBal) < 0.01 ? '—' : formatAmount(myBal)}
                     </div>
                     {hasBalance && (
                       <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 5, fontWeight: 500 }}>
@@ -451,9 +441,9 @@ export default function GroupDetailPage() {
                         <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
                           <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, memberId)} size={30} />
                           <div style={{ flex: 1 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{name.split(' ')[0]}</span>
+                            <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{firstName(name)}</span>
                             <span style={{ fontSize: 13, color: T.inkMuted }}> owes you </span>
-                            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.mintInk, fontVariantNumeric: 'tabular-nums' }}>${amount.toFixed(2)}</span>
+                            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.mintInk, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount)}</span>
                           </div>
                         </div>
                       )
@@ -465,8 +455,8 @@ export default function GroupDetailPage() {
                         <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
                           <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, memberId)} size={30} />
                           <div style={{ flex: 1 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>You owe {name.split(' ')[0]} </span>
-                            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>${Math.abs(amount).toFixed(2)}</span>
+                            <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>You owe {firstName(name)} </span>
+                            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount)}</span>
                           </div>
                           <button
                             onClick={e => { e.stopPropagation(); router.push(`/groups/${groupId}/settle`) }}
@@ -484,7 +474,7 @@ export default function GroupDetailPage() {
               {/* ── Expense + settlement feed ── */}
               {dateOrder.map(date => (
                 <div key={date} style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, padding: '0 4px 9px' }}>{date}</div>
+                  <SectionLabel style={{ padding: '0 4px 9px' }}>{date}</SectionLabel>
                   <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
                     {byDate[date].map((item, i) => {
 
@@ -507,15 +497,13 @@ export default function GroupDetailPage() {
                             onClick={() => setExpenseSheet(e)}
                             style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12, borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none', cursor: 'pointer' }}
                           >
-                            <div style={{ width: 40, height: 40, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19, flexShrink: 0 }}>
-                              {e.category ?? '💸'}
-                            </div>
+                            <EmojiTile emoji={e.category ?? '💸'} size={40} fontSize={19} background={T.bg} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {e.description}{edited && <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 5 }}>(edited)</span>}
                               </div>
                               <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 7 }}>
-                                <span>{youPaid ? 'You paid' : `${payerName} paid`} · ${Number(e.amount).toFixed(2)}</span>
+                                <span>{youPaid ? 'You paid' : `${payerName} paid`} · {formatAmount(Number(e.amount))}</span>
                                 {/* Desktop only — who the expense is split among */}
                                 <span className="group-detail-expense-split-info">
                                   <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }}/>
@@ -533,7 +521,7 @@ export default function GroupDetailPage() {
                             {myInvolved && myAmt > 0 && (
                               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                 <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: youPaid ? T.mintInk : T.coralInk }}>
-                                  {youPaid ? '+' : '−'}${myAmt.toFixed(2)}
+                                  {formatAmount(youPaid ? myAmt : -myAmt, { sign: true })}
                                 </div>
                                 <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>your share</div>
                               </div>
@@ -565,7 +553,7 @@ export default function GroupDetailPage() {
                             </div>
                           </div>
                           <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: s.status === 'confirmed' ? T.mintInk : T.ink, flexShrink: 0 }}>
-                            ${Number(s.amount).toFixed(2)}
+                            {formatAmount(Number(s.amount))}
                           </div>
                         </div>
                       )
@@ -596,25 +584,6 @@ export default function GroupDetailPage() {
       />
 
       {/* ── Sheets ── */}
-      <GroupActionMenu
-        open={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        group={group}
-        onAddMember={() => setAddMemberOpen(true)}
-        onDeleteTap={() => setDeleteOpen(true)}
-        onSettingsTap={() => router.push(`/groups/${groupId}/settings`)}
-      />
-
-      <DeleteGroupSheet
-        open={deleteOpen}
-        onClose={() => setDeleteOpen(false)}
-        group={group}
-        expenses={expenses}
-        settlements={settlements}
-        members={members}
-        groupId={groupId}
-      />
-
       <ExpenseActionSheet
         expense={expenseSheet}
         members={members}

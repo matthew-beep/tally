@@ -16,9 +16,10 @@ import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { calcNetBalances } from '@/lib/balance'
 import { postJson } from '@/lib/api'
-import { avatarProfile, displayName } from '@/lib/memberDisplay'
-import type { GroupMember } from '@/types'
-
+import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
+import { SectionLabel } from '@/components/SectionLabel'
+import { formatAmount } from '@/lib/money'
+import { PlusIcon } from 'lucide-react'
 function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
   const idx = members.findIndex(m => m.id === id)
   return Math.max(0, idx) % 4 as 0 | 1 | 2 | 3
@@ -152,9 +153,7 @@ export default function GroupSettingsPage() {
       <div style={{ flex: 1, padding: '4px 16px 40px', maxWidth: 520, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
 
         {/* ── Group identity ── */}
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, padding: '14px 0 6px' }}>
-          Group identity
-        </div>
+        <SectionLabel style={{ padding: '14px 0 6px' }}>Group identity</SectionLabel>
         <div style={{ background: T.surface, border: `0.5px solid ${T.line}`, borderRadius: T.r.card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: T.shadowSm }}>
           <button
             onClick={() => isAdmin && setEmojiOpen(true)}
@@ -196,14 +195,12 @@ export default function GroupSettingsPage() {
 
         {/* ── Members ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 0 6px' }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted }}>
-            Members · {members.length}
-          </span>
+          <SectionLabel>Members · {members.length}</SectionLabel>
           <button
             onClick={() => setAddMemberOpen(o => !o)}
-            style={{ width: 26, height: 26, borderRadius: '50%', border: `1.5px solid ${T.sun}`, background: addMemberOpen ? T.sun : T.sunSoft, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: addMemberOpen ? T.sunInk : T.sunInk, fontSize: 16, lineHeight: 1, padding: 0 }}
+            style={{ width: 26, height: 26, borderRadius: '50%', border: `1.5px solid ${T.sun}`, background: addMemberOpen ? T.sun : T.sunSoft, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: addMemberOpen ? T.sunInk : T.sunInk, fontSize: 16, lineHeight: 1, padding: 0, textAlign: 'center' }}
           >
-            +
+            <PlusIcon size={16} />
           </button>
         </div>
 
@@ -252,7 +249,7 @@ export default function GroupSettingsPage() {
             const name = displayName(m)
             const bal  = net[m.id] ?? 0
             const balColor = Math.abs(bal) < 0.01 ? T.inkFaint : bal > 0 ? T.mintInk : T.coralInk
-            const balStr   = Math.abs(bal) < 0.01 ? 'Settled' : `${bal > 0 ? '+' : '−'}$${Math.abs(bal).toFixed(2)}`
+            const balStr   = Math.abs(bal) < 0.01 ? 'Settled' : formatAmount(bal, { sign: true })
             return (
               <button
                 key={m.id}
@@ -261,7 +258,7 @@ export default function GroupSettingsPage() {
               >
                 <Avatar profile={avatarProfile(m)} slot={slotFor(members, m.id)} size={36} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{name.split(' ')[0]}</div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{firstName(name)}</div>
                   <div style={{ fontSize: 11, color: balColor, marginTop: 1, fontWeight: 600 }}>{balStr}</div>
                 </div>
                 <svg width="7" height="12" viewBox="0 0 7 12" fill="none" style={{ flexShrink: 0, opacity: 0.25 }}>
@@ -273,9 +270,9 @@ export default function GroupSettingsPage() {
 
           {pendingInvites.length > 0 && (
             <>
-              <div style={{ padding: '8px 14px 4px', borderTop: `0.5px solid ${T.line}`, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: T.inkMuted }}>
+              <SectionLabel size="sm" style={{ padding: '8px 14px 4px', borderTop: `0.5px solid ${T.line}` }}>
                 Pending invite
-              </div>
+              </SectionLabel>
               {pendingInvites.map(m => (
                 <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', opacity: 0.6 }}>
                   <Avatar profile={avatarProfile(m)} slot={slotFor(members, m.id)} size={36} />
@@ -290,9 +287,7 @@ export default function GroupSettingsPage() {
         </div>
 
         {/* ── Danger zone ── */}
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.coralInk, opacity: 0.75, padding: '20px 0 6px' }}>
-          Danger zone
-        </div>
+        <SectionLabel color={T.coralInk} style={{ opacity: 0.75, padding: '20px 0 6px' }}>Danger zone</SectionLabel>
 
         {isAdmin ? (
           <div style={{ background: T.coralSoft, border: `1px solid ${T.coral}`, borderRadius: T.r.card, padding: '13px 14px' }}>

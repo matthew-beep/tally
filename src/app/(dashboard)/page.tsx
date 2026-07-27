@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { BalanceBadge } from '@/components/BalanceBadge'
+import { SectionLabel } from '@/components/SectionLabel'
 import { HeroSkeleton } from '@/components/HomeScreenSkeleton'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { useGlobalBalances } from '@/queries/useGlobalBalances'
@@ -97,7 +98,7 @@ function TopBar() {
   return (
     <div className="home-topbar" style={{ borderBottom: `1px solid ${T.line}`, position: 'sticky', top: 0, zIndex: 10 }}>
       <div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: T.inkMuted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Home</div>
+        <SectionLabel>Home</SectionLabel>
         <div className="home-topbar-greeting" style={{ fontWeight: 700, fontFamily: FH, letterSpacing: -0.5, color: T.ink, marginTop: 1 }}>
           {greeting}{profile ? ` ${firstName(profile.display_name ?? profile.name)}` : ''}
         </div>
@@ -130,7 +131,6 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
   const sign = total >= 0 ? '+' : '−'
   const mainColor = isPositive ? T.mintInk : T.coralInk
   const softBg = isPositive ? T.mintSoft : T.coralSoft
-
   // people is already sorted by |net| descending (buildPeopleFlow)
   const largest = people[0]
 
@@ -156,9 +156,7 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
         pointerEvents: 'none',
       }} />
       <div style={{ padding: '26px 30px 22px', position: 'relative' }}>
-        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.7, textTransform: 'uppercase', color: T.inkMuted }}>
-          Net balance
-        </div>
+        <SectionLabel size="sm">Net balance</SectionLabel>
         <div style={{ marginTop: 7, display: 'flex', alignItems: 'baseline', gap: 1, lineHeight: 1 }}>
           <span style={{ fontFamily: FH, fontSize: 26, fontWeight: 500, color: mainColor, opacity: 0.7 }}>{sign}$</span>
           <span style={{ fontFamily: FH, fontSize: 52, fontWeight: 700, letterSpacing: -2, color: mainColor, fontVariantNumeric: 'tabular-nums' }}>{whole}</span>
@@ -190,6 +188,8 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
               <div style={{ fontSize: 10.5, color: T.inkMuted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.l}</div>
             </div>
           ))}
+
+          test
         </div>
       )}
     </div>
@@ -301,9 +301,7 @@ function OpenBalances({
   return (
     <div className="home-people">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px 10px', flexShrink: 0 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted }}>
-          Open balances
-        </span>
+        <SectionLabel>Open balances</SectionLabel>
         {people.length > 0 && (
           <span style={{
             fontFamily: FMONO, fontSize: 10, fontWeight: 700,
@@ -336,9 +334,7 @@ function OpenBalances({
 function SectionHeader({ label, action }: { label: string; action?: { text: string; onClick: () => void } }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px 10px' }}>
-      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted }}>
-        {label}
-      </span>
+      <SectionLabel>{label}</SectionLabel>
       {action && (
         <button
           onClick={action.onClick}
@@ -411,7 +407,10 @@ export default function HomePage() {
   const [balancePerson, setBalancePerson]   = useState<PersonEntry | null>(null)
 
   const people = gb ? buildPeopleFlow(gb) : []
-
+  console.log(people)
+  console.log(gb)
+  console.log(isLoading)
+  console.log(profilePerson)
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       <TopBar />

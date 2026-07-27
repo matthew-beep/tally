@@ -123,8 +123,6 @@ display.
   desktop copies of the add-member JSX; feed grouping
 - [ ] `src/components/MemberCombobox.tsx` (223) — the LIVE add-member path;
   guest entry; exclude logic
-- [ ] `src/components/GroupActionMenu.tsx` (133) — menu items with no flows
-  behind them yet
 - [ ] `src/components/DeleteGroupSheet.tsx` (163) — hard delete: should it
   require zero balances?
 

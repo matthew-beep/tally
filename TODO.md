@@ -11,6 +11,120 @@ a design reference.
 
 ---
 
+## Pre-ship punch list (2026-07-26 planning session)
+
+Matthew's list of what's left before shipping, in his priority order. Supersedes/pulls forward the overlapping items below (settle-up UX, desktop responsiveness, expense reactions) — this section is the source of truth for sequencing; the sections below still hold the implementation detail.
+
+1. **Settlement flow — UX pass** 🟡 — not a functionality gap (create/confirm/deny all
+   work end-to-end), it's that the flow itself feels bad. Diagnosed: `/groups/[id]/settle`
+   is a full-page route with its own hand-rolled mobile chrome (safe-area spacer,
+   back-button header, 480px-centered column) — inconsistent with how every other
+   money-entry flow in the app now works.
+   - **Direction agreed:** convert it to a modal/drawer sheet using `ModalOrSheet`
+     (`src/components/modal`) — the same primitive `AddExpenseSheet`, `BalanceSheet`,
+     and `PersonProfileSheet` already use (Vaul bottom sheet on mobile, centered modal
+     on desktop, drag-to-dismiss). Model directly on `AddExpenseSheet` in
+     `AddExpenseForm.tsx` (form component takes `onSuccess`/`onCancel` instead of doing
+     `router.push`; a thin wrapper component renders `ModalOrSheet` around it).
+   - Two same-page trigger sites move from `router.push('/groups/${groupId}/settle')`
+     to local sheet-open state, same pattern as `addExpenseOpen`:
+     `src/app/(dashboard)/groups/[id]/page.tsx` — desktop header-band CTA (~line 218)
+     and the per-member "Settle up" row button (~line 472).
+   - The `/groups/[id]/settle` route itself should stay addressable (Home's
+     `BalanceSheet` cross-group CTA navigates to it — `src/components/home/BalanceSheet.tsx`
+     ~line 154 — since the target group may differ from the page you're on) but its
+     page component becomes a thin wrapper rendering the same sheet pre-opened,
+     closing back to the group page instead of a custom full-page layout.
+   - This also incidentally fixes desktop presentation for settle-up (item 4 below) for
+     free, since `ModalOrSheet` already branches mobile/desktop.
+   - **Visual/interaction reference found** (2026-07-26): claude.ai/design project
+     "splitter" (`36d6382c-156c-422e-afd2-063025ff0a0f`), file `Settle Up Flow.html`
+     (imports `variation-settle-flow.jsx` + `settlement-confirm.jsx` +
+     `tally-shared.jsx`). Only the drawer pieces apply — the group-page redesign and
+     the full-screen success states (`SFPaymentSent`/`SFSettlementConfirmed`) are out
+     of scope for this item. Two drawers worth matching:
+     - `SFSettleSheet` — list split into "Owed to you" (Remind) / "You owe" (Pay),
+       not a single select-a-transfer radio list like the current page.
+     - `SFRecordPayment` — payment-method chips (Venmo/Zelle/Cash/PayPal/Other) + note,
+       opened on top of the settle list.
+     Implementation note: the mockup renders these as two independently-stacked
+     absolute overlays, which is a static-HTML trick, not something to reproduce with
+     two nested Vaul `Drawer.Root`s. Match `ExpenseActionSheet.tsx`'s pattern instead —
+     one sheet, internal `screen` state (`'list' | 'record-payment'`) swapping content.
+   - **Decisions made against the reference:**
+     - **Payment method → real column.** Add `settlements.method` via migration
+       (not folded into `note` as text) — schema change, touches RLS/types same as any
+       other column addition.
+     - **Keep the amount editable**, unlike the mockup's fixed non-editable hero number
+       — matching it exactly would regress the "partial settlements just work"
+       invariant (see CLAUDE.md). Record-payment step pre-fills from the transfer amount
+       but the field stays editable.
+     - **No `settled_date` field in the UI** — keep defaulting it to today under the
+       hood, same as the mockup implies (drop the date picker from the current page).
+     - **"Remind" button is new, unscoped work** — no backing at all today (no
+       notification type for it in the `notifications` CHECK constraint, no trigger).
+       Stub it or omit for v1; don't build the notification plumbing as a side effect
+       of this item.
+     - **`SFIncomingConfirm`-as-group-page-banner is a separate, smaller addition** —
+       today confirm/deny only lives on `/me`. The mutations
+       (`useConfirmSettlement`/`useDenySettlement`) already exist and are cheap to
+       reuse for a group-detail banner + sheet, but treat it as its own task, not
+       part of the settle-drawer rebuild.
+
+2. **Emoji reactions on expenses** 🟡 (schema + UX) — react to an expense with an emoji,
+   this is a new concept, not an extension of the existing group-emoji or category-emoji
+   pickers.
+   - **Schema direction agreed:** a new table, not a column on `expenses` — same shape as
+     `expense_history`/`notifications` (append-only rows joined in). Proposed:
+     ```sql
+     expense_reactions (
+       id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+       expense_id      uuid REFERENCES expenses ON DELETE CASCADE NOT NULL,
+       group_member_id uuid REFERENCES group_members ON DELETE CASCADE NOT NULL,
+       emoji           text NOT NULL,
+       created_at      timestamptz DEFAULT now(),
+       UNIQUE (expense_id, group_member_id, emoji)
+     )
+     ```
+   - **Reaction shape agreed:** Slack-style — one person can add several distinct emoji
+     reactions to the same expense; tapping an emoji they've already used removes it
+     (not a single replaceable reaction slot). The `UNIQUE(expense_id, member, emoji)`
+     constraint is what makes this cheap.
+   - **RLS pattern** — mirror what's already in the baseline migration
+     (`supabase/migrations/20260721000000_baseline_schema.sql`):
+     - SELECT: `expense_id IN (SELECT id FROM expenses WHERE group_id IN (SELECT get_my_group_ids()))`
+       (same join-through-expenses shape as `expense_splits`/`expense_items`).
+     - INSERT/DELETE: scoped to your own row, same shape as the `settlements: payee can
+       update` policy — `group_member_id IN (SELECT id FROM group_members WHERE user_id
+       = auth.uid())`, ANDed with the SELECT's group-membership check on INSERT.
+   - **Data loading** — add `reactions:expense_reactions(id, emoji, group_member_id)` to
+     the nested select in `expensesQueryOptions` (`src/queries/useExpenses.ts`), same
+     pattern already used there for `splits` and `payer`. Reactions ride along with the
+     expense feed for free; toggling one just invalidates `['expenses', groupId]`.
+   - **UI** — home is `ExpenseActionSheet.tsx` (the expense detail sheet): grouped pills
+     (emoji + count), highlight ones you've reacted to, tap to toggle. "Add reaction"
+     button opens a picker adapted from the existing `EmojiPickerSheet.tsx` component —
+     it's single-select with a highlighted "current" emoji today; reactions need the
+     highlight/current concept dropped (multiple picks, no "current").
+
+3. **Spending leaderboard** 🟡 (needs a design pass — nothing scoped yet beyond this) —
+   **per-group**, ranks members by total paid. Lives on the group detail page. Was
+   previously filed under "Later (Phase 2+/3)" as a vague "group leaderboards" bullet —
+   promoted here now that scope (per-group, ranked by amount paid) is confirmed. Open
+   questions for next time: exact placement on the page, whether it's all-time or
+   filterable by date range, tie-breaking.
+
+4. **Responsive views for every screen** 🟡 — no new decisions made this session; this is
+   the existing "Desktop / web layout — remaining" backlog further down this file
+   (home 3-column layout, modal sizing audit, group settings desktop treatment, the
+   §19e Vaul conversion for `ExpenseActionSheet`). Settle-up's desktop gap gets fixed
+   as a side effect of item 1 above.
+
+5. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
+   multi-agent pass) once 1–4 are done, before calling it shippable.
+
+---
+
 ## Now — in priority order
 
 Thread: correctness → abuse protection → small visible wins → big flows.
@@ -114,20 +228,40 @@ Badge **depends on step 2** — ship it first or the count is permanently wrong.
   - [ ] Wire avatar tap in group detail balance card expanded rows →
     `PersonProfileSheet` using cached global balances
 
-### 5. Group settings + leave group 🟡 (product decisions throughout)
+### 5. Group settings + leave group — mostly done (shipped `group-settings` branch, PR #1, 2026-07)
 
 Creator (`created_by`) is the admin.
 
-- [ ] **Route** — `src/app/(dashboard)/groups/[id]/settings/page.tsx`
-- [ ] **Rename group** — name + emoji picker
-- [ ] **Invite link** — show + copy + regenerate `invite_token`
-- [ ] **Member management** — admin removes members (`status: 'left'`),
-  cancels pending invites (DELETE row — safe only while pending has no
-  splits; reuse the decline route's history check)
-- [ ] **Leave group** — non-admin: `status: 'left'`; warn on outstanding balance
-- [ ] **Delete group** — admin only, only when all balances are $0.00
-- [ ] **Wire "Group settings" + "Leave group"** nav items in `GroupActionMenu`
-  (menu items exist, no flows behind them)
+- [x] **Route** — `src/app/(dashboard)/groups/[id]/settings/page.tsx`
+- [x] **Rename group** — name + emoji picker (`EmojiPickerSheet`)
+- [x] **Member management (remove)** — admin removes active members
+  (`useRemoveMember` → `/api/groups/members/remove`, sets `status: 'left'`,
+  server-side blocks removal while the member has an unsettled balance)
+- [x] **Leave group** — non-admin: `status: 'left'` via `useLeaveGroup`,
+  tap-to-confirm in the danger zone
+- [x] **Delete group** — admin only, `DeleteGroupSheet` blocks while any
+  member's balance is non-zero
+- [x] **Group settings entry point** — 2026-07-26: `GroupActionMenu` (the
+  ellipsis bottom-sheet with Group settings/Add member/Leave group/Delete
+  group items) deleted. Both its trigger buttons on group detail now go
+  straight to `/groups/[id]/settings` via a settings-gear icon — no menu
+  step. Safe because every other item was already redundant or reachable
+  elsewhere: "Leave group" just routed to settings anyway; "Add member"
+  has its own independent triggers on the group detail page unrelated to
+  the menu; "Delete group" is still fully available via the settings
+  page's own danger zone (one extra tap instead of a group-detail
+  shortcut). Also drops `GroupActionMenu` out of consolidation pass 2's
+  #3 (`review-todo.md`) — only `DeleteGroupSheet` and `ExpenseActionSheet`
+  still hand-roll their own sheet chrome now.
+- [ ] **Invite link** — show + copy + regenerate `invite_token`. Not built
+  anywhere: the token exists on `groups` and `/invite/:token` accepts it,
+  but no UI surfaces it, so link-based invites are currently dead — the only
+  way to add someone today is `MemberCombobox` search/QR/guest.
+- [ ] **Cancel pending invite** — pending members render as a static
+  read-only row in settings (no tap handler); need a DELETE path (safe only
+  while the pending row has no splits — reuse the decline route's history
+  check) and to wire it into `MemberActionSheet` or a dedicated action for
+  pending rows.
 
 ### 6. Expense editing — remaining
 
@@ -194,12 +328,26 @@ Group detail 2-column layout (§19) shipped.
   action cards. Single column below 1024px. All data already fetched —
   layout + rendering task only. (Full column-by-column spec lived in TODO
   §18 — see git history if needed.)
-- [ ] **Modal sizing audit** 🟢 — sheets render full-screen on mobile; on
-  desktop they should be centered, max-width ~480px, with backdrop (most
-  flows use `ModalOrSheet` already — audit stragglers)
-- [ ] **19e** 🟢 — convert `ExpenseActionSheet` from floating cards to a Vaul
-  bottom sheet (`Sheet` component) for drag-to-dismiss + spring animation
-- [ ] **19f** — wire group action menu items (blocked on "Now" step 5)
+- [x] **Modal sizing audit** 🟢 — done 2026-07-26 as part of §19e below.
+  `DeleteGroupSheet` and `ExpenseActionSheet` were the only stragglers not
+  on `ModalOrSheet`; both migrated. Every sheet in the app now goes through
+  the shared primitive.
+- [x] **19e** 🟢 — done 2026-07-26: `ExpenseActionSheet` migrated from its
+  hand-rolled `createPortal`/backdrop/slide-up to `ModalOrSheet` — Vaul
+  bottom sheet with drag-to-dismiss on mobile, centered ~460px modal on
+  desktop. Built from the "Desktop A — faithful port" direction explored
+  in the `splitter` design project (`Expense Action Desktop.html` /
+  `expense-action-desktop.jsx`): same three screens (actions/edit/delete)
+  stacked the way they read on mobile, just wider and calmer, using the
+  `EmojiTile`/`SectionLabel`/`formatAmount` atoms already built this
+  session. Scoped down from the design reference: kept the existing plain
+  `formatAmount()` text instead of adopting the design's fuller
+  sign+$-at-half-opacity/big-number/mono-cents amount lockup — that's the
+  deferred `<Money>` hero component (see `review-todo.md` #6), out of
+  scope for a chrome migration. Typecheck + production build clean; not
+  yet exercised live in a browser.
+- [x] **19f** — wire group action menu items (done alongside "Now" step 5;
+  settings still needs the desktop layout pass noted above)
 
 ### Consolidation / dead code (from 2026-07-13 duplication audit)
 

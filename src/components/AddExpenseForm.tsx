@@ -14,9 +14,11 @@ import { useAddExpense } from '@/queries/useExpenses'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { detectCategory, CATEGORIES } from '@/lib/categories'
 import { makeEqualSplits, makePercentSplits, makeExactSplits } from '@/lib/splits'
-import { avatarProfile, displayName } from '@/lib/memberDisplay'
+import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
 import { useIsMobileSheet } from '@/hooks/useMediaQuery'
 import { ModalOrSheet } from '@/components/modal'
+import { SectionLabel } from '@/components/SectionLabel'
+import { formatAmount } from '@/lib/money'
 import type { GroupMember } from '@/types'
 
 type SplitMode = 'equal' | 'percentage' | 'exact' | 'itemized'
@@ -39,11 +41,6 @@ interface TaxTipRow {
   amt: number
 }
 
-const TILE_LABEL: React.CSSProperties = {
-  fontSize: 10, fontWeight: 700, letterSpacing: 0.8,
-  textTransform: 'uppercase', color: T.inkMuted,
-}
-
 function stripNegative(v: string) {
   return v.replace(/-/g, '')
 }
@@ -51,7 +48,7 @@ function stripNegative(v: string) {
 function shortName(m: GroupMember | undefined, youMemberId?: string) {
   if (!m) return '…'
   if (m.id === youMemberId) return 'You'
-  return displayName(m).split(' ')[0]
+  return firstName(displayName(m))
 }
 
 // ── Shared components ────────────────────────────────────────────────────────
@@ -155,15 +152,13 @@ function DesktopSplitList({
   const exactValid = Math.abs(exactRemaining) < 0.005
 
   const header =
-    mode === 'equal'      ? `Splitting $${total.toFixed(2)} equally — ${included.size} of ${memberIds.length}` :
+    mode === 'equal'      ? `Splitting ${formatAmount(total)} equally — ${included.size} of ${memberIds.length}` :
     mode === 'percentage' ? 'Split by percentage' :
                             'Split by exact amount'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: T.inkMuted, padding: '0 4px 8px' }}>
-        {header}
-      </div>
+      <SectionLabel size="sm" style={{ padding: '0 4px 8px' }}>{header}</SectionLabel>
       <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, overflow: 'hidden' }}>
         {memberIds.map((id, i) => {
           const m = memberById[id]
@@ -193,7 +188,7 @@ function DesktopSplitList({
                 <>
                   <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(m, youMemberId)}</div>
                   <div style={{ fontFamily: FH, fontSize: 17, fontWeight: 600, letterSpacing: -0.4, color: on ? T.ink : T.inkFaint }}>
-                    {on ? `$${share.toFixed(2)}` : '—'}
+                    {on ? formatAmount(share) : '—'}
                   </div>
                   <span style={{
                     width: 22, height: 22, borderRadius: 6,
@@ -207,7 +202,7 @@ function DesktopSplitList({
                 <>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(m, youMemberId)}</div>
-                    <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>${dollars.toFixed(2)}</div>
+                    <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{formatAmount(dollars)}</div>
                   </div>
                   <div style={{
                     display: 'inline-flex', alignItems: 'baseline', gap: 1,
@@ -266,7 +261,7 @@ function DesktopSplitList({
         <RemainderCounter
           valid={exactValid}
           label={exactValid ? 'Balanced — ready to save' : exactRemaining > 0 ? 'Remaining' : 'Over by'}
-          value={exactValid ? '$0.00' : `${exactRemaining > 0 ? '' : '−'}$${Math.abs(exactRemaining).toFixed(2)}`}
+          value={exactValid ? '$0.00' : `${exactRemaining > 0 ? '' : '−'}${formatAmount(exactRemaining)}`}
         />
       )}
     </div>
@@ -346,7 +341,7 @@ function FooterStatusHint({
   if (splitMode === 'equal' && included.size > 0 && amt > 0) {
     return (
       <span>
-        Each pays <b style={{ color: T.ink, fontFamily: FMONO }}>${share.toFixed(2)}</b>
+        Each pays <b style={{ color: T.ink, fontFamily: FMONO }}>{formatAmount(share)}</b>
         {' · '}{included.size} {included.size === 1 ? 'person' : 'people'}
       </span>
     )
@@ -570,7 +565,7 @@ function ExpenseBreakdown({
     remainder = {
       valid: balanced,
       label: balanced ? 'Balanced — ready to save' : diff > 0 ? 'Remaining' : 'Over by',
-      value: balanced ? '$0.00' : `${diff > 0 ? '' : '−'}$${Math.abs(diff).toFixed(2)}`,
+      value: balanced ? '$0.00' : `${diff > 0 ? '' : '−'}${formatAmount(diff)}`,
     }
   } else if (splitMode === 'percentage') {
     const pctSum = others.filter(id => included.has(id)).reduce((s, id) => s + (parseFloat(percents[id] || '0') || 0), 0)
@@ -607,12 +602,12 @@ function ExpenseBreakdown({
             <PersonLabel m={m} id={id} slotById={slotById} payerId={payerId} youMemberId={youMemberId} onClick={() => onToggle(id)} />
             {splitMode === 'equal' ? (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: on ? T.ink : T.inkFaint }}>${rowAmt.toFixed(2)}</div>
+                <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: on ? T.ink : T.inkFaint }}>{formatAmount(rowAmt)}</div>
                 <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>{isPayer ? 'paid' : on ? 'owes' : '—'}</div>
               </div>
             ) : isPayer ? (
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: T.ink }}>${total.toFixed(2)}</div>
+                <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: T.ink }}>{formatAmount(total)}</div>
                 <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>paid</div>
               </div>
             ) : splitMode === 'exact' ? (
@@ -638,7 +633,7 @@ function ExpenseBreakdown({
                   />
                   <span style={{ fontSize: 12, color: T.inkMuted }}>%</span>
                 </div>
-                <span style={{ fontFamily: FMONO, fontSize: 10, color: T.inkFaint }}>${(on ? total * pct / 100 : 0).toFixed(2)}</span>
+                <span style={{ fontFamily: FMONO, fontSize: 10, color: T.inkFaint }}>{formatAmount(on ? total * pct / 100 : 0)}</span>
               </div>
             )}
           </div>
@@ -711,7 +706,7 @@ function BreakdownItems({
             })}
             {it.assignedTo.length > 1 && (
               <span style={{ fontSize: 10, color: T.inkFaint, fontFamily: FMONO, marginLeft: 2, whiteSpace: 'nowrap' }}>
-                ÷{it.assignedTo.length} = ${(it.price / it.assignedTo.length).toFixed(2)}/ea
+                ÷{it.assignedTo.length} = {formatAmount(it.price / it.assignedTo.length)}/ea
               </span>
             )}
           </div>
@@ -728,7 +723,7 @@ function BreakdownItems({
       <div style={{ borderTop: `0.5px solid ${T.line}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: `0.5px solid ${T.line}` }}>
           <span style={{ fontSize: 13, color: T.inkMuted, fontWeight: 500 }}>Subtotal</span>
-          <span style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 600 }}>${subtotal.toFixed(2)}</span>
+          <span style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 600 }}>{formatAmount(subtotal)}</span>
         </div>
         {rows.map(row => (
           <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: `0.5px solid ${T.line}` }}>
@@ -753,12 +748,12 @@ function BreakdownItems({
               />
               {row.mode === 'percent' && <span style={{ fontSize: 11, color: T.inkMuted }}>%</span>}
             </div>
-            <span style={{ fontFamily: FMONO, fontSize: 12, color: T.inkMuted, minWidth: 44, textAlign: 'right' }}>${row.amt.toFixed(2)}</span>
+            <span style={{ fontFamily: FMONO, fontSize: 12, color: T.inkMuted, minWidth: 44, textAlign: 'right' }}>{formatAmount(row.amt)}</span>
           </div>
         ))}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 0' }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Total</span>
-          <span style={{ fontFamily: FH, fontSize: 18, fontWeight: 800, letterSpacing: -0.5, color: T.ink }}>${itemTotal.toFixed(2)}</span>
+          <span style={{ fontFamily: FH, fontSize: 18, fontWeight: 800, letterSpacing: -0.5, color: T.ink }}>{formatAmount(itemTotal)}</span>
         </div>
       </div>
     </>
@@ -1025,9 +1020,7 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
           {(isItemized || amt > 0) && (
             <>
               <div style={{ padding: '14px 0' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.9, textTransform: 'uppercase', color: T.inkFaint, marginBottom: 10 }}>
-                  Expense Details
-                </div>
+                <SectionLabel size="sm" color={T.inkFaint} style={{ marginBottom: 10 }}>Expense Details</SectionLabel>
                 {!paidById ? null : splitMode === 'itemized' ? (
                   <BreakdownItems
                     memberIds={memberIds} memberById={memberById} slotById={slotById}
@@ -1090,9 +1083,7 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
     <div className="add-expense-panel add-expense-panel--desktop">
       <header className="add-expense-desktop-header">
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: T.inkMuted }}>
-            New expense · {groupLabel}
-          </div>
+          <SectionLabel size="sm">New expense · {groupLabel}</SectionLabel>
           <div style={{ marginTop: 3, fontFamily: FH, fontSize: 20, fontWeight: 600, letterSpacing: -0.6, display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               value={description} onChange={e => setDescription(e.target.value)}
@@ -1111,7 +1102,7 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
         <div className="add-expense-desktop-left">
           {/* Amount */}
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '14px 16px' }}>
-            <div style={TILE_LABEL}>Amount</div>
+            <SectionLabel size="sm">Amount</SectionLabel>
             <div style={{ marginTop: 4, fontFamily: FH, fontSize: 38, fontWeight: 600, letterSpacing: -1.4, lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 2 }}>
               <span style={{ fontSize: 20, color: T.inkMuted, fontWeight: 500 }}>$</span>
               <input
@@ -1125,19 +1116,19 @@ export function AddExpenseForm({ groupId, onSuccess, onCancel }: AddExpenseFormP
 
           {/* Paid by */}
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px' }}>
-            <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Paid by</div>
+            <SectionLabel size="sm" style={{ marginBottom: 8 }}>Paid by</SectionLabel>
             <PaidByChips members={members as GroupMember[]} memberById={memberById} paidById={paidById} onSelect={setPaidById} youMemberId={youMemberId} />
           </div>
 
           {/* Category */}
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px' }}>
-            <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Category</div>
+            <SectionLabel size="sm" style={{ marginBottom: 8 }}>Category</SectionLabel>
             <CategoryChips category={category} onSelect={selectCategory} />
           </div>
 
           {/* Date */}
           <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, padding: '12px 14px' }}>
-            <div style={{ ...TILE_LABEL, marginBottom: 8 }}>Date</div>
+            <SectionLabel size="sm" style={{ marginBottom: 8 }}>Date</SectionLabel>
             <input
               type="date" value={expenseDate} onChange={e => setExpenseDate(e.target.value)}
               style={{ width: '100%', padding: '8px 10px', borderRadius: T.r.md, border: `1px solid ${T.line}`, background: T.bg, fontSize: 14, fontFamily: F, color: T.ink, outline: 'none' }}

@@ -4,6 +4,7 @@ import { T, F, FMONO, FH } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import type { ProfileSnippet } from '@/queries/useProfile'
 import type { MemberEntry } from '@/components/MemberCombobox'
+import { firstName as getFirstName } from '@/lib/memberDisplay'
 
 function hashSlot(id: string): 0 | 1 | 2 | 3 {
   let h = 0
@@ -37,7 +38,7 @@ function StripItem({ profile, selected, onSelect }: {
   selected: boolean
   onSelect: () => void
 }) {
-  const firstName = (profile.display_name ?? profile.name).split(' ')[0]
+  const firstName = getFirstName(profile.display_name ?? profile.name)
   return (
     <button
       onClick={onSelect}

@@ -7,6 +7,8 @@ import { Avatar } from '@/components/Avatar'
 import { useProfileByAddCode } from '@/queries/useProfile'
 import { useGroups, useProfileGroups } from '@/queries/useGroups'
 import { postJson } from '@/lib/api'
+import { firstName } from '@/lib/memberDisplay'
+import { SectionLabel } from '@/components/SectionLabel'
 
 export default function AddByCodePage() {
   const params = useParams()
@@ -92,9 +94,7 @@ export default function AddByCodePage() {
           display: 'flex', flexDirection: 'column', justifyContent: 'center',
           borderRight: `1px solid ${T.line}`,
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 16 }}>
-            You're adding
-          </div>
+          <SectionLabel style={{ marginBottom: 16 }}>You're adding</SectionLabel>
           <div style={{ display: 'flex', alignItems: 'center', gap: 22, marginBottom: 24 }}>
             <Avatar profile={target} slot={1} size={88} />
             <div>
@@ -128,7 +128,7 @@ export default function AddByCodePage() {
 
           {eligible.length === 0 && myGroups.length > 0 ? (
             <div style={{ fontSize: 13, color: T.inkMuted, padding: '20px 0' }}>
-              {targetName.split(' ')[0]} is already in all your groups.
+              {firstName(targetName)} is already in all your groups.
             </div>
           ) : (
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
@@ -185,7 +185,7 @@ export default function AddByCodePage() {
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 15, fontWeight: 700 }}>Start a new group</div>
                     <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 2 }}>
-                      {targetName.split(' ')[0]} will be the first member
+                      {firstName(targetName)} will be the first member
                     </div>
                   </div>
                 </button>
@@ -215,7 +215,7 @@ export default function AddByCodePage() {
                   opacity: adding ? 0.7 : 1,
                 }}
               >
-                {adding ? 'Adding…' : `Add ${targetName.split(' ')[0]} to ${selectedGroup.name}`}
+                {adding ? 'Adding…' : `Add ${firstName(targetName)} to ${selectedGroup.name}`}
               </button>
             )}
           </div>

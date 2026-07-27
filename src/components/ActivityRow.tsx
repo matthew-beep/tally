@@ -1,6 +1,8 @@
 'use client'
 
 import { T, FMONO } from '@/design/tokens'
+import { EmojiTile } from '@/components/EmojiTile'
+import { formatAmount } from '@/lib/money'
 import type { ActivityItem } from '@/types'
 
 export function ActivityRow({ item, showGroup = false }: {
@@ -15,9 +17,7 @@ export function ActivityRow({ item, showGroup = false }: {
 
     return (
       <div style={{ background: T.surface, borderRadius: T.r.md, padding: '11px 14px', display: 'flex', gap: 10, alignItems: 'center', boxShadow: T.shadowSm }}>
-        <div style={{ width: 34, height: 34, borderRadius: T.r.sm, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0 }}>
-          {item.category ?? '💸'}
-        </div>
+        <EmojiTile emoji={item.category ?? '💸'} size={34} fontSize={17} radius={T.r.sm} background={T.bg} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {item.description}{edited && <span style={{ fontSize: 10.5, color: T.inkFaint, marginLeft: 5 }}>(edited)</span>}
@@ -25,7 +25,7 @@ export function ActivityRow({ item, showGroup = false }: {
           <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{subtitle}</div>
         </div>
         <div style={{ fontSize: 13, fontWeight: 600, fontFamily: FMONO, color: T.ink, flexShrink: 0 }}>
-          ${item.amount.toFixed(2)}
+          {formatAmount(item.amount)}
         </div>
       </div>
     )
@@ -48,7 +48,7 @@ export function ActivityRow({ item, showGroup = false }: {
         )}
       </div>
       <div style={{ fontSize: 13, fontWeight: 600, fontFamily: FMONO, color: confirmed ? T.mintInk : T.ink, flexShrink: 0 }}>
-        ${item.amount.toFixed(2)}
+        {formatAmount(item.amount)}
       </div>
     </div>
   )

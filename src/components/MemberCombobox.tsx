@@ -6,6 +6,7 @@ import { Avatar } from '@/components/Avatar'
 import { useSearchProfiles } from '@/queries/useProfile'
 import type { ProfileSnippet } from '@/queries/useProfile'
 import { useDebouncedValue } from '@/hooks/useDebouncedValue'
+import { firstName } from '@/lib/memberDisplay'
 
 export type MemberEntry =
   | { type: 'user'; profile: ProfileSnippet }
@@ -50,7 +51,7 @@ function Chip({ entry, onRemove }: { entry: MemberEntry; onRemove: () => void })
       ) : (
         <Avatar profile={entry.profile} slot={hashSlot(entry.profile.id)} size={20} />
       )}
-      {name.split(' ')[0]}
+      {firstName(name)}
       <button
         onMouseDown={e => { e.preventDefault(); onRemove() }}
         style={{

@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation'
 import { ModalOrSheet } from '@/components/modal'
 import { Avatar } from '@/components/Avatar'
-import { avatarProfile } from '@/lib/memberDisplay'
+import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
+import { SectionLabel } from '@/components/SectionLabel'
+import { formatAmount } from '@/lib/money'
 import { T, FH, FMONO } from '@/design/tokens'
 import type { Profile } from '@/types'
 
@@ -29,7 +31,7 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
   const owed = net > 0
   const amtColor  = owed ? T.mintInk  : T.coralInk
   const amtBg     = owed ? T.mintSoft : T.coralSoft
-  const firstName = name.split(' ')[0]
+  const firstName = getFirstName(name)
 
   const visibleParts = parts
     .filter(p => Math.abs(p.amount) >= 0.01)
@@ -72,12 +74,9 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
             background: amtBg, borderRadius: 22, padding: '18px 22px',
             border: `1px solid ${owed ? T.mint : T.coral}22`,
           }}>
-            <div style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: 0.5,
-              textTransform: 'uppercase', color: amtColor, opacity: 0.85, marginBottom: 9,
-            }}>
+            <SectionLabel color={amtColor} style={{ opacity: 0.85, marginBottom: 9 }}>
               {owed ? `${firstName} owes you` : `You owe ${firstName}`}
-            </div>
+            </SectionLabel>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 1, lineHeight: 1 }}>
               <span style={{ fontFamily: FH, fontSize: 26, fontWeight: 500, color: amtColor, opacity: 0.7 }}>$</span>
               <span style={{ fontFamily: FH, fontSize: 48, fontWeight: 700, letterSpacing: -1.5, color: amtColor, fontVariantNumeric: 'tabular-nums' }}>{whole}</span>
@@ -89,9 +88,7 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
         {/* Group breakdown */}
         {visibleParts.length > 0 && (
           <div style={{ padding: '0 16px 18px' }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, padding: '0 4px 10px' }}>
-              By group
-            </div>
+            <SectionLabel style={{ padding: '0 4px 10px' }}>By group</SectionLabel>
             <div style={{
               background: T.surface, borderRadius: 18, overflow: 'hidden',
               border: `0.5px solid ${T.line}`,
@@ -121,7 +118,7 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
                       color: partOwed ? T.mintInk : T.coralInk,
                       fontVariantNumeric: 'tabular-nums',
                     }}>
-                      {partOwed ? '+' : '−'}${Math.abs(part.amount).toFixed(2)}
+                      {formatAmount(part.amount, { sign: true })}
                     </div>
                   </div>
                 )

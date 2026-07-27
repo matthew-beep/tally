@@ -7,6 +7,7 @@ import { Avatar } from '@/components/Avatar'
 import { HandleInput } from '@/components/HandleInput'
 import type { HandleState } from '@/components/HandleInput'
 import { T, F, FH, FMONO } from '@/design/tokens'
+import { SectionLabel } from '@/components/SectionLabel'
 import type { Profile } from '@/types'
 
 function suggestFromName(name: string): string {
@@ -63,9 +64,7 @@ function OnboardingInner() {
 
         {/* step + identity chip */}
         <div style={{ padding: '4px 20px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: T.inkMuted }}>
-            Step 1 of 1
-          </div>
+          <SectionLabel>Step 1 of 1</SectionLabel>
           {profile && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: T.surface, padding: '4px 10px 4px 6px', borderRadius: T.r.pill, boxShadow: T.shadowSm }}>
               <Avatar profile={profile} slot={0} size={20} isYou />
@@ -102,9 +101,7 @@ function OnboardingInner() {
           {/* identity preview */}
           {profile && (
             <div style={{ marginTop: 36 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkMuted, marginBottom: 10, padding: '0 4px' }}>
-                This is what friends see
-              </div>
+              <SectionLabel style={{ marginBottom: 10, padding: '0 4px' }}>This is what friends see</SectionLabel>
               <div style={{ background: T.surface, borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: T.shadowSm }}>
                 <Avatar profile={profile} slot={0} size={46} isYou />
                 <div style={{ flex: 1, minWidth: 0 }}>
