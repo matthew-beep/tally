@@ -11,6 +11,7 @@ design spec), the code and these docs win. Notable drift is called out inline.
 | [features.md](./features.md) | Feature → code map: routes, query hooks, components, libs |
 | [feature-status.md](./feature-status.md) | Point-in-time review: what's done vs. missing, mobile + desktop |
 | [review-checklist.md](./review-checklist.md) | File-by-file reading order for a full manual code review |
+| [notifications-and-membership-design.md](./notifications-and-membership-design.md) | Paused design discussion: invite accept/decline notifications, activity-vs-notification framework, `group_members.status` semantics |
 
 ## What Tally is
 

@@ -119,10 +119,10 @@ const INFO_TYPES: Notification['type'][] = [
 
 function infoLabel(n: Notification): string {
   switch (n.type) {
-    case 'group_invite_accepted': return `✓ Your invite to ${n.group?.name ?? 'a group'} was accepted`
-    case 'group_invite_declined': return `Your invite to ${n.group?.name ?? 'a group'} was declined`
-    case 'settlement_confirmed':  return '✓ Payment confirmed'
-    case 'settlement_denied':     return '✗ Payment denied'
+    case 'group_invite_accepted':  return `✓ Invite accepted — ${n.group?.name ?? 'group'}`
+    case 'group_invite_declined':  return `Invite declined — ${n.group?.name ?? 'group'}`
+    case 'settlement_confirmed':   return '✓ Payment confirmed'
+    case 'settlement_denied':      return '✗ Payment denied'
     default: return ''
   }
 }

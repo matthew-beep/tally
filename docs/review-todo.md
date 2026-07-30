@@ -80,13 +80,13 @@ drop the rest, and note anything that changed your mind about existing plans.
     with prod, zero drift).
 - [x] ~~`AddMemberModal.tsx` / `BalanceBreakdownModal.tsx` fate~~ —
   resolved 2026-07-13: all dead code deleted (recoverable from git).
-- [x] **`DeleteGroupSheet` policy** — decided 2026-07-19: **yes, group
-  delete requires all balances at $0.00** (per original spec). Not yet
-  implemented. Two layers needed: client check in `DeleteGroupSheet`
-  (disable + explain when any member's net ≠ 0), and a DB guard —
-  the delete runs client-side under the "creator can delete" RLS policy,
-  so a UI-only check is bypassable; enforce with a trigger or move the
-  delete behind an API route that verifies balances first.
+- [x] **`DeleteGroupSheet` policy** — decided 2026-07-19: yes, group
+  delete requires all balances at $0.00 (per original spec). **Reversed
+  2026-07-29**: no balance guard — if the creator wants to delete the
+  group, that's their call regardless of outstanding balances. Nothing
+  was ever implemented under the original decision, so this is a pure
+  no-op — current "creator can delete" RLS policy with no balance check
+  is the intended final behavior, not a gap to close.
 - [x] ~~**Shared balance core**~~ — built 2026-07-18 as designed.
   `calcPairwiseNets` + `summarizeBalances` in `lib/balance.ts` with the
   consistency invariant test — which caught a real settlement-direction
@@ -273,24 +273,30 @@ _(findings)_
 
 ## Phase 2 — Trust boundary
 
-- [ ] **[bug] Accept/decline invite never notifies the inviter.** Found
+- [x] **[bug] Accept/decline invite never notifies the inviter.** Found
   2026-07-21 via the baseline schema dump (side effect, unrelated to the
-  RLS work). `notify_group_invite_accepted()` and
-  `notify_group_invite_declined()` exist as functions but **no trigger
-  calls either** — live DB has only `AFTER INSERT ON group_members`
-  (the initial invite), no `AFTER UPDATE`/`AFTER DELETE`.
-  `20260711000000_decline_to_guest.sql` only ever replaced the function
-  body; it never contained the `CREATE TRIGGER`, silently assuming one
-  existed from the dashboard baseline — it didn't. **Also**: even with the
-  trigger wired, `notifications_type_check` only permits 4 of the 6
-  documented types (missing `group_invite_accepted`/`group_invite_declined`)
-  — fire the trigger without widening the constraint and the accept/decline
-  UPDATE itself starts failing. Fix is two-part, must ship together:
-  widen the CHECK constraint, then add
-  `CREATE TRIGGER on_group_member_updated AFTER UPDATE ON group_members
-  FOR EACH ROW EXECUTE FUNCTION notify_group_invite_accepted()`. Today's
-  seat updates work fine — this is silent-notification-loss only, not
-  data corruption.
+  RLS work) — verified `notify_group_invite_accepted()` and
+  `notify_group_invite_declined()` existed as functions with zero
+  callers, live DB had only `on_group_member_inserted`. Investigating it
+  opened into a broader design discussion (2026-07-27/28) before landing
+  on a fix: whether accept/decline should notify at all vs. become silent
+  `group_members` metadata, whether accepting should instead be "Jordan
+  joined the group" group *activity* rather than a private notification,
+  and a real conflation in what `group_members.status` means for guests
+  vs. real members. Full writeup, verified mechanics, and the resolution:
+  [notifications-and-membership-design.md](./notifications-and-membership-design.md).
+  **Fixed 2026-07-29** — decline now always converts to guest (no more
+  `hasHistory` branch, no `declined_at` column, no `DELETE` path);
+  `notify_group_invite_accepted()`'s existing accept + decline-via-
+  conversion branches wired via a new `on_group_member_updated` trigger
+  (`notifications_type_check` widened to all 6 types, dead
+  `notify_group_invite_declined()` dropped); `INFO_TYPES`/`infoLabel`
+  restored in `me/page.tsx`. Migration
+  `20260729000000_wire_group_invite_notifications.sql`, applied to
+  remote. Group-level "member joined" activity (Tier 3) deferred, not
+  implemented — private notification only for now.
+  **Not yet retested live**: accept a search-invite end-to-end and
+  decline one, confirm both notification cards render and auto-clear.
 
 API-route read 2026-07-19 (all three routes + supabase-server.ts; answers
 the checklist's three pre-flagged questions):
