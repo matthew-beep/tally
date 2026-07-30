@@ -86,7 +86,7 @@ export function Sidebar() {
         padding: '20px 16px',
         display: 'flex',
         flexDirection: 'column',
-        background: T.surface,
+        background: T.sidebarBg,
         borderRight: `0.5px solid ${T.line}`,
       }}
     >

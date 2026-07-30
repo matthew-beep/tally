@@ -8,6 +8,7 @@ export const T = {
   inkFaint:   'var(--tally-ink-faint)',
   line:       'var(--tally-line)',
   lineStrong: 'var(--tally-line-strong)',
+  sidebarBg:  'var(--tally-sidebar-bg)',
 
   sun:      'var(--tally-sun)',  sunSoft:   'var(--tally-sun-soft)',  sunInk:   'var(--tally-sun-ink)',
   sunOn:    'var(--tally-sun-on)',

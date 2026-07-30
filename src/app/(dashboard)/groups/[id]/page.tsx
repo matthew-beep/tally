@@ -2,23 +2,20 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useQueryClient } from '@tanstack/react-query'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
 import { formatAmount } from '@/lib/money'
-import { MemberCombobox } from '@/components/MemberCombobox'
-import type { MemberEntry } from '@/components/MemberCombobox'
 import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
+import { SettleUpSheet } from '@/components/SettleUpSheet'
 import { SettingsIcon } from 'lucide-react'
 import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
-import { postJson } from '@/lib/api'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement } from '@/types'
@@ -37,42 +34,11 @@ export default function GroupDetailPage() {
   const params  = useParams()
   const groupId = params.id as string
   const router  = useRouter()
-  const qc      = useQueryClient()
 
   const [addExpenseOpen,  setAddExpenseOpen]  = useState(false)
-  const [addMemberOpen,   setAddMemberOpen]   = useState(false)
+  const [settleOpen,      setSettleOpen]      = useState(false)
   const [balanceExpanded, setBalanceExpanded] = useState(false)
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
-  const [pendingMembers,  setPendingMembers]  = useState<MemberEntry[]>([])
-  const [adding,          setAdding]          = useState(false)
-  const [addError,        setAddError]        = useState<string | null>(null)
-
-  async function handleAddMembers() {
-    if (!pendingMembers.length) return
-    setAdding(true)
-    setAddError(null)
-    try {
-      const members = pendingMembers.map(entry =>
-        entry.type === 'user'
-          ? { type: 'user' as const, profileId: entry.profile.id, name: entry.profile.display_name ?? entry.profile.name }
-          : { type: 'guest' as const, name: entry.name }
-      )
-      await postJson('/api/groups/members/add', { groupId, members })
-      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
-      setPendingMembers([])
-      setAddMemberOpen(false)
-    } catch (err) {
-      setAddError(err instanceof Error ? err.message : 'Failed to add members')
-    } finally {
-      setAdding(false)
-    }
-  }
-
-  function cancelAddMember() {
-    setAddMemberOpen(false)
-    setPendingMembers([])
-    setAddError(null)
-  }
 
   const { data: group,        isLoading: loadingGroup   } = useGroup(groupId)
   const { data: members = [], isLoading: loadingMembers } = useGroupMembers(groupId)
@@ -128,36 +94,6 @@ export default function GroupDetailPage() {
       </div>
     )
   }
-
-  // Add member form used in desktop left column (trigger button lives in the "Members" row header)
-  const addMemberForm = (
-    <div style={{ background: T.surface, borderRadius: T.r.lg, padding: 14, boxShadow: T.shadow }}>
-      <MemberCombobox
-        value={pendingMembers}
-        onChange={setPendingMembers}
-        excludeIds={members.filter(m => m.user_id).map(m => m.user_id!)}
-        autoFocus
-      />
-      {addError && (
-        <div style={{ fontSize: 12, color: T.coralInk, marginTop: 8 }}>{addError}</div>
-      )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-        <button
-          onClick={cancelAddMember}
-          style={{ padding: '8px 14px', borderRadius: T.r.md, background: 'transparent', color: T.inkMuted, border: 0, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: F }}
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleAddMembers}
-          disabled={!pendingMembers.length || adding}
-          style={{ padding: '8px 16px', borderRadius: T.r.md, border: 0, cursor: pendingMembers.length ? 'pointer' : 'default', background: pendingMembers.length ? T.ink : T.surfaceAlt, color: pendingMembers.length ? T.bg : T.inkMuted, fontSize: 13, fontWeight: 700, fontFamily: F }}
-        >
-          {adding ? 'Adding…' : pendingMembers.length ? `Add ${pendingMembers.length} to group` : 'Add to group'}
-        </button>
-      </div>
-    </div>
-  )
 
   return (
     <div style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: F, color: T.ink }}>
@@ -215,7 +151,7 @@ export default function GroupDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
             {Math.abs(myBal) >= 0.01 && (
               <button
-                onClick={() => router.push(`/groups/${groupId}/settle`)}
+                onClick={() => setSettleOpen(true)}
                 style={{ padding: '9px 16px', borderRadius: T.r.md, background: 'transparent', color: T.ink, border: 0, boxShadow: `inset 0 0 0 1px ${T.lineStrong}`, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
               >
                 Settle up
@@ -267,7 +203,7 @@ export default function GroupDetailPage() {
         </button>
       </header>
 
-      {/* ── Mobile: avatar strip + add member trigger ── */}
+      {/* ── Mobile: avatar strip ── */}
       <div className="group-detail-mobile-strip" style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         <div style={{ display: 'flex' }}>
           {members.map((m, i) => (
@@ -277,45 +213,9 @@ export default function GroupDetailPage() {
             </div>
           ))}
         </div>
-        <button
-          onClick={() => setAddMemberOpen(true)}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: T.sun, padding: 0, letterSpacing: -0.1 }}
-        >
-          + Add member
-        </button>
       </div>
 
-      {/* ── Mobile: inline add member combobox ── */}
-      {addMemberOpen && (
-        <div className="group-detail-mobile-strip" style={{ margin: '0 16px 12px', display: 'block', flexShrink: 0 }}>
-          <div style={{ background: T.surface, borderRadius: T.r.lg, padding: 14, boxShadow: T.shadow }}>
-            <MemberCombobox
-              value={pendingMembers}
-              onChange={setPendingMembers}
-              excludeIds={members.filter(m => m.user_id).map(m => m.user_id!)}
-              autoFocus
-            />
-            {addError && (
-              <div style={{ fontSize: 12, color: T.coralInk, marginTop: 8 }}>{addError}</div>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={cancelAddMember}
-                style={{ padding: '8px 14px', borderRadius: T.r.md, background: 'transparent', color: T.inkMuted, border: 0, cursor: 'pointer', fontSize: 13, fontWeight: 700, fontFamily: F }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddMembers}
-                disabled={!pendingMembers.length || adding}
-                style={{ padding: '8px 16px', borderRadius: T.r.md, border: 0, cursor: pendingMembers.length ? 'pointer' : 'default', background: pendingMembers.length ? T.ink : T.surfaceAlt, color: pendingMembers.length ? T.bg : T.inkMuted, fontSize: 13, fontWeight: 700, fontFamily: F }}
-              >
-                {adding ? 'Adding…' : pendingMembers.length ? `Add ${pendingMembers.length} to group` : 'Add to group'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* ── 2-column body ── */}
       <div className="group-detail-body">
@@ -324,16 +224,8 @@ export default function GroupDetailPage() {
              in the header band above; balances aren't duplicated here. ── */}
         <div className="group-detail-left">
           <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ marginBottom: 8 }}>
               <SectionLabel size="sm">Members</SectionLabel>
-              {!addMemberOpen && (
-                <button
-                  onClick={() => setAddMemberOpen(true)}
-                  style={{ fontSize: 12, fontWeight: 700, color: T.sunInk, background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', padding: '2px 4px' }}
-                >
-                  + Add
-                </button>
-              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {orderedMembers.map(m => {
@@ -360,11 +252,6 @@ export default function GroupDetailPage() {
                 )
               })}
             </div>
-            {addMemberOpen && (
-              <div style={{ marginTop: 10 }}>
-                {addMemberForm}
-              </div>
-            )}
           </div>
         </div>
 
@@ -459,7 +346,7 @@ export default function GroupDetailPage() {
                             <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount)}</span>
                           </div>
                           <button
-                            onClick={e => { e.stopPropagation(); router.push(`/groups/${groupId}/settle`) }}
+                            onClick={e => { e.stopPropagation(); setSettleOpen(true) }}
                             style={{ flexShrink: 0, border: `1.5px solid ${T.coralInk}`, cursor: 'pointer', font: 'inherit', padding: '6px 13px', borderRadius: 9, background: 'transparent', color: T.coralInk, fontSize: 12, fontWeight: 700, letterSpacing: -0.1 }}
                           >
                             Settle up
@@ -580,6 +467,12 @@ export default function GroupDetailPage() {
       <AddExpenseSheet
         open={addExpenseOpen}
         onClose={() => setAddExpenseOpen(false)}
+        groupId={groupId}
+      />
+
+      <SettleUpSheet
+        open={settleOpen}
+        onClose={() => setSettleOpen(false)}
         groupId={groupId}
       />
 
