@@ -39,6 +39,7 @@ export default function GroupDetailPage() {
   const [settleOpen,      setSettleOpen]      = useState(false)
   const [balanceExpanded, setBalanceExpanded] = useState(false)
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
+  const [settleUser, setSettleUser] = useState<string | null>(null)
 
   const { data: group,        isLoading: loadingGroup   } = useGroup(groupId)
   const { data: members = [], isLoading: loadingMembers } = useGroupMembers(groupId)
@@ -346,7 +347,7 @@ export default function GroupDetailPage() {
                             <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount)}</span>
                           </div>
                           <button
-                            onClick={e => { e.stopPropagation(); setSettleOpen(true) }}
+                            onClick={e => { e.stopPropagation(); setSettleOpen(true); setSettleUser(memberId)}}
                             style={{ flexShrink: 0, border: `1.5px solid ${T.coralInk}`, cursor: 'pointer', font: 'inherit', padding: '6px 13px', borderRadius: 9, background: 'transparent', color: T.coralInk, fontSize: 12, fontWeight: 700, letterSpacing: -0.1 }}
                           >
                             Settle up
@@ -474,6 +475,7 @@ export default function GroupDetailPage() {
         open={settleOpen}
         onClose={() => setSettleOpen(false)}
         groupId={groupId}
+        settleUser={settleUser ?? ''}
       />
 
       {/* ── Sheets ── */}
