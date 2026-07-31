@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { T, F, FH } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { SectionLabel } from '@/components/SectionLabel'
-import { ModalOrSheet, ModalContent } from '@/components/modal'
+import { ModalOrSheet, ModalContent, ModalHeader } from '@/components/modal'
 import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useExpenses } from '@/queries/useExpenses'
 import { useSettlements } from '@/queries/useSettlements'
@@ -51,8 +51,35 @@ export function SettleUpSheet({ open, onClose, groupId, settleUser }: Props) {
   const [amount, setAmount]           = useState('')
   const [note, setNote]               = useState('')
   const [method, setMethod]           = useState<string | null>(null)
-
+  console.log(groupId)
   console.log(globalBalances)
+  console.log(settleUser)
+
+
+  const byGroup = globalBalances?.pairwisePerGroup[settleUser] ?? {}
+
+  // all groups with this person
+  console.log(byGroup)
+
+
+  /*
+
+    well actually we can just aggregater open balances -> then find the settle user's balance scoped by id if passed down
+
+
+    flow -> 
+
+    get global balances
+    aggregate open balances related to settleUser
+
+    if groupId:
+      filter down to group
+
+
+
+  */
+
+
   function handleClose() {
     setScreen('list')
     setActiveTransfer(null)
@@ -71,11 +98,11 @@ export function SettleUpSheet({ open, onClose, groupId, settleUser }: Props) {
 
   return (
     <ModalOrSheet open={open} onClose={handleClose} title="Settle up" maxWidth={460}>
-      <ModalContent>
-        <div>
-          <h1>Settle up</h1>
-        </div>
-      </ModalContent>
+      <ModalHeader>
+        
+          <h2>Settle up</h2>
+        
+      </ModalHeader>
     </ModalOrSheet>
   )
 }

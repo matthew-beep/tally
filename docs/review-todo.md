@@ -81,12 +81,15 @@ drop the rest, and note anything that changed your mind about existing plans.
 - [x] ~~`AddMemberModal.tsx` / `BalanceBreakdownModal.tsx` fate~~ —
   resolved 2026-07-13: all dead code deleted (recoverable from git).
 - [x] **`DeleteGroupSheet` policy** — decided 2026-07-19: yes, group
-  delete requires all balances at $0.00 (per original spec). **Reversed
-  2026-07-29**: no balance guard — if the creator wants to delete the
-  group, that's their call regardless of outstanding balances. Nothing
-  was ever implemented under the original decision, so this is a pure
-  no-op — current "creator can delete" RLS policy with no balance check
-  is the intended final behavior, not a gap to close.
+  delete requires all balances at $0.00 (per original spec). **Corrected
+  2026-07-29**: this was already implemented, contrary to the original
+  note here — `src/components/DeleteGroupSheet.tsx` computes
+  `calcNetBalances` over active members and gates the confirm input/CTA
+  (`canDelete = unsettledCount === 0`) with a "Settle all balances before
+  deleting" message. Only a client-side check, no DB-side guard (the
+  delete still runs under the plain "creator can delete" RLS policy) —
+  bypassable by a crafted request, but accepted as fine since deletion
+  requires being the creator either way, not a spoofable third party.
 - [x] ~~**Shared balance core**~~ — built 2026-07-18 as designed.
   `calcPairwiseNets` + `summarizeBalances` in `lib/balance.ts` with the
   consistency invariant test — which caught a real settlement-direction
