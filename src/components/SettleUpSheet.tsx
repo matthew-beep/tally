@@ -53,13 +53,13 @@ export function SettleUpSheet({ open, onClose, groupId, settleUser }: Props) {
   const [method, setMethod]           = useState<string | null>(null)
   console.log(groupId)
   console.log(globalBalances)
-  console.log(settleUser)
+  console.log( 'settleUser', settleUser)
 
 
   const byGroup = globalBalances?.pairwisePerGroup[settleUser] ?? {}
 
   // all groups with this person
-  console.log(byGroup)
+  console.log( 'byGroup', byGroup)
 
 
   /*

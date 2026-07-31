@@ -51,6 +51,8 @@ export default function GroupDetailPage() {
     members.map(m => [m.id, m as GroupMember])
   )
 
+  console.log( 'members', members)
+
   const memberIds   = members.map(m => m.id)
   const net         = calcNetBalances(groupId, expenses, settlements, memberIds)
   const myMember    = members.find(m => m.user_id === profile?.id)
@@ -58,6 +60,7 @@ export default function GroupDetailPage() {
   const myBal       = myId ? (net[myId] ?? 0) : 0
   const totalSpend  = expenses.reduce((s, e) => s + Number(e.amount), 0)
 
+  console.log( 'memberIds', memberIds)
   // Pairwise nets from my perspective — positive = they owe me, negative = I owe them
   const pairwiseNets = myId ? calcPairwiseNets(myId, expenses, settlements) : {}
 
