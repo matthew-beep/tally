@@ -2,10 +2,8 @@
 
 import { T, FH, F } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
-import { useGroup, useGroupMembers } from '@/queries/useGroups'
-import { useExpenses } from '@/queries/useExpenses'
-import { useSettlements, useCreateSettlement } from '@/queries/useSettlements'
-import { useCurrentProfile } from '@/queries/useProfile'
+import { useCreateSettlement } from '@/queries/useSettlements'
+import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances, simplifyDebts } from '@/lib/balance'
 import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
@@ -19,12 +17,8 @@ export default function SettleUpPage() {
   const groupId = params.id as string
   const router  = useRouter()
 
-  const { data: group }          = useGroup(groupId)
-  const { data: members = [] }   = useGroupMembers(groupId)
-  const { data: expenses = [] }  = useExpenses(groupId)
-  const { data: settlements = [] } = useSettlements(groupId)
-  const { data: profile }        = useCurrentProfile()
-  const createSettlement         = useCreateSettlement(groupId)
+  const { group, members, expenses, settlements, profile } = useGroupDetail(groupId)
+  const createSettlement = useCreateSettlement(groupId)
 
   const memberIds  = members.map(m => m.id)
   const net        = calcNetBalances(groupId, expenses, settlements, memberIds)

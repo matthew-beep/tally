@@ -11,10 +11,7 @@ import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
 import { SettleUpSheet } from '@/components/SettleUpSheet'
 import { SettingsIcon } from 'lucide-react'
-import { useGroup, useGroupMembers } from '@/queries/useGroups'
-import { useExpenses } from '@/queries/useExpenses'
-import { useSettlements } from '@/queries/useSettlements'
-import { useCurrentProfile } from '@/queries/useProfile'
+import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
@@ -41,17 +38,12 @@ export default function GroupDetailPage() {
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
   const [settleUser, setSettleUser] = useState<string | null>(null)
 
-  const { data: group,        isLoading: loadingGroup   } = useGroup(groupId)
-  const { data: members = [], isLoading: loadingMembers } = useGroupMembers(groupId)
-  const { data: expenses = []                           } = useExpenses(groupId)
-  const { data: settlements = []                        } = useSettlements(groupId)
-  const { data: profile                                 } = useCurrentProfile()
+  const { group, loadingGroup, members, loadingMembers, expenses, settlements, profile } = useGroupDetail(groupId)
 
   const memberById: Record<string, GroupMember> = Object.fromEntries(
     members.map(m => [m.id, m as GroupMember])
   )
 
-  console.log( 'members', members)
 
   const memberIds   = members.map(m => m.id)
   const net         = calcNetBalances(groupId, expenses, settlements, memberIds)
@@ -60,7 +52,9 @@ export default function GroupDetailPage() {
   const myBal       = myId ? (net[myId] ?? 0) : 0
   const totalSpend  = expenses.reduce((s, e) => s + Number(e.amount), 0)
 
-  console.log( 'memberIds', memberIds)
+
+  console.log('group', group)
+  console.log('members', members)
   // Pairwise nets from my perspective — positive = they owe me, negative = I owe them
   const pairwiseNets = myId ? calcPairwiseNets(myId, expenses, settlements) : {}
 

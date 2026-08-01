@@ -10,10 +10,8 @@ import type { MemberEntry } from '@/components/MemberCombobox'
 import { EmojiPickerSheet } from '@/components/EmojiPickerSheet'
 import { MemberActionSheet } from '@/components/MemberActionSheet'
 import { DeleteGroupSheet } from '@/components/DeleteGroupSheet'
-import { useGroup, useGroupMembers, useUpdateGroup, useLeaveGroup, useRemoveMember } from '@/queries/useGroups'
-import { useExpenses } from '@/queries/useExpenses'
-import { useSettlements } from '@/queries/useSettlements'
-import { useCurrentProfile } from '@/queries/useProfile'
+import { useUpdateGroup, useLeaveGroup, useRemoveMember } from '@/queries/useGroups'
+import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances } from '@/lib/balance'
 import { postJson } from '@/lib/api'
 import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
@@ -42,11 +40,7 @@ export default function GroupSettingsPage() {
   const [deleteOpen,    setDeleteOpen]    = useState(false)
   const [leaveConfirm,  setLeaveConfirm]  = useState(false)
 
-  const { data: group,        isLoading: loadingGroup   } = useGroup(groupId)
-  const { data: members = [], isLoading: loadingMembers } = useGroupMembers(groupId)
-  const { data: expenses = []                            } = useExpenses(groupId)
-  const { data: settlements = []                          } = useSettlements(groupId)
-  const { data: profile                                   } = useCurrentProfile()
+  const { group, loadingGroup, members, loadingMembers, expenses, settlements, profile } = useGroupDetail(groupId)
 
   const updateGroup = useUpdateGroup()
   const leaveGroup   = useLeaveGroup()

@@ -61,15 +61,102 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
        but the field stays editable.
      - **No `settled_date` field in the UI** — keep defaulting it to today under the
        hood, same as the mockup implies (drop the date picker from the current page).
-     - **"Remind" button is new, unscoped work** — no backing at all today (no
-       notification type for it in the `notifications` CHECK constraint, no trigger).
-       Stub it or omit for v1; don't build the notification plumbing as a side effect
-       of this item.
+     - **"Remind" button — decided against, not deferred** (superseded
+       2026-07-31, see approach note below): dropped entirely rather than
+       stubbed. The debt showing up on the dashboard/group balance already
+       does the reminding; owed-to-you rows get "Mark as paid" instead, no
+       separate no-op action.
      - **`SFIncomingConfirm`-as-group-page-banner is a separate, smaller addition** —
        today confirm/deny only lives on `/me`. The mutations
        (`useConfirmSettlement`/`useDenySettlement`) already exist and are cheap to
        reuse for a group-detail banner + sheet, but treat it as its own task, not
        part of the settle-drawer rebuild.
+   - **Approach note (2026-07-31)** — worked out while investigating why the
+     group page and `useGlobalBalances` don't share one balance path (they
+     can't: `settlements.from_member_id`/`to_member_id` FK to `group_members`,
+     so anything writing a settlement needs seat-keyed data, while
+     `useGlobalBalances` deliberately re-keys seats → profile ids at its merge
+     step for cross-group folding). Net of that: `SettleUpSheet` should be a
+     **dumb, props-driven component** — no `useGroupDetail`/`calcNetBalances`/
+     `simplifyDebts` calls inside it at all. The caller (group page or
+     dashboard) already has the numbers computed; hand them down instead of
+     making the sheet re-fetch and re-derive:
+     ```ts
+     interface Transfer { groupMemberId: string; amount: number; direction: 'owed' | 'owe' }
+     // <SettleUpSheet groupId mySeatId transfers={Transfer[]} preselect={Transfer | null} .../>
+     ```
+     - **Group page**: `page.tsx`'s existing `oweMeEntries`/`IOweEntries`
+       (built from `calcPairwiseNets`, not `simplifyDebts` — this also fixes a
+       latent mismatch where the old sheet's list screen used the group-wide
+       minimum-transfer matching while the balance card showed direct pairwise
+       nets, i.e. two different numbers for the same person) map straight onto
+       `Transfer[]`; the per-member "Settle up" button already has `amount` and
+       `memberId` in its closure and can hand over a fully-formed `Transfer` as
+       `preselect`, no lookup needed.
+     - **Dashboard**: `PersonEntry.parts` (`(dashboard)/page.tsx`'s
+       `buildPeopleFlow`) is already `Transfer`-shaped per group, just missing
+       a `groupMemberId` (it's profile-keyed, from `useGlobalBalances`). One
+       small shared helper resolves seat ids on demand:
+       `resolveSeatId(gb, groupId, personId) = gb.membersPerGroup[groupId].find(m => m.user_id === personId || m.id === personId)?.id`
+       — used both for the counterparty and for "my seat in that group."
+       `BalanceSheet.tsx`'s existing settle CTA already picks
+       `visibleParts[0]` (largest balance) before navigating to
+       `/groups/:id/settle`; same default, just resolve seats and open
+       `SettleUpSheet` in place instead of routing away. A person with
+       balances in >1 group only ever needs the single largest-balance
+       `Transfer` for a plain row tap — a real "settle all groups at once"
+       multi-insert flow is the separate "Cross-group settle all" item under
+       Later (Phase 2+/3), not implied by this.
+     - Net effect: one shared sheet/screens, zero branching inside the sheet
+       on which surface opened it — the fork is entirely in how each caller
+       builds its `Transfer`(s) before rendering the sheet.
+   - **Follow-up decisions (2026-07-31)** — both extend the same
+     `Transfer.direction` field, no new prop needed:
+     - **Owed-to-you rows become actionable: "Mark as paid."** Today's list
+       screen only had a no-op "Remind" for that direction (see above — now
+       dropped, not just stubbed). Tapping it opens the same record-payment
+       screen as "Pay," tagged `direction: 'owed'`.
+     - **Creditor-initiated settlements skip the pending/confirm step
+       entirely** — if I'm marking that someone else already paid me, I'm
+       not asking myself to confirm my own claim. Two things need to change
+       for this, both currently hardcoded for the debtor-initiated case only:
+       - `useCreateSettlement` (`useSettlements.ts`) inserts
+         `status: 'pending'` unconditionally — needs to insert `'confirmed'`
+         directly when `direction === 'owed'`. Schema already allows it
+         (`CHECK (status IN ('pending','confirmed'))`), no migration needed
+         for this part.
+       - `notify_settlement_created` (the `AFTER INSERT` trigger) currently
+         fires `settlement_confirm` to `to_user` unconditionally — for a
+         confirmed-on-insert row `to_user` is the inserting user themselves,
+         which is wrong (asks you to confirm your own action). Needs to
+         branch on `NEW.status`: `pending` → existing `settlement_confirm`
+         to `to_user`; `confirmed` → `settlement_confirmed` to `from_user`
+         instead (an FYI: "X marked you as settled," informational, not
+         action-required). Small migration, same shape as the existing
+         trigger.
+     - **No dispute mechanism for a wrongly-marked "they paid me" claim** —
+       consistent with the existing "denial = DELETE, no disputed state"
+       invariant, just extended to a claim the other party made. The
+       mitigation is being able to delete a settlement after the fact (next
+       item), not a formal dispute flow.
+   - **New: delete a settlement** (2026-07-31) — nothing exists for this
+     today beyond `useDenySettlement`, which only ever targets `pending` rows
+     from the `/me` deny flow. Needed pieces:
+     - `useDeleteSettlement` mutation — same DB operation, new call site for
+       arbitrary (including confirmed) rows.
+     - A UI entry point — settlement rows in the group feed
+       (`groups/[id]/page.tsx`'s feed rendering) aren't tappable at all today,
+       unlike the expense rows right above them (`onClick={() =>
+       setExpenseSheet(e)}`). Needs its own small action sheet, not just
+       reusing `ExpenseActionSheet`.
+     - **Permission — decided:** only the two people party to the settlement
+       (`from_member_id` or `to_member_id` matching the caller's own seat)
+       can delete it — not any active group member. `docs/review-todo.md`'s
+       RLS audit only flagged `settlements` UPDATE as needing payee-only
+       tightening; DELETE was never restricted, so it's likely still open to
+       any group member via the general group-scoped policy today. Deleting
+       (not just denying-while-pending) needs its own migration to add that
+       restriction — don't assume the existing policy already covers this.
 
 2. **Emoji reactions on expenses** 🟡 (schema + UX) — react to an expense with an emoji,
    this is a new concept, not an extension of the existing group-emoji or category-emoji
@@ -420,8 +507,19 @@ removed):
 - [ ] `useMemberSearch` — debounce, three input modes, query gating (folded
   into "Now" step 3)
 
-**Skip:** `useGroupDetail`, `useGroupsList`, `useHome` — pure query
-composition with no second consumer.
+**Skip:** `useGroupsList`, `useHome` — pure query composition with no second
+consumer.
+- [x] **`useGroupDetail`** — done 2026-07-31, contrary to the "skip" call
+  above: turned out to have 3 identical-shape consumers already
+  (`groups/[id]/page.tsx`, `settings/page.tsx`, `settle/page.tsx`), each
+  duplicating the same `useGroup`+`useGroupMembers`+`useExpenses`+
+  `useSettlements`+`useCurrentProfile` bundle verbatim. Thin composite in
+  `src/queries/useGroupDetail.ts` — calls the existing per-resource hooks and
+  returns them bundled, each keeping its own queryKey (not a merged query),
+  so mutation invalidation and `useAllGroupData`'s fan-out are unaffected.
+  `AddExpenseForm.tsx` intentionally left on individual hooks — its two call
+  sites use different subsets and would otherwise fetch expenses/settlements
+  they never read.
 
 ### Later (Phase 2+/3)
 

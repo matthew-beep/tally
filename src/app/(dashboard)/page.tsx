@@ -12,6 +12,7 @@ import { useGlobalBalances } from '@/queries/useGlobalBalances'
 import { useGroups } from '@/queries/useGroups'
 import { PersonProfileSheet } from '@/components/home/PersonProfileSheet'
 import { BalanceSheet } from '@/components/home/BalanceSheet'
+import { BalanceTable, type BalanceRow } from '@/components/dashboard/BalanceTable'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
 import type { Profile } from '@/types'
 
@@ -196,73 +197,6 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
   )
 }
 
-// ── PersonCard ─────────────────────────────────────────────────────────────
-
-function PersonCard({
-  person,
-  onAvatarTap,
-  onRowTap,
-}: {
-  person: PersonEntry
-  onAvatarTap: () => void
-  onRowTap: () => void
-}) {
-  const owed = person.direction === 'owed'
-  const amtColor = owed ? T.mintInk : T.coralInk
-  const name = firstName(person.name)
-  const groupHint = person.parts
-    .slice(0, 2)
-    .map(p => `${p.groupEmoji} ${p.groupName}`)
-    .join(' · ')
-
-  const abs = Math.abs(person.net)
-  const whole = Math.floor(abs).toLocaleString()
-
-  return (
-    <div
-      onClick={onRowTap}
-      style={{
-        padding: '13px 16px',
-        borderRadius: 14,
-        background: T.cardBg,
-        border: `1px solid ${T.line}`,
-        boxShadow: T.shadowSm,
-        display: 'flex', alignItems: 'center', gap: 12,
-        cursor: 'pointer',
-        userSelect: 'none',
-      }}
-    >
-      {/* Avatar — separate tap zone */}
-      <div
-        onClick={e => { e.stopPropagation(); onAvatarTap() }}
-        style={{ flexShrink: 0, cursor: 'pointer' }}
-      >
-        <Avatar profile={avatarProfile({ name: person.name, profile: person.profile })} slot={person.slot} size={36} />
-      </div>
-
-      {/* Name + group hint */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {name}
-        </div>
-        <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {groupHint}
-        </div>
-      </div>
-
-      {/* Amount + label, stacked */}
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontFamily: FH, fontSize: 19, fontWeight: 700, letterSpacing: -0.4, fontVariantNumeric: 'tabular-nums', color: amtColor }}>
-          {owed ? '+' : '−'}${whole}
-        </div>
-        <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: 0.3, textTransform: 'uppercase', color: T.inkFaint, marginTop: 1 }}>
-          {owed ? 'owes you' : 'you owe'}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── All square empty state ─────────────────────────────────────────────────
 
 function AllSquare() {
@@ -289,6 +223,23 @@ function AllSquare() {
 
 // ── Open Balances section ─────────────────────────────────────────────────
 
+function personToRow(person: PersonEntry, onAvatarTap: (p: PersonEntry) => void, onRowTap: (p: PersonEntry) => void): BalanceRow {
+  return {
+    id: person.id,
+    avatar: avatarProfile({ name: person.name, profile: person.profile }),
+    slot: person.slot,
+    label: firstName(person.name),
+    amount: person.net,
+    breakdown: person.parts.slice(0, 3).map(part => ({
+      key: part.groupId,
+      label: `${part.groupEmoji} ${part.groupName}`,
+      amount: part.amount,
+    })),
+    onAvatarClick: () => onAvatarTap(person),
+    onClick: () => onRowTap(person),
+  }
+}
+
 function OpenBalances({
   people,
   onAvatarTap,
@@ -298,6 +249,11 @@ function OpenBalances({
   onAvatarTap: (person: PersonEntry) => void
   onRowTap: (person: PersonEntry) => void
 }) {
+  const owed = people.filter(p => p.direction === 'owed')
+  const owe = people.filter(p => p.direction === 'owe')
+  const owedSum = owed.reduce((s, p) => s + p.net, 0)
+  const oweSum = owe.reduce((s, p) => s + Math.abs(p.net), 0)
+
   return (
     <div className="home-people">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px 10px', flexShrink: 0 }}>
@@ -313,15 +269,23 @@ function OpenBalances({
       {people.length === 0
         ? <AllSquare />
         : (
-          <div className="home-people-list" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {people.map(p => (
-              <PersonCard
-                key={p.id}
-                person={p}
-                onAvatarTap={() => onAvatarTap(p)}
-                onRowTap={() => onRowTap(p)}
-              />
-            ))}
+          <div className="home-people-card" style={{ background: T.cardBg, border: T.cardBorder, boxShadow: T.cardShadow, borderRadius: 20, padding: '18px 22px' }}>
+            <BalanceTable
+              left={{
+                title: 'Owes you',
+                accent: T.mintInk,
+                sum: owedSum,
+                sign: '+',
+                rows: owed.map(p => personToRow(p, onAvatarTap, onRowTap)),
+              }}
+              right={{
+                title: 'You owe',
+                accent: T.coralInk,
+                sum: oweSum,
+                sign: '−',
+                rows: owe.map(p => personToRow(p, onAvatarTap, onRowTap)),
+              }}
+            />
           </div>
         )
       }

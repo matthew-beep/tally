@@ -63,10 +63,31 @@
   display: none;
 }
 
-/* Base: natural height, page itself scrolls (mobile). Desktop overrides
-   this into the bounded scroll panel — see the 1024px block below. */
-.home-people-list {
-  overflow: hidden;
+/* Card wrapping the balance table. Base: hugs its content, page itself
+   scrolls (mobile). Desktop overrides this into a flex child that stretches
+   to fill .home-people, handing internal scrolling to the table's own
+   columns — see the 1024px block below. */
+.home-people-card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Balance table (see components/dashboard/BalanceTable.tsx) ──
+   Two columns stacked on mobile (page itself scrolls). Desktop overrides
+   this into side-by-side columns with independent internal scroll — see
+   the 1024px block below. */
+.balance-table {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.balance-table-col {
+  min-width: 0;
+}
+
+.balance-table-divider {
+  display: none;
 }
 
 /* Groups/activity previews — desktop only, home stays balance-focused on mobile */
@@ -199,18 +220,46 @@
     flex-direction: column;
   }
 
-  /* No flex-grow — hug content height. flex-shrink (default) only kicks in,
-     and the list scrolls internally, once total content exceeds .home-main. */
+  /* People fills whatever vertical space Hero leaves in .home-content — the
+     balance table's own columns scroll internally under their fixed headers,
+     the section itself doesn't grow/shrink around its content. */
   .home-people {
+    flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
   }
 
-  .home-people-list {
+  .home-people-card {
+    flex: 1;
     min-height: 0;
-    overflow-x: hidden;
+  }
+
+  .balance-table {
+    flex-direction: row;
+    gap: 30px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .balance-table-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .balance-table-col-list {
     overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+  }
+
+  .balance-table-divider {
+    display: block;
+    width: 0.5px;
+    align-self: stretch;
+    background: var(--tally-line);
   }
 
   /* Needs-attention rail — structure only for now, no data feeding it yet */
