@@ -15,7 +15,7 @@ import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
-import type { GroupMember, Expense, Settlement } from '@/types'
+import type { GroupMember, Expense, Settlement, Transfer } from '@/types'
 
 function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
   const idx = members.findIndex(m => m.id === id)
@@ -44,7 +44,6 @@ export default function GroupDetailPage() {
     members.map(m => [m.id, m as GroupMember])
   )
 
-
   const memberIds   = members.map(m => m.id)
   const net         = calcNetBalances(groupId, expenses, settlements, memberIds)
   const myMember    = members.find(m => m.user_id === profile?.id)
@@ -52,9 +51,6 @@ export default function GroupDetailPage() {
   const myBal       = myId ? (net[myId] ?? 0) : 0
   const totalSpend  = expenses.reduce((s, e) => s + Number(e.amount), 0)
 
-
-  console.log('group', group)
-  console.log('members', members)
   // Pairwise nets from my perspective — positive = they owe me, negative = I owe them
   const pairwiseNets = myId ? calcPairwiseNets(myId, expenses, settlements) : {}
 
@@ -65,6 +61,25 @@ export default function GroupDetailPage() {
   const IOweEntries  = Object.entries(pairwiseNets).filter(([, v]) => v < -0.01)
   const hasBalance   = oweMeEntries.length > 0 || IOweEntries.length > 0
   const netPositive  = myBal >= 0
+
+  // SettleUpSheet is props-driven — build its Transfer[] from data already
+  // fetched here rather than having the sheet re-fetch/re-derive balances.
+  function toTransfer(memberId: string, amount: number, direction: 'owed' | 'owe'): Transfer {
+    const m = memberById[memberId]
+    return {
+      groupMemberId: memberId,
+      amount,
+      direction,
+      name: m ? displayName(m) : '…',
+      avatar: m ? avatarProfile(m) : { name: '…', display_name: null, avatar_url: null },
+      slot: slotFor(members, memberId),
+    }
+  }
+  const transfers: Transfer[] = [
+    ...oweMeEntries.map(([id, amt]) => toTransfer(id, amt, 'owed')),
+    ...IOweEntries.map(([id, amt]) => toTransfer(id, Math.abs(amt), 'owe')),
+  ]
+  const preselectTransfer = settleUser ? transfers.find(t => t.groupMemberId === settleUser) ?? null : null
 
   // Feed — sorted by created_at (mergeFeed), month-bucketed by expense/settled date
   const feed = mergeFeed(expenses, settlements)
@@ -149,7 +164,7 @@ export default function GroupDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
             {Math.abs(myBal) >= 0.01 && (
               <button
-                onClick={() => setSettleOpen(true)}
+                onClick={() => { setSettleUser(null); setSettleOpen(true) }}
                 style={{ padding: '9px 16px', borderRadius: T.r.md, background: 'transparent', color: T.ink, border: 0, boxShadow: `inset 0 0 0 1px ${T.lineStrong}`, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
               >
                 Settle up
@@ -344,7 +359,7 @@ export default function GroupDetailPage() {
                             <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount)}</span>
                           </div>
                           <button
-                            onClick={e => { e.stopPropagation(); setSettleOpen(true); setSettleUser(memberId)}}
+                            onClick={e => { e.stopPropagation(); setSettleUser(memberId); setSettleOpen(true) }}
                             style={{ flexShrink: 0, border: `1.5px solid ${T.coralInk}`, cursor: 'pointer', font: 'inherit', padding: '6px 13px', borderRadius: 9, background: 'transparent', color: T.coralInk, fontSize: 12, fontWeight: 700, letterSpacing: -0.1 }}
                           >
                             Settle up
@@ -470,9 +485,11 @@ export default function GroupDetailPage() {
 
       <SettleUpSheet
         open={settleOpen}
-        onClose={() => setSettleOpen(false)}
+        onClose={() => { setSettleOpen(false); setSettleUser(null) }}
         groupId={groupId}
-        settleUser={settleUser ?? ''}
+        mySeatId={myId ?? ''}
+        transfers={transfers}
+        preselect={preselectTransfer}
       />
 
       {/* ── Sheets ── */}

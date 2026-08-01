@@ -58,7 +58,7 @@
   padding: 24px 28px 32px;
 }
 
-/* Right rail — "Needs attention" inbox. Desktop only; empty for now. */
+/* Right rail — "Needs attention" + "Recent activity". Desktop only. */
 .home-rail {
   display: none;
 }
@@ -262,7 +262,6 @@
     background: var(--tally-line);
   }
 
-  /* Needs-attention rail — structure only for now, no data feeding it yet */
   .home-rail {
     display: flex;
     flex-direction: column;

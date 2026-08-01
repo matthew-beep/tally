@@ -7,14 +7,18 @@ import { Avatar } from '@/components/Avatar'
 import { BalanceBadge } from '@/components/BalanceBadge'
 import { SectionLabel } from '@/components/SectionLabel'
 import { HeroSkeleton } from '@/components/HomeScreenSkeleton'
-import { useCurrentProfile } from '@/queries/useProfile'
+import { useCurrentProfile, useNotifications } from '@/queries/useProfile'
 import { useGlobalBalances } from '@/queries/useGlobalBalances'
 import { useGroups } from '@/queries/useGroups'
+import { useAllActivity } from '@/queries/useActivity'
 import { PersonProfileSheet } from '@/components/home/PersonProfileSheet'
 import { BalanceSheet } from '@/components/home/BalanceSheet'
 import { BalanceTable, type BalanceRow } from '@/components/dashboard/BalanceTable'
+import { ActivityRow } from '@/components/ActivityRow'
+import { GroupInviteCard } from '@/components/notifications/GroupInviteCard'
+import { SettlementConfirmCard } from '@/components/notifications/SettlementConfirmCard'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
-import type { Profile } from '@/types'
+import type { Profile, Notification, ActivityItem } from '@/types'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -349,16 +353,55 @@ function RecentGroups({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalan
 }
 
 // ── NeedsAttentionRail ─────────────────────────────────────────────────────
-// Structure only — nothing feeds this yet (settlement confirmations + group
-// invites land here once that data is wired up).
+// Actionable notifications only — group invites and settlement confirmations.
+// Info-only types (accepted/declined/confirmed/denied) stay on /me. Recent
+// activity (across all groups) rides along in the same right rail.
 
-function NeedsAttentionRail() {
+const ACTIONABLE_TYPES: Notification['type'][] = ['group_invite', 'settlement_confirm']
+const RECENT_ACTIVITY_LIMIT = 6
+
+function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
+  notifications: Notification[]
+  activityItems: ActivityItem[]
+  activityLoading: boolean
+}) {
+  const router = useRouter()
+  const actionable = notifications.filter(n => ACTIONABLE_TYPES.includes(n.type))
+  const recent = activityItems.slice(0, RECENT_ACTIVITY_LIMIT)
+
   return (
     <div className="home-rail">
       <SectionHeader label="Needs attention" />
-      <div style={{ fontSize: 12, color: T.inkFaint, lineHeight: 1.55 }}>
-        Nothing waiting on you. Payments to confirm and group invites will land here.
-      </div>
+      {actionable.length === 0 ? (
+        <div style={{ fontSize: 12, color: T.inkFaint, lineHeight: 1.55, marginBottom: 20 }}>
+          Nothing waiting on you. Payments to confirm and group invites will land here.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+          {actionable.map(n =>
+            n.type === 'group_invite'
+              ? <GroupInviteCard key={n.id} notification={n} />
+              : <SettlementConfirmCard key={n.id} notification={n} />
+          )}
+        </div>
+      )}
+
+      {(activityLoading || recent.length > 0) && (
+        <>
+          <SectionHeader label="Recent activity" action={{ text: 'See all', onClick: () => router.push('/activity') }} />
+          {activityLoading ? (
+            <div style={{ fontSize: 12, color: T.inkFaint }}>Loading…</div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {recent.map(item => (
+                <div key={item.id} onClick={() => router.push(`/groups/${item.groupId}`)} style={{ cursor: 'pointer' }}>
+                  <ActivityRow item={item} showGroup />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -367,14 +410,16 @@ function NeedsAttentionRail() {
 
 export default function HomePage() {
   const { data: gb, isLoading } = useGlobalBalances()
+  const { data: notifications = [] } = useNotifications()
+  const { data: activityGroups = [], isLoading: activityLoading } = useAllActivity()
   const [profilePerson, setProfilePerson] = useState<PersonEntry | null>(null)
   const [balancePerson, setBalancePerson]   = useState<PersonEntry | null>(null)
 
   const people = gb ? buildPeopleFlow(gb) : []
-  console.log(people)
-  console.log(gb)
-  console.log(isLoading)
-  console.log(profilePerson)
+  const activityItems = activityGroups
+    .flatMap(g => g.items)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       <TopBar />
@@ -396,7 +441,7 @@ export default function HomePage() {
             </div>
           )}
         </div>
-        <NeedsAttentionRail />
+        <NeedsAttentionRail notifications={notifications} activityItems={activityItems} activityLoading={activityLoading} />
       </div>
 
       {profilePerson?.profile && (

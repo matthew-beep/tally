@@ -106,6 +106,19 @@ export interface DebtTransfer {
   amount: number
 }
 
+// Presentational — a single open balance with one counterparty, scoped to
+// one group. Callers (group page, dashboard) build these from data they've
+// already fetched; SettleUpSheet takes them as props and does no fetching
+// or balance math of its own.
+export interface Transfer {
+  groupMemberId: string
+  amount: number
+  direction: 'owed' | 'owe'  // 'owed' = they owe me, 'owe' = I owe them
+  name: string
+  avatar: Pick<Profile, 'name' | 'display_name' | 'avatar_url'>
+  slot: 0 | 1 | 2 | 3
+}
+
 export type ActivityItem =
   | {
       type: 'expense'

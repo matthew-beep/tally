@@ -11,11 +11,11 @@ import { Avatar } from '@/components/Avatar'
 import { HandleInput } from '@/components/HandleInput'
 import type { HandleState } from '@/components/HandleInput'
 import { useCurrentProfile, useMarkNotificationsRead, useNotifications, useUpdateProfile } from '@/queries/useProfile'
-import { useConfirmSettlement, useDenySettlement } from '@/queries/useSettlements'
-import { useAcceptGroupInvite, useDeclineGroupInvite } from '@/queries/useMembers'
 import { useTheme } from '@/lib/theme'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { GroupInviteCard } from '@/components/notifications/GroupInviteCard'
+import { SettlementConfirmCard } from '@/components/notifications/SettlementConfirmCard'
 import type { Notification } from '@/types'
 
 function ProfileSettings() {
@@ -271,72 +271,3 @@ export default function MePage() {
   )
 }
 
-function GroupInviteCard({ notification }: { notification: Notification }) {
-  const accept = useAcceptGroupInvite()
-  const decline = useDeclineGroupInvite()
-  const g = notification.group
-  if (!g || !notification.group_id) return null
-
-  return (
-    <Card style={{ padding: '14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <div style={{ fontSize: 24, lineHeight: 1 }}>{g.emoji}</div>
-        <div>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>You've been invited to {g.name}</div>
-          <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 2 }}>Accept to join and see expenses</div>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={() => accept.mutate({ groupId: notification.group_id!, notificationId: notification.id })}
-          disabled={accept.isPending || decline.isPending}
-          style={{ flex: 1, background: T.mintSoft, color: T.mintInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
-        >
-          ✓ Accept
-        </button>
-        <button
-          onClick={() => decline.mutate({ groupId: notification.group_id!, notificationId: notification.id })}
-          disabled={accept.isPending || decline.isPending}
-          style={{ flex: 1, background: T.coralSoft, color: T.coralInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
-        >
-          ✗ Decline
-        </button>
-      </div>
-    </Card>
-  )
-}
-
-function SettlementConfirmCard({ notification }: { notification: Notification }) {
-  const confirm = useConfirmSettlement()
-  const deny = useDenySettlement()
-  const s = notification.settlement
-  if (!s) return null
-
-  const fromP    = s.from_member?.profile
-  const fromName = fromP ? (fromP.display_name ?? fromP.name) : s.from_member?.name ?? '…'
-
-  return (
-    <Card style={{ padding: '14px' }}>
-      <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
-        {fromName} says they paid you {formatAmount(Number(s.amount))}
-      </div>
-      {s.note && <div style={{ fontSize: 12, color: T.inkMuted, marginBottom: 12 }}>{s.note}</div>}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={() => confirm.mutate({ id: s.id, groupId: s.group_id })}
-          disabled={confirm.isPending}
-          style={{ flex: 1, background: T.mintSoft, color: T.mintInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
-        >
-          ✓ Confirm
-        </button>
-        <button
-          onClick={() => deny.mutate({ id: s.id, groupId: s.group_id })}
-          disabled={deny.isPending}
-          style={{ flex: 1, background: T.coralSoft, color: T.coralInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
-        >
-          ✗ Deny
-        </button>
-      </div>
-    </Card>
-  )
-}
