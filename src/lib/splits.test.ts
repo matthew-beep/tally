@@ -35,6 +35,18 @@ describe('makeEqualSplits', () => {
     expect(makeEqualSplits('e1', 10, [])).toEqual([])
   })
 
+  it('gives the remainder to the payer row, not the first row', () => {
+    const splits = makeEqualSplits('e1', 10, ['a', 'b', 'payer'], 'payer')
+    expect(sum(splits)).toBe(10)
+    expect(splits.map(s => s.owed_amount)).toEqual([3.33, 3.33, 3.34])
+  })
+
+  it('falls back to the first row when the payer is not in the split', () => {
+    const splits = makeEqualSplits('e1', 10, ['a', 'b', 'c'], 'someone-else')
+    expect(sum(splits)).toBe(10)
+    expect(splits[0].owed_amount).toBe(3.34)
+  })
+
   it('never produces negative or NaN amounts', () => {
     for (const amount of [0.01, 0.05, 1, 9.99, 33.33, 100.01]) {
       for (const n of [1, 2, 3, 4, 5, 6, 7]) {
@@ -77,6 +89,18 @@ describe('makePercentSplits', () => {
 
   it('returns [] for no entries', () => {
     expect(makePercentSplits('e1', 10, [])).toEqual([])
+  })
+
+  it('gives the rounding diff to the payer row when one is named', () => {
+    const splits = makePercentSplits('e1', 10, [
+      { group_member_id: 'a', percent: 33.33 },
+      { group_member_id: 'b', percent: 33.33 },
+      { group_member_id: 'payer', percent: 33.34 },
+    ], 'payer')
+    expect(sum(splits)).toBe(10)
+    expect(splits.find(s => s.group_member_id === 'a')!.owed_amount).toBe(3.33)
+    expect(splits.find(s => s.group_member_id === 'b')!.owed_amount).toBe(3.33)
+    expect(splits.find(s => s.group_member_id === 'payer')!.owed_amount).toBe(3.34)
   })
 })
 

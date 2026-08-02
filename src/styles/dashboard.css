@@ -72,6 +72,19 @@
   flex-direction: column;
 }
 
+/* ── Open balances — mobile card list vs desktop ledger table ──
+   Mobile: flat list of person cards (same row style as the groups list).
+   Desktop: two-column BalanceTable ledger — see the 1024px block below. */
+.home-people-list-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.home-people-table-desktop {
+  display: none;
+}
+
 /* ── Balance table (see components/dashboard/BalanceTable.tsx) ──
    Two columns stacked on mobile (page itself scrolls). Desktop overrides
    this into side-by-side columns with independent internal scroll — see
@@ -233,6 +246,14 @@
   .home-people-card {
     flex: 1;
     min-height: 0;
+  }
+
+  .home-people-list-mobile {
+    display: none;
+  }
+
+  .home-people-table-desktop {
+    display: block;
   }
 
   .balance-table {

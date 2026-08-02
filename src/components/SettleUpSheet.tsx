@@ -5,7 +5,7 @@ import { T, FH } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent } from '@/components/modal'
-import { formatAmount } from '@/lib/money'
+import { formatAmount, stripNegative } from '@/lib/money'
 import { useCreateSettlement } from '@/queries/useSettlements'
 import type { Transfer } from '@/types'
 
@@ -19,10 +19,6 @@ interface Props {
 }
 
 type Screen = 'list' | 'record-payment'
-
-function stripNegative(v: string) {
-  return v.replace(/-/g, '')
-}
 
 // ── Record payment ──────────────────────────────────────────────────────
 function RecordPaymentDrawer({

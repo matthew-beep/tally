@@ -6,8 +6,8 @@ import { Avatar } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent } from '@/components/modal'
-import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
-import { formatAmount } from '@/lib/money'
+import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
+import { formatAmount, stripNegative } from '@/lib/money'
 import { useDeleteExpense, useUpdateExpense } from '@/queries/useExpenses'
 import type { Expense, GroupMember } from '@/types'
 
@@ -19,15 +19,6 @@ interface Props {
 }
 
 type Screen = 'actions' | 'edit' | 'delete-confirm'
-
-function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
-  const idx = members.findIndex(m => m.id === id)
-  return Math.max(0, idx) % 4 as 0 | 1 | 2 | 3
-}
-
-function stripNegative(v: string) {
-  return v.replace(/-/g, '')
-}
 
 function DirtyDot() {
   return <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sun, display: 'inline-block' }} />

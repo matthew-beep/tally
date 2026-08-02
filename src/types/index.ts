@@ -141,13 +141,9 @@ export type ActivityItem =
       status: 'pending' | 'confirmed'
       fromName: string
       toName: string
+      date: string // settled_date — bucket key (same role as expense.date)
       createdAt: string
       groupId: string
       groupName: string
       groupEmoji: string
     }
-
-export interface ActivityGroup {
-  group: Pick<Group, 'id' | 'name' | 'emoji'>
-  items: ActivityItem[]
-}

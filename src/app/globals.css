@@ -351,6 +351,7 @@ a {
 .add-expense-panel--desktop {
   min-height: min(92dvh, 720px);
   max-height: min(92dvh, 800px);
+  background: var(--tally-surface-alt);
 }
 
 .add-expense-mobile-header {
@@ -404,16 +405,6 @@ a {
   gap: 10px;
 }
 
-.add-expense-desktop-header {
-  flex-shrink: 0;
-  padding: 16px 22px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  border-bottom: 0.5px solid rgba(31, 26, 20, 0.07);
-}
-
 .add-expense-desktop-body {
   flex: 1;
   min-height: 0;
@@ -427,7 +418,6 @@ a {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  background: var(--tally-surface-alt);
   overflow-y: auto;
 }
 
@@ -447,14 +437,13 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: var(--tally-surface-alt);
 }
 
 @media (min-width: 768px) {
   .add-expense-panel-root {
     display: flex !important;
     flex-direction: column !important;
-    background: var(--tally-surface) !important;
+    background: var(--tally-surface-alt) !important;
     max-height: min(92dvh, 800px) !important;
   }
 }

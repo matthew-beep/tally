@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { BalanceBadge } from '@/components/BalanceBadge'
+import { Card } from '@/components/Card'
 import { SectionLabel } from '@/components/SectionLabel'
 import { HeroSkeleton } from '@/components/HomeScreenSkeleton'
 import { useCurrentProfile, useNotifications } from '@/queries/useProfile'
@@ -136,17 +137,6 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
   const sign = total >= 0 ? '+' : '−'
   const mainColor = isPositive ? T.mintInk : T.coralInk
   const softBg = isPositive ? T.mintSoft : T.coralSoft
-  // people is already sorted by |net| descending (buildPeopleFlow)
-  const largest = people[0]
-
-  const stats = [
-    { v: String(people.length), l: people.length === 1 ? 'person unsettled' : 'people unsettled', c: T.ink },
-    largest && {
-      v: `${largest.direction === 'owed' ? '+' : '−'}$${Math.abs(largest.net).toFixed(0)}`,
-      l: `largest · ${firstName(largest.name)}`,
-      c: largest.direction === 'owed' ? T.mintInk : T.coralInk,
-    },
-  ].filter(Boolean) as { v: string; l: string; c: string }[]
 
   return (
     <div style={{
@@ -182,21 +172,6 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
           ))}
         </div>
       </div>
-      {false && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: `repeat(${stats.length}, 1fr)`,
-          borderTop: `0.5px solid ${T.line}`, position: 'relative',
-        }}>
-          {stats.map((s, i) => (
-            <div key={s.l} style={{ padding: '12px 30px 14px', borderLeft: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
-              <div style={{ fontFamily: FH, fontSize: 17, fontWeight: 600, letterSpacing: -0.3, color: s.c, fontVariantNumeric: 'tabular-nums' }}>{s.v}</div>
-              <div style={{ fontSize: 10.5, color: T.inkMuted, marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.l}</div>
-            </div>
-          ))}
-
-          test
-        </div>
-      )}
     </div>
   )
 }
@@ -226,6 +201,38 @@ function AllSquare() {
 }
 
 // ── Open Balances section ─────────────────────────────────────────────────
+
+function PersonRow({ person, onAvatarTap, onRowTap }: {
+  person: PersonEntry
+  onAvatarTap: () => void
+  onRowTap: () => void
+}) {
+  const groupHint = person.parts
+    .slice(0, 2)
+    .map(p => `${p.groupEmoji} ${p.groupName}`)
+    .join(' · ')
+
+  return (
+    <Card
+      hoverable
+      onClick={onRowTap}
+      style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}
+    >
+      <div onClick={e => { e.stopPropagation(); onAvatarTap() }} style={{ flexShrink: 0, cursor: 'pointer' }}>
+        <Avatar profile={avatarProfile({ name: person.name, profile: person.profile })} slot={person.slot} size={40} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, fontFamily: FH, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {firstName(person.name)}
+        </div>
+        <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {groupHint}
+        </div>
+      </div>
+      <BalanceBadge amount={person.net} />
+    </Card>
+  )
+}
 
 function personToRow(person: PersonEntry, onAvatarTap: (p: PersonEntry) => void, onRowTap: (p: PersonEntry) => void): BalanceRow {
   return {
@@ -273,24 +280,34 @@ function OpenBalances({
       {people.length === 0
         ? <AllSquare />
         : (
-          <div className="home-people-card" style={{ background: T.cardBg, border: T.cardBorder, boxShadow: T.cardShadow, borderRadius: 20, padding: '18px 22px' }}>
-            <BalanceTable
-              left={{
-                title: 'Owes you',
-                accent: T.mintInk,
-                sum: owedSum,
-                sign: '+',
-                rows: owed.map(p => personToRow(p, onAvatarTap, onRowTap)),
-              }}
-              right={{
-                title: 'You owe',
-                accent: T.coralInk,
-                sum: oweSum,
-                sign: '−',
-                rows: owe.map(p => personToRow(p, onAvatarTap, onRowTap)),
-              }}
-            />
-          </div>
+          <>
+            {/* Mobile — flat list of person cards, same row style as the groups list */}
+            <div className="home-people-list-mobile">
+              {people.map(p => (
+                <PersonRow key={p.id} person={p} onAvatarTap={() => onAvatarTap(p)} onRowTap={() => onRowTap(p)} />
+              ))}
+            </div>
+
+            {/* Desktop — two-column ledger with independent scroll per column */}
+            <div className="home-people-card home-people-table-desktop" style={{ background: T.cardBg, border: T.cardBorder, boxShadow: T.cardShadow, borderRadius: 20, padding: '18px 22px' }}>
+              <BalanceTable
+                left={{
+                  title: 'Owes you',
+                  accent: T.mintInk,
+                  sum: owedSum,
+                  sign: '+',
+                  rows: owed.map(p => personToRow(p, onAvatarTap, onRowTap)),
+                }}
+                right={{
+                  title: 'You owe',
+                  accent: T.coralInk,
+                  sum: oweSum,
+                  sign: '−',
+                  rows: owe.map(p => personToRow(p, onAvatarTap, onRowTap)),
+                }}
+              />
+            </div>
+          </>
         )
       }
     </div>
@@ -358,7 +375,6 @@ function RecentGroups({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalan
 // activity (across all groups) rides along in the same right rail.
 
 const ACTIONABLE_TYPES: Notification['type'][] = ['group_invite', 'settlement_confirm']
-const RECENT_ACTIVITY_LIMIT = 6
 
 function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
   notifications: Notification[]
@@ -367,7 +383,7 @@ function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
 }) {
   const router = useRouter()
   const actionable = notifications.filter(n => ACTIONABLE_TYPES.includes(n.type))
-  const recent = activityItems.slice(0, RECENT_ACTIVITY_LIMIT)
+  const recent = activityItems
 
   return (
     <div className="home-rail">
@@ -411,14 +427,11 @@ function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
 export default function HomePage() {
   const { data: gb, isLoading } = useGlobalBalances()
   const { data: notifications = [] } = useNotifications()
-  const { data: activityGroups = [], isLoading: activityLoading } = useAllActivity()
+  const { data: activityItems = [], isLoading: activityLoading } = useAllActivity(6)
   const [profilePerson, setProfilePerson] = useState<PersonEntry | null>(null)
   const [balancePerson, setBalancePerson]   = useState<PersonEntry | null>(null)
 
   const people = gb ? buildPeopleFlow(gb) : []
-  const activityItems = activityGroups
-    .flatMap(g => g.items)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>

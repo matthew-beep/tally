@@ -105,8 +105,8 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
        `SettleUpSheet` in place instead of routing away. A person with
        balances in >1 group only ever needs the single largest-balance
        `Transfer` for a plain row tap — a real "settle all groups at once"
-       multi-insert flow is the separate "Cross-group settle all" item under
-       Later (Phase 2+/3), not implied by this.
+       multi-insert flow is Pre-ship #5 (dashboard path) / Later if #5 ships
+       single-group only, not implied by this.
      - Net effect: one shared sheet/screens, zero branching inside the sheet
        on which surface opened it — the fork is entirely in how each caller
        builds its `Transfer`(s) before rendering the sheet.
@@ -207,8 +207,20 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    §19e Vaul conversion for `ExpenseActionSheet`). Settle-up's desktop gap gets fixed
    as a side effect of item 1 above.
 
-5. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
-   multi-agent pass) once 1–4 are done, before calling it shippable.
+5. **Finish cross-group settlement flow from dashboard** 🟡 — item 1's group-page
+   `SettleUpSheet` path is in progress; home still routes away
+   (`BalanceSheet` → `router.push(/groups/:id/settle)`). Finish the dashboard
+   caller: resolve seats via `resolveSeatId`, open `SettleUpSheet` in place with
+   the largest-balance `Transfer` (and eventually multi-group "settle all" —
+   promoted from Later). Same dumb sheet, different `Transfer[]` builder.
+
+6. **Activity page — flat recent feed, not keyed by group** 🟡 — **done**
+   `/activity` is a single chronological feed (`useAllActivity()`); home rail
+   uses `useAllActivity(6)`. Group shows as row metadata via `showGroup`.
+   Removed `ActivityGroup` bucketing.
+
+7. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
+   multi-agent pass) once 1–6 are done, before calling it shippable.
 
 ---
 
@@ -527,7 +539,9 @@ consumer.
   needs service-role fetch
 - Guest claim flow (`claim_token`, email match, manual link)
 - "Former member" display for left members
-- Cross-group "Settle all with [person]"
+- Cross-group "Settle all with [person]" — **promoted** to Pre-ship #5
+  (dashboard settle path); multi-insert "all groups at once" still lands here
+  if #5 ships single-largest-group only
 - Receipt scanning / OCR (`/api/ocr`) — Phase 3, feeds `itemized`
 - Expense reactions, group leaderboards
 - Email notifications, dark-mode toggle surface, PWA/offline

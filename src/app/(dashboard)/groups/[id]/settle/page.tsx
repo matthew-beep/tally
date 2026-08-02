@@ -5,9 +5,9 @@ import { Avatar } from '@/components/Avatar'
 import { useCreateSettlement } from '@/queries/useSettlements'
 import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances, simplifyDebts } from '@/lib/balance'
-import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
+import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
-import { formatAmount } from '@/lib/money'
+import { formatAmount, round2 } from '@/lib/money'
 import { useRouter, useParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import type { GroupMember } from '@/types'
@@ -41,10 +41,6 @@ export default function SettleUpPage() {
     setAmount(simplified[idx].amount.toFixed(2))
   }, [myMember?.id, simplified.length])
 
-  function slotFor(id: string): 0 | 1 | 2 | 3 {
-    return Math.max(0, members.findIndex(m => m.id === id)) % 4 as 0 | 1 | 2 | 3
-  }
-
   async function handleRecord() {
     const t = simplified[selectedIdx]
     if (!t) return
@@ -53,7 +49,7 @@ export default function SettleUpPage() {
     await createSettlement.mutateAsync({
       from_member_id: t.from,
       to_member_id:   t.to,
-      amount:         Math.round(amt * 100) / 100,
+      amount:         round2(amt),
       note:           note || undefined,
       settled_date:   settledDate,
     })
@@ -129,7 +125,7 @@ export default function SettleUpPage() {
                 >
                   {/* From */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 48 }}>
-                    <Avatar profile={from ? avatarProfile(from) : undefined} slot={slotFor(t.from)} size={38} isYou={from?.user_id === profile?.id} />
+                    <Avatar profile={from ? avatarProfile(from) : undefined} slot={slotFor(members, t.from)} size={38} isYou={from?.user_id === profile?.id} />
                     <div style={{ fontSize: 11, fontWeight: 600, color: T.ink, textAlign: 'center', lineHeight: 1.1 }}>
                       {from ? firstName(displayName(from)) : '…'}
                     </div>
@@ -152,7 +148,7 @@ export default function SettleUpPage() {
 
                   {/* To */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: 48 }}>
-                    <Avatar profile={to ? avatarProfile(to) : undefined} slot={slotFor(t.to)} size={38} isYou={to?.user_id === profile?.id} />
+                    <Avatar profile={to ? avatarProfile(to) : undefined} slot={slotFor(members, t.to)} size={38} isYou={to?.user_id === profile?.id} />
                     <div style={{ fontSize: 11, fontWeight: 600, color: T.ink, textAlign: 'center', lineHeight: 1.1 }}>
                       {to ? firstName(displayName(to)) : '…'}
                     </div>

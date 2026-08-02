@@ -127,40 +127,23 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
           </div>
         )}
 
-        {/* CTA — guests have no account to remind; owed-by-guest shows no action */}
+        {/* CTA — same settle flow regardless of direction */}
         <div style={{ padding: '0 16px' }}>
-          {owed ? (
-            profile && (
-              <button
-                onClick={onClose}
-                style={{
-                  width: '100%', padding: 16, borderRadius: 18,
-                  background: T.sun, color: T.sunOn,
-                  border: 0, cursor: 'pointer', fontFamily: 'inherit',
-                  fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
-                  boxShadow: '0 8px 24px rgba(242,192,74,0.35)',
-                }}
-              >
-                Remind {firstName}
-              </button>
-            )
-          ) : (
-            <button
-              onClick={() => {
-                onClose()
-                if (settleGroupId) router.push(`/groups/${settleGroupId}/settle`)
-              }}
-              style={{
-                width: '100%', padding: 16, borderRadius: 18,
-                background: T.coral, color: '#fff',
-                border: 0, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
-                boxShadow: '0 8px 24px rgba(239,97,68,0.30)',
-              }}
-            >
-              Settle up with {firstName}
-            </button>
-          )}
+          <button
+            onClick={() => {
+              onClose()
+              if (settleGroupId) router.push(`/groups/${settleGroupId}/settle`)
+            }}
+            style={{
+              width: '100%', padding: 16, borderRadius: 18,
+              background: T.sun, color: T.sunOn,
+              border: 0, cursor: 'pointer', fontFamily: 'inherit',
+              fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+              boxShadow: '0 8px 24px rgba(242,192,74,0.35)',
+            }}
+          >
+            Settle up with {firstName}
+          </button>
         </div>
       </div>
     </ModalOrSheet>

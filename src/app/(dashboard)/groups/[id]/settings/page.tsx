@@ -14,14 +14,10 @@ import { useUpdateGroup, useLeaveGroup, useRemoveMember } from '@/queries/useGro
 import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances } from '@/lib/balance'
 import { postJson } from '@/lib/api'
-import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
+import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
 import { formatAmount } from '@/lib/money'
 import { PlusIcon } from 'lucide-react'
-function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
-  const idx = members.findIndex(m => m.id === id)
-  return Math.max(0, idx) % 4 as 0 | 1 | 2 | 3
-}
 
 export default function GroupSettingsPage() {
   const params  = useParams()

@@ -14,13 +14,8 @@ import { SettingsIcon } from 'lucide-react'
 import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
-import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
+import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement, Transfer } from '@/types'
-
-function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
-  const idx = members.findIndex(m => m.id === id)
-  return Math.max(0, idx) % 4 as 0 | 1 | 2 | 3
-}
 
 function monthLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')

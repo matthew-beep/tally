@@ -21,3 +21,13 @@ export function displayName(m: MemberNameSource): string {
 export function firstName(name: string): string {
   return name.split(' ')[0]
 }
+
+/**
+ * Avatar colour slot for a member, by position in the group's member list.
+ * Deterministic per group so a person keeps one colour across every screen
+ * that renders that group — always pass the same member array.
+ */
+export function slotFor(members: { id: string }[], id: string): 0 | 1 | 2 | 3 {
+  const idx = members.findIndex(m => m.id === id)
+  return (Math.max(0, idx) % 4) as 0 | 1 | 2 | 3
+}
