@@ -373,3 +373,204 @@ _(findings)_
 ## Phase 6 — Modal system, atoms, CSS
 
 _(findings)_
+
+---
+
+# Code-quality pass — `AddExpenseForm` + cross-cutting (2026-08-02)
+
+Unplanned pass, not part of the Phase 1–6 reading order. Brief was "check for
+issues, optimizations, places to consolidate — the add expense form is very
+large so maybe start there." Baseline was green (typecheck clean, 47 tests) and
+still is (50 tests). Scope ended up being the `AddExpenseForm` decomposition
+plus the money-math and duplication findings that fell out of reading it.
+
+Several findings here were **already logged** in `TODO.md` — those are
+reconciled under "Against existing TODO items" rather than re-reported.
+
+## Landed
+
+### [bug] Split rounding remainder went to row 0, not the payer
+
+`lib/splits.ts`. `makeEqualSplits` hardcoded `i === 0` and `makePercentSplits`
+hardcoded `splits[0]` for the leftover cent. Both are called from
+`AddExpenseForm` with a member array whose order comes from `Set` iteration and
+query order, so the cent landed on an arbitrary member. The split-sum invariant
+held (the money always added up) but `CLAUDE.md`'s "rounding remainder is
+assigned to `paid_by`" did not. `rescaleSplits` already did this correctly — the
+two builders had just never been brought in line.
+
+Fixed by extracting the `absorbRemainder` helper all three now share, plus an
+optional `payerId` param (falls back to row 0 when absent, so any caller without
+payer context is unchanged). Three tests added. Worth stating plainly: the bug
+was **at most one cent per expense** — logged for correctness, not urgency.
+
+### [bug] Desktop remainder counter disagreed with `canSave`
+
+`DesktopSplitList` summed percentages/amounts over `memberIds` (every group
+member); the parent computed validity over `included`. Deselect someone in Equal
+mode, switch to Percent, and the footer pill could read "Adds up to 100%" while
+the Save button stayed disabled, with nothing on screen explaining why. Both now
+read one value off the hook.
+
+### [bug] Percent/exact seeding — two failure modes, both blocking Save
+
+1. The even-split pre-fill ran on `[splitMode]` only. Switch to Exact *before*
+   typing the amount (easy on desktop — the mode tabs sit right of the amount
+   field) and every row kept the old total's share forever. Save was
+   permanently blocked and no single field looked wrong.
+2. The seed used `(100/n).toFixed(1)` and `(amt/n).toFixed(2)` per row, so any
+   3-way split opened at 33.3 + 33.3 + 33.3 = 99.9% — invalid on arrival.
+
+Both fixed by `evenShares()` (distributes the leftover the same way
+`absorbRemainder` does) plus re-seeding on amount/member change until the user
+edits a field, tracked by `percentTouched` / `exactTouched`.
+
+### [consolidate] `AddExpenseForm` 1193 to 56 lines
+
+Now `src/components/add-expense/`: `useAddExpenseForm.ts` (346, all state, math
+and save), `DesktopPanel.tsx` (370), `MobilePanel.tsx` (432), `parts.tsx` (67,
+shared atoms), `types.ts` (21). Total is roughly flat — this was decomposition,
+not deletion.
+
+The load-bearing part is that the mobile/desktop split-semantics difference is
+now stated **once**, as `amountsIds` in the hook:
+
+- Mobile — every member except the payer owns an input; the payer's share is
+  the remainder.
+- Desktop — every member including the payer owns an input; the whole list must
+  balance.
+
+Everything downstream (remainder pill, `canSave`, the saved splits) reads from
+it, which is what makes the two bugs above structurally hard to reintroduce.
+Previously that rule was restated in four places, two of them disagreeing.
+
+Also dropped while moving: `PaidByChips`' `compact` and `memberById` props (only
+ever called without them), `SaveFooter`'s `showStatus` (always `true`), and the
+`TaxTipRow` interface (inferrable).
+
+### [consolidate] `slotFor` x4, `stripNegative` x3
+
+`slotFor` moved to `lib/memberDisplay.ts`; `stripNegative` to `lib/money.ts`,
+joined by `round2()` and `parseNum()`. Call sites updated in group detail, group
+settings, settle page, `ExpenseActionSheet`, `SettleUpSheet`. This is the
+index-based half of the avatar-slot item in `TODO.md` — see reconciliation below.
+
+### [style] Dead block in the home hero
+
+`(dashboard)/page.tsx` — a `{false && (...)}` stats grid containing a literal
+`test` string, plus the `stats` array feeding only it. Deleted. Only that block
+was touched; the rest of that file's working-copy changes are Matthew's.
+
+## New findings — not previously logged
+
+### [question] Two different debt models behind one "Settle up"
+
+**This interacts with the settle-up rework at the top of `TODO.md` and should be
+decided before that work starts.**
+
+- Group detail, via `SettleUpSheet`, builds `Transfer[]` from
+  `calcPairwiseNets` — you settle with people you actually transacted with.
+- `BalanceSheet.tsx:151` navigates to `/groups/[id]/settle`, which uses
+  `simplifyDebts(calcNetBalances(...))` — greedy min-transfer, which can name a
+  counterparty you have never split anything with.
+
+Same button label, same group, different answers depending on entry point. The
+planned rework converts `/settle` into a thin wrapper around the sheet, which
+would silently resolve this in favour of pairwise — worth doing **deliberately**
+rather than as a side effect, because `simplifyDebts` is tested, is documented
+in `CLAUDE.md` as the debt-simplification strategy, and would then have no
+production caller.
+
+### [bug] Mobile renders the desktop panel for one frame
+
+`hooks/useMediaQuery.ts` — `useMediaQuery` initialises `matches` to `false` and
+corrects in an effect, so every `ModalOrSheet` consumer paints its desktop
+branch first on mobile. Most visible on `AddExpenseForm` (two-column modal into
+mobile sheet). Fix is a lazy `useState` initialiser guarded for SSR, or
+`useSyncExternalStore` with a server snapshot.
+
+### [bug] `useAllGroupData`'s `useMemo` consumers never hit
+
+`useAllGroupData` builds three fresh record objects unconditionally every render
+and returns a new object literal. Both `useGlobalBalances:108` and
+`useAllActivity` list `all` in their `useMemo` deps — so the dependency changes
+identity every render and the memo never hits. All cross-group balance and
+activity math re-runs on every parent render of the dashboard.
+
+Wrapping `useAllGroupData`'s return in a `useMemo` keyed on the underlying query
+data would make both memos effective. Cheap fix, unmeasured benefit — the folds
+are O(expenses) and probably fine at current scale, so treat this as "make the
+code do what it already claims" rather than a known-hot path.
+
+### [consolidate] Dashboard fires 3N queries
+
+`useAllGroupData` fans out `expenses` + `settlements` + `members` per group. Ten
+groups is 30 requests on home mount. The cache-sharing design is deliberate and
+good (documented in `data-loading-architecture.md`; navigating group to
+dashboard is warm) — the cost is purely the initial fan-out. Three batched
+`.in('group_id', ids)` queries partitioned into the same per-group keys via
+`setQueryData` would preserve every property the arch doc relies on and take 3N
+to 3. Not urgent at current group counts; noting it as the natural next step if
+the dashboard ever feels slow.
+
+### [style] `calcNetBalances` vs `calcPairwiseNets` filter soft-deletes differently
+
+`lib/balance.ts:12` uses `!e.deleted_at`; `:81` uses `e.deleted_at === null`.
+Equivalent for rows off the wire, divergent for any partial or constructed row
+where the field is `undefined`. The soft-delete invariant is load-bearing enough
+that one shared predicate is worth it.
+
+### [style] `makeExactSplits` doesn't enforce the split-sum invariant
+
+The other two builders now guarantee it via `absorbRemainder`; exact just rounds
+each row and trusts the caller. The UI validates before calling, so this is not
+live — but `lib/splits.ts` is where `CLAUDE.md` says the invariant is enforced,
+and exact is the one path that does not. Either run it through `absorbRemainder`
+too (needs the total passed in) or note the asymmetry in the file.
+
+### [style] `/groups/[id]/add/page.tsx` is a 15-line redirect stub
+
+`router.replace` to the group page, dropping the user's intent. Either delete it
+or make it deep-link into the open sheet (`?add=1`). Interacts with the settle
+rework, which is keeping `/settle` addressable for exactly that linkability
+reason — the two routes should end up consistent.
+
+## Against existing TODO items
+
+- **"Global mutation error surface"** (`TODO.md`, Prod readiness) — confirmed
+  and now enumerated. Eight unguarded `mutateAsync` sites: `groups/new:150`,
+  `settle/page:49`, `me:50`, `useAddExpenseForm:298`, `DeleteGroupSheet:128`,
+  `ExpenseActionSheet:56` and `:247`, `SettleUpSheet:185`. Zero `onError`
+  anywhere. The failure mode on the money screens is the bad one: the promise
+  rejects unhandled, `onSuccess()` never fires, the sheet sits on "Saving...",
+  and the user cannot tell whether the expense was recorded. **Highest
+  user-impact item found in this pass** — the logged `MutationCache.onError` +
+  `error.tsx` approach is right, it just deserves to move up the list.
+- **"Avatar slot color x8, two conventions"** (`TODO.md`) — half done. The
+  index-based `slotFor` is now exported once from `lib/memberDisplay.ts` and its
+  3 copies are deleted. The 5 `hashSlot(id)` copies are untouched, so the
+  same-person-different-colour symptom persists between home and group screens.
+  Remaining work is unchanged: migrate the 5 hash sites to index-based.
+- **"Unread count badge on nav bell"** (`TODO.md` section 4) — still unbuilt, and
+  `useProfile.ts:121-122` carries a comment asserting the badge "uses
+  `refetchInterval: 30_000` in its own query (not defined here)". No
+  `refetchInterval` exists anywhere in `src/`. The comment reads as a
+  description of shipped behaviour; it should say "will use" until that lands.
+- **Optimistic updates** — `CLAUDE.md` documents the `onMutate`/rollback pattern
+  in detail. There is zero `onMutate` in the codebase; every mutation is
+  insert, invalidate, refetch. Not logged anywhere as a gap. Either build it for
+  `useAddExpense` and `useCreateSettlement` (the hot paths) or amend
+  `CLAUDE.md` — the doc currently overstates what is built.
+- **`groups/new/page.tsx` (816)** is now the largest file, having overtaken
+  `AddExpenseForm`. Same shape as the problem just fixed: one function holding
+  form state, member search, guest handling and both layouts, with only
+  `MemberRow` and `Chevron` extracted. Natural next target for the same
+  treatment (`useCreateGroupForm` + `MemberPicker` + panels).
+
+## Suggested order
+
+1. **Mutation error surface** — highest user impact, already specced in `TODO.md`
+2. **Settle-up debt-model decision** — shapes the planned settle rework
+3. `useMediaQuery` first-frame flash and the `balance.ts` predicate — both quick
+4. `groups/new` decomposition
+5. Batched fan-out — before group counts grow

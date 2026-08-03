@@ -37,6 +37,14 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      closing back to the group page instead of a custom full-page layout.
    - This also incidentally fixes desktop presentation for settle-up (item 4 below) for
      free, since `ModalOrSheet` already branches mobile/desktop.
+   - **⚠️ Decide first — the two entry points use different debt models** (found
+     2026-08-02, see `docs/review-todo.md` "Code-quality pass"): `SettleUpSheet` is
+     props-driven off `calcPairwiseNets` (settle with people you actually transacted
+     with), while `/settle` uses `simplifyDebts(calcNetBalances(...))` (greedy
+     min-transfer — can name a counterparty you've never split with). Collapsing the
+     route into the sheet silently picks pairwise and leaves `simplifyDebts` with no
+     production caller, despite being tested and specced in `CLAUDE.md`. Make that a
+     deliberate call, not a side effect of the refactor.
    - **Visual/interaction reference found** (2026-07-26): claude.ai/design project
      "splitter" (`36d6382c-156c-422e-afd2-063025ff0a0f`), file `Settle Up Flow.html`
      (imports `variation-settle-flow.jsx` + `settlement-confirm.jsx` +
