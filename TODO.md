@@ -37,14 +37,20 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      closing back to the group page instead of a custom full-page layout.
    - This also incidentally fixes desktop presentation for settle-up (item 4 below) for
      free, since `ModalOrSheet` already branches mobile/desktop.
-   - **⚠️ Decide first — the two entry points use different debt models** (found
-     2026-08-02, see `docs/review-todo.md` "Code-quality pass"): `SettleUpSheet` is
-     props-driven off `calcPairwiseNets` (settle with people you actually transacted
-     with), while `/settle` uses `simplifyDebts(calcNetBalances(...))` (greedy
-     min-transfer — can name a counterparty you've never split with). Collapsing the
-     route into the sheet silently picks pairwise and leaves `simplifyDebts` with no
-     production caller, despite being tested and specced in `CLAUDE.md`. Make that a
-     deliberate call, not a side effect of the refactor.
+   - **Decided 2026-08-02 — pairwise wins, `/settle` deleted.** The two entry points
+     used different debt models (`SettleUpSheet` on `calcPairwiseNets`, `/settle` on
+     `simplifyDebts(calcNetBalances(...))` — greedy min-transfer, could name a
+     counterparty you'd never split with). Turned out moot: by the time this was
+     decided, nothing in the app linked to `/settle` anymore — the group-page
+     triggers and home's cross-group CTA had already been migrated to `SettleUpSheet`
+     in the same day's earlier commits. So this wasn't "collapse route into sheet,"
+     it was "delete now-orphaned code": `src/app/(dashboard)/groups/[id]/settle/`
+     deleted outright (no redirect — nothing points at the URL), `simplifyDebts` +
+     its 5 tests deleted from `lib/balance.ts`/`balance.test.ts` (only caller was the
+     deleted route), `DebtTransfer` type deleted (only used by `simplifyDebts`).
+     `CLAUDE.md`, `docs/flows.md`, `docs/features.md`, `docs/review-checklist.md`
+     updated to stop describing the min-transfer model / the dead route. Typecheck
+     + full test suite clean (45/45, down from 50 — the 5 deleted tests).
    - **Visual/interaction reference found** (2026-07-26): claude.ai/design project
      "splitter" (`36d6382c-156c-422e-afd2-063025ff0a0f`), file `Settle Up Flow.html`
      (imports `variation-settle-flow.jsx` + `settlement-confirm.jsx` +
@@ -215,12 +221,54 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    §19e Vaul conversion for `ExpenseActionSheet`). Settle-up's desktop gap gets fixed
    as a side effect of item 1 above.
 
-5. **Finish cross-group settlement flow from dashboard** 🟡 — item 1's group-page
-   `SettleUpSheet` path is in progress; home still routes away
-   (`BalanceSheet` → `router.push(/groups/:id/settle)`). Finish the dashboard
-   caller: resolve seats via `resolveSeatId`, open `SettleUpSheet` in place with
-   the largest-balance `Transfer` (and eventually multi-group "settle all" —
-   promoted from Later). Same dumb sheet, different `Transfer[]` builder.
+5. **Finish cross-group settlement flow from dashboard** 🟡 — **UI shipped
+   2026-08-02, data layer still open.** `BalanceSheet.tsx` no longer routes
+   away to a group page at all (the `/groups/[id]/settle` route it used to
+   target is deleted, see item 1). It now has its own two screens, both
+   still no-op on the write:
+   - **Balance screen's "Settle up with X" CTA** → a settle-all confirm
+     screen: full net total, every group at its full balance, single
+     "Confirm settlement" button.
+   - **Tapping a specific group row** → a new `GroupSettleScreen`, drilled
+     into in place (no navigation): that one group's balance as a big
+     editable number, Full/Half/Clear quick-set chips, its own "Settle $X
+     in [Group]" button. Settling here never touches the person's other
+     groups.
+   Both buttons are `onClick={() => {}}` today. Reference design:
+   `Dashboard Settle.html` in the `splitter` claude.ai/design project
+   (`36d6382c-156c-422e-afd2-063025ff0a0f`).
+
+   **Data layer — not started, design worked out 2026-08-02:**
+   - **Seat resolution.** `PersonPart` (built in `buildPeopleFlow`,
+     `(dashboard)/page.tsx`) is profile-keyed and has no
+     `group_members.id` — but `settlements.from_member_id`/`to_member_id`
+     FK to `group_members`. Add a `resolveSeatId(gb, groupId, personId)`
+     helper (`gb.membersPerGroup[groupId].find(m => m.user_id === personId
+     || m.id === personId)?.id`) and extend `PersonPart` with
+     `groupMemberId` (counterparty seat) + `mySeatId`, resolved once in
+     `buildPeopleFlow` so `BalanceSheet` stays dumb/props-driven.
+   - **One batch mutation for both buttons** — `useCreateSettlements()`
+     (plural, new, alongside `useCreateSettlement` in `useSettlements.ts`)
+     takes an array of settlement rows and does a single
+     `.insert([...])` call. A multi-row Supabase insert compiles to one
+     atomic SQL `INSERT`, so this covers both the single-row drill-down
+     case and the N-row settle-all case without a transaction-wrapping
+     RPC. `onSuccess` invalidates `['settlements', groupId]` for every
+     distinct `group_id` in the batch.
+   - **Status isn't uniform per row.** Same rule as item 1's follow-up
+     decision (creditor-initiated settlements skip pending): a row where
+     *they* owe *me* inserts `status: 'confirmed'` directly (I'm the one
+     saying "they paid me"); a row where *I* owe *them* inserts `'pending'`
+     (awaiting their confirmation). Settle-all can produce a mix of both
+     in one batch depending on each group's direction.
+   - **Blocks on the same trigger fix item 1 already flagged and never
+     shipped**: `notify_settlement_created` fires `settlement_confirm` to
+     `to_user` unconditionally, which is wrong for a `confirmed`-on-insert
+     row (`to_user` would be yourself). Needs the `NEW.status` branch
+     described under item 1 before either "mark as paid" or this feature's
+     confirmed-rows can ship without spamming a self-confirmation.
+   - Wire both `BalanceSheet.tsx` CTAs to build their row array (1 row for
+     the drill-down, N for settle-all) and call `useCreateSettlements`.
 
 6. **Activity page — flat recent feed, not keyed by group** 🟡 — **done**
    `/activity` is a single chronological feed (`useAllActivity()`); home rail
@@ -403,9 +451,22 @@ Creator (`created_by`) is the admin.
 - [x] **Switch API routes from `getSession()` to `getUser()`** — done
   2026-07-19, commit `605bf24`. All three routes call
   `supabase.auth.getUser()`.
-- [ ] **Global mutation error surface** 🟢 — zero `onError` handling in any
-  query hook and no `error.tsx` anywhere; failed mutations are silent. Add
-  `MutationCache.onError` toast in `providers.tsx` + a root `error.tsx`.
+- [x] **Global mutation error surface** — done 2026-08-02. `providers.tsx`'s
+  `QueryClient` now takes a `MutationCache` with a global `onError` — pushes
+  a toast (message from the thrown `Error`, or a generic fallback) regardless
+  of whether the mutation has its own local `onError` too, so all 7 previously
+  unguarded `mutateAsync` sites (`groups/new`, `me`, `useAddExpenseForm`,
+  `DeleteGroupSheet`, `ExpenseActionSheet` ×2, `SettleUpSheet`) get feedback
+  for free with zero per-site changes. Toast state lives in the existing
+  `useUIStore` (Zustand) as a `toasts` queue + `pushToast`/`dismissToast`;
+  `src/components/Toast.tsx` renders the stack (bottom-centered, dark card,
+  coral accent dot, auto-dismiss 5s or tap), mounted once in `Providers`.
+  Root `src/app/error.tsx` added for render-time errors (client component,
+  `reset()` + a link home). Verified live: built a throwaway public test
+  route, drove it with Playwright (fetched via npx — not a project
+  dependency), confirmed the stack renders, stacks, and auto-dismisses with
+  zero console errors, then deleted the scratch route. Typecheck + full
+  build + 45/45 tests clean.
 - [ ] **Generated Supabase types** 🟡 (needs linked-project login) —
   `types/index.ts` is handwritten and has already drifted (Notification
   union). `npx supabase gen types typescript --linked > src/types/supabase.ts`,
@@ -547,9 +608,6 @@ consumer.
   needs service-role fetch
 - Guest claim flow (`claim_token`, email match, manual link)
 - "Former member" display for left members
-- Cross-group "Settle all with [person]" — **promoted** to Pre-ship #5
-  (dashboard settle path); multi-insert "all groups at once" still lands here
-  if #5 ships single-largest-group only
 - Receipt scanning / OCR (`/api/ocr`) — Phase 3, feeds `itemized`
 - Expense reactions, group leaderboards
 - Email notifications, dark-mode toggle surface, PWA/offline

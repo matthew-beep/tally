@@ -129,22 +129,32 @@ Balance pipeline (never stored, always derived):
    (`src/lib/balance.ts`) — net per `group_members.id`: payers gain others'
    `owed_amount`s, owers lose theirs; settlements shift from → to. Deleted
    expenses excluded; pending settlements included (optimistic).
-2. `simplifyDebts(net)` — greedy min-transfer list, used for "who pays who"
-   suggestions.
-3. Pairwise: `calcPairwiseNets(mySeatId, expenses, settlements)` — one
+2. Pairwise: `calcPairwiseNets(mySeatId, expenses, settlements)` — one
    member's per-counterparty map (positive = they owe me), the shape behind
    every "owes you / you owe" row; `summarizeBalances` folds it into
-   `{ owedToMe, iOwe, net }` for hero numbers.
-4. Cross-group: `useGlobalBalances` runs the per-group pairwise in seat
+   `{ owedToMe, iOwe, net }` for hero numbers. This is the only debt model in
+   the app — a greedy min-transfer algorithm (`simplifyDebts`) existed early
+   on but is gone (see below), so a settle-up suggestion never names a
+   counterparty you haven't actually split anything with.
+3. Cross-group: `useGlobalBalances` runs the per-group pairwise in seat
    space, translates seats → profile ids, merges across groups, and takes
    hero grosses from `summarizeBalances` — so the home hero always equals
    the sum of the person rows. Pure derivation over the per-group caches
    (see data-loading-architecture.md).
 
-Settle up (`/groups/[id]/settle`):
+Settle up — `SettleUpSheet` (`src/components/SettleUpSheet.tsx`), opened in
+place from group detail (per-member row or header CTA) and, for cross-group
+balances, from the home dashboard. It's a dumb, props-driven component: the
+caller builds `Transfer[]` from `calcPairwiseNets` and hands it down; the
+sheet does zero fetching or balance derivation itself. There is no dedicated
+`/settle` route anymore — the old full-page `/groups/[id]/settle` (built on
+`simplifyDebts`) was deleted 2026-08-02 once every entry point had migrated to
+the sheet, and `simplifyDebts` was deleted with it (last caller gone; had no
+other production use, only its own tests).
 
-1. Suggested transfer pre-filled from `simplifyDebts`; user adjusts payee /
-   amount / date / note.
+1. `ListDrawer` screen splits transfers into "Owed to you" / "You owe";
+   tapping one opens `RecordPaymentDrawer` pre-filled with that transfer's
+   amount (still editable — partial settlements just work).
 2. `useCreateSettlement` inserts with `status: 'pending'` — counts toward
    balances immediately; the DB trigger sends `settlement_confirm` to the
    payee (real users only; guests have no one to ask).

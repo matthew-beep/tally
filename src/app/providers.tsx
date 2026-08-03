@@ -1,8 +1,10 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { ToastStack } from '@/components/Toast'
+import { useUIStore } from '@/store/ui'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -15,6 +17,16 @@ export function Providers({ children }: { children: React.ReactNode }) {
             refetchOnMount: true,
           },
         },
+        // Global net: fires for every mutation failure regardless of any
+        // mutation-local onError, so a failed save always surfaces something
+        // instead of silently leaving the UI in a "did that work?" state.
+        mutationCache: new MutationCache({
+          onError: error => {
+            useUIStore.getState().pushToast(
+              error instanceof Error ? error.message : 'Something went wrong. Try again.'
+            )
+          },
+        }),
       })
   )
 
@@ -38,6 +50,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
+      <ToastStack />
     </QueryClientProvider>
   )
 }

@@ -100,12 +100,6 @@ export interface Notification {
   group?: Pick<Group, 'id' | 'name' | 'emoji'>
 }
 
-export interface DebtTransfer {
-  from: string
-  to: string
-  amount: number
-}
-
 // Presentational — a single open balance with one counterparty, scoped to
 // one group. Callers (group page, dashboard) build these from data they've
 // already fetched; SettleUpSheet takes them as props and does no fetching

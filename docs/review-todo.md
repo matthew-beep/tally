@@ -463,23 +463,24 @@ was touched; the rest of that file's working-copy changes are Matthew's.
 
 ## New findings — not previously logged
 
-### [question] Two different debt models behind one "Settle up"
-
-**This interacts with the settle-up rework at the top of `TODO.md` and should be
-decided before that work starts.**
+### [question] Two different debt models behind one "Settle up" — resolved 2026-08-02
 
 - Group detail, via `SettleUpSheet`, builds `Transfer[]` from
   `calcPairwiseNets` — you settle with people you actually transacted with.
-- `BalanceSheet.tsx:151` navigates to `/groups/[id]/settle`, which uses
-  `simplifyDebts(calcNetBalances(...))` — greedy min-transfer, which can name a
-  counterparty you have never split anything with.
+- `BalanceSheet.tsx:151` navigated to `/groups/[id]/settle`, which used
+  `simplifyDebts(calcNetBalances(...))` — greedy min-transfer, which could name a
+  counterparty you had never split anything with.
 
-Same button label, same group, different answers depending on entry point. The
-planned rework converts `/settle` into a thin wrapper around the sheet, which
-would silently resolve this in favour of pairwise — worth doing **deliberately**
-rather than as a side effect, because `simplifyDebts` is tested, is documented
-in `CLAUDE.md` as the debt-simplification strategy, and would then have no
-production caller.
+Same button label, same group, different answers depending on entry point.
+**Decision: pairwise wins, `/settle` is obsolete.** By the time this was decided,
+both call sites this note originally flagged had already been migrated off
+`/settle` in earlier commits the same day (`BalanceSheet.tsx`'s cross-group CTA
+now flips to an in-sheet confirm screen instead of navigating). So there was no
+"thin wrapper" refactor to do — `src/app/(dashboard)/groups/[id]/settle/` was
+just deleted (nothing linked to it), and `simplifyDebts` + its 5 tests went with
+it (its only caller). `CLAUDE.md` and the `docs/` files that described the
+min-transfer model as documented behavior have been corrected. See `TODO.md`
+Pre-ship item 1 for the full note.
 
 ### [bug] Mobile renders the desktop panel for one frame
 
@@ -537,15 +538,16 @@ reason — the two routes should end up consistent.
 
 ## Against existing TODO items
 
-- **"Global mutation error surface"** (`TODO.md`, Prod readiness) — confirmed
-  and now enumerated. Eight unguarded `mutateAsync` sites: `groups/new:150`,
-  `settle/page:49`, `me:50`, `useAddExpenseForm:298`, `DeleteGroupSheet:128`,
-  `ExpenseActionSheet:56` and `:247`, `SettleUpSheet:185`. Zero `onError`
-  anywhere. The failure mode on the money screens is the bad one: the promise
-  rejects unhandled, `onSuccess()` never fires, the sheet sits on "Saving...",
-  and the user cannot tell whether the expense was recorded. **Highest
-  user-impact item found in this pass** — the logged `MutationCache.onError` +
-  `error.tsx` approach is right, it just deserves to move up the list.
+- **"Global mutation error surface"** (`TODO.md`, Prod readiness) — **done
+  2026-08-02.** Was confirmed and enumerated here: eight unguarded
+  `mutateAsync` sites (one, `settle/page:49`, no longer exists post the
+  `/settle` deletion earlier the same day — seven remain:  `groups/new:150`,
+  `me:50`, `useAddExpenseForm:298`, `DeleteGroupSheet:128`,
+  `ExpenseActionSheet:56` and `:247`, `SettleUpSheet:185`). Fixed via the
+  logged approach: `MutationCache.onError` in `providers.tsx` pushes a toast
+  (Zustand-backed queue + `Toast.tsx` stack) for every mutation failure
+  app-wide, no per-site changes needed; root `error.tsx` added for render-time
+  errors. See `TODO.md` Prod readiness for the full note.
 - **"Avatar slot color x8, two conventions"** (`TODO.md`) — half done. The
   index-based `slotFor` is now exported once from `lib/memberDisplay.ts` and its
   3 copies are deleted. The 5 `hashSlot(id)` copies are untouched, so the
@@ -570,7 +572,83 @@ reason — the two routes should end up consistent.
 ## Suggested order
 
 1. **Mutation error surface** — highest user impact, already specced in `TODO.md`
-2. **Settle-up debt-model decision** — shapes the planned settle rework
+2. ~~**Settle-up debt-model decision**~~ — done 2026-08-02, see above
 3. `useMediaQuery` first-frame flash and the `balance.ts` predicate — both quick
 4. `groups/new` decomposition
 5. Batched fan-out — before group counts grow
+
+---
+
+# Cross-check against a parallel session's review (2026-08-02)
+
+A second Claude Code session ran its own independent review the same day
+(emailed out as a tiered proposal — Tier 1–4) and got cut off by a session
+reset while writing its findings to disk; nothing from it landed in a tracked
+file. Cross-checked its full list against this doc and `TODO.md` before
+re-reporting anything:
+
+- **Already resolved in this session**: its 1.1 (silent mutation failures)
+  and 1.2 (two debt models) are exactly what got shipped earlier the same
+  day — global `MutationCache.onError` toast + root `error.tsx`, and
+  `/settle`/`simplifyDebts` deleted in favor of pairwise. See both sections
+  above.
+- **Already logged, nothing new**: 1.3 (soft-delete filter drift), 1.4
+  (mobile-flash), 2.1 (`groups/new` size), 2.2 (optimistic updates
+  undocumented gap), 2.3 (bell badge unbuilt), 2.4 (`/groups/[id]/add`
+  stub), 3.1/3.2 (dashboard fan-out + dead `useMemo`), and most of its
+  Tier 4 (`makeExactSplits`, avatar slot colors) all match existing entries
+  here or in `TODO.md`.
+- **Stale**: it cited `/settle` as an example of `useGroupDetail`
+  over-fetching (Tier 4) — that file no longer exists as of this session's
+  earlier work.
+- **New — `getAuthUser` calls `getSession()` per query fn** (Tier 4):
+  ~8 client-side query hooks each call `getSession()` independently rather
+  than sharing one cached read. Cheap (local JWT read, no network round
+  trip), so low urgency — a `useAuthUser` hook would just tidy it up.
+- **New — 2.5, inline style duplication**: investigated in depth below,
+  since the email's framing of this one didn't hold up under a look at the
+  actual code.
+
+## [consolidate] Inline style drift — not quite what it looked like
+
+The email's claim: "the same card recipe... retyped dozens of times, and
+there's already a `Card` component plus 907 lines of CSS not being used for
+it." Checked both premises before acting on them:
+
+- **`Card` is not unused** — 6 files import it (`(dashboard)/page.tsx`,
+  `groups/page.tsx`, `activity/page.tsx`, `me/page.tsx`, both notification
+  card components). It's also not a substitute for the inline recipe: `Card`
+  reads `--tally-card-bg`/`--tally-card-border`/`--tally-card-shadow` (dark
+  mode: `#272727`, hairline border, heavy shadow), while the inline panels
+  read `--tally-surface`/`--tally-line`/`--tally-shadow-sm` (dark mode:
+  `#191919`, different border, flat shadow). Two deliberately different
+  surface treatments, not one duplicated by accident.
+- **The 907 lines of CSS are responsive layout** (`.home-hero`,
+  `.group-detail-left`, breakpoint rules) — a different concern from the
+  visual tokens (`background`, `borderRadius`, `boxShadow`) carried in the
+  inline styles. Not "unused for this," just not the same job.
+
+What a script-assisted scan of every `style={{...}}` block in `src/` (998
+total, clustered by signature) actually found, past those two false leads:
+
+| Recipe | Sites | Consistency |
+|---|---|---|
+| Primary "sun" CTA button | 7 | **Drifted** — padding `13/15/16/17px`, radius `13/14/18` across otherwise-identical buttons (`SettleUpSheet`, `DeleteGroupSheet`, `MobilePanel` save, `BalanceSheet` ×3, `ActionSheet`) |
+| Surface panel (bg + radius + border/shadow) | ~20 | **Drifted** — `borderRadius: 18` and `borderRadius: T.r.lg` are the same value (`T.r.lg = 18`) written two different ways across call sites; border-only vs shadow-only vs both vary with no apparent pattern |
+| Icon action-row (`ExpenseActionSheet`-style) | ~6 | Fairly consistent already |
+| Field box (`surfaceAlt` + inset ring) | 4 | Consistent already |
+
+So the real finding isn't "retyped dozens of times" (most one-off style
+blocks in the 998 are trivial, e.g. `flex: 1, minWidth: 0` ×24 — not worth
+extracting) — it's that **the two recipes with real reuse (CTA, panel) have
+each drifted into 3-4 slightly different variants**, which is a worse bug
+than duplication: the app is inconsistent today, not just repetitive.
+
+**Open question, needs Matthew's call before extracting either component:**
+normalizing the CTA button to one canonical padding/radius means ~4 of the 7
+buttons shift by a few px on screen (fixes the actual drift). Preserving
+each site's current values via props keeps zero visual risk but just moves
+the inconsistency behind a component API instead of fixing it. Also open:
+how much of the four-recipe table to take on in one pass — CTA-only (7
+sites, smallest safe slice), CTA + panel (the two with real drift, ~27
+sites), or all four (~37 sites, largest diff).

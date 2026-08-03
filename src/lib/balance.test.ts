@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcNetBalances, simplifyDebts, calcPairwiseNets, summarizeBalances } from './balance'
+import { calcNetBalances, calcPairwiseNets, summarizeBalances } from './balance'
 import type { Expense, Settlement } from '@/types'
 
 const G = 'group-1'
@@ -120,41 +120,6 @@ describe('calcNetBalances', () => {
   it('counts members with no activity as zero', () => {
     const net = calcNetBalances(G, [], [], members)
     expect(net).toEqual({ a: 0, b: 0, c: 0 })
-  })
-})
-
-describe('simplifyDebts', () => {
-  it('returns [] when everyone is settled', () => {
-    expect(simplifyDebts({ a: 0, b: 0 })).toEqual([])
-  })
-
-  it('collapses a 3-person chain into minimal transfers', () => {
-    // a is owed 20, b owes 10, c owes 10 → exactly 2 transfers, both to a
-    const transfers = simplifyDebts({ a: 20, b: -10, c: -10 })
-    expect(transfers).toHaveLength(2)
-    expect(transfers.every(t => t.to === 'a')).toBe(true)
-    expect(transfers.reduce((s, t) => s + t.amount, 0)).toBe(20)
-  })
-
-  it('extinguishes all debts exactly', () => {
-    const net = { a: 33.34, b: -3.33, c: -30.01 }
-    const transfers = simplifyDebts(net)
-    const after = { ...net }
-    transfers.forEach(t => {
-      after[t.from as keyof typeof after] += t.amount
-      after[t.to as keyof typeof after] -= t.amount
-    })
-    Object.values(after).forEach(v => expect(Math.abs(v)).toBeLessThan(0.01))
-  })
-
-  it('treats sub-cent residue as settled (epsilon)', () => {
-    expect(simplifyDebts({ a: 0.005, b: -0.005 })).toEqual([])
-  })
-
-  it('never emits a transfer larger than the biggest debt', () => {
-    const transfers = simplifyDebts({ a: 50, b: 25, c: -40, d: -35 })
-    transfers.forEach(t => expect(t.amount).toBeLessThanOrEqual(50))
-    expect(transfers.length).toBeLessThanOrEqual(3) // n-1 transfers max for 4 people
   })
 })
 

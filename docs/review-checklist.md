@@ -131,8 +131,10 @@ display.
 - [ ] `src/app/(dashboard)/groups/new/page.tsx` (826) — second-biggest file;
   the single group-create path
 - [ ] `src/components/SuggestedMembers.tsx` (165) — recents source
-- [ ] `src/app/(dashboard)/groups/[id]/settle/page.tsx` (242) — pre-fill
-  from `simplifyDebts`; partial amounts; self-settle prevention
+- [ ] `src/components/SettleUpSheet.tsx` (210) — props-driven off
+  `calcPairwiseNets`-built `Transfer[]`; partial amounts; self-settle
+  prevention. (Supersedes the old `/groups/[id]/settle` route + `simplifyDebts`,
+  both deleted 2026-08-02 — see `review-todo.md`.)
 
 ## Phase 5 — Dashboard shell & remaining screens (~1,900 lines)
 

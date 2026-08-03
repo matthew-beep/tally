@@ -1,4 +1,4 @@
-import type { Expense, Settlement, DebtTransfer } from '@/types'
+import type { Expense, Settlement } from '@/types'
 
 export function calcNetBalances(
   groupId: string,
@@ -32,7 +32,7 @@ export function calcNetBalances(
 
 // Collapses one member's pairwise map into hero numbers. owedToMe and iOwe
 // are gross magnitudes (both positive); net = owedToMe - iOwe. Entries within
-// ±0.01 count as settled — the same epsilon simplifyDebts uses.
+// ±0.01 count as settled.
 export function summarizeBalances(
   pairwise: Record<string, number>
 ): { owedToMe: number; iOwe: number; net: number } {
@@ -45,36 +45,6 @@ export function summarizeBalances(
   owedToMe = Math.round(owedToMe * 100) / 100
   iOwe     = Math.round(iOwe * 100) / 100
   return { owedToMe, iOwe, net: Math.round((owedToMe - iOwe) * 100) / 100 }
-}
-
-export function simplifyDebts(net: Record<string, number>): DebtTransfer[] {
-  const debtors = Object.entries(net)
-    .filter(([, v]) => v < -0.01)
-    .map(([uid, v]) => ({ uid, amt: -v }))
-    .sort((a, b) => b.amt - a.amt)
-
-  const creditors = Object.entries(net)
-    .filter(([, v]) => v > 0.01)
-    .map(([uid, v]) => ({ uid, amt: v }))
-    .sort((a, b) => b.amt - a.amt)
-
-  const out: DebtTransfer[] = []
-  let d = 0, c = 0
-
-  while (d < debtors.length && c < creditors.length) {
-    const pay = Math.min(debtors[d].amt, creditors[c].amt)
-    out.push({
-      from: debtors[d].uid,
-      to: creditors[c].uid,
-      amount: Math.round(pay * 100) / 100,
-    })
-    debtors[d].amt -= pay
-    creditors[c].amt -= pay
-    if (debtors[d].amt < 0.01) d++
-    if (creditors[c].amt < 0.01) c++
-  }
-
-  return out
 }
 
 export function calcPairwiseNets(memberId: string, expenses: Expense[], settlements: Settlement[]): Record<string, number> {

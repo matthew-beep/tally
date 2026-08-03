@@ -103,7 +103,7 @@ app/
     [id]/
       page.tsx                 # /groups/[id] — Group detail
       add/page.tsx             # /groups/[id]/add — Add expense
-      settle/page.tsx          # /groups/[id]/settle — Settle up
+                               # Settle up is SettleUpSheet, opened in place — no dedicated route
   add/
     [add_code]/page.tsx        # /add/[add_code] — QR code destination
   invite/
@@ -617,24 +617,19 @@ function calcNetBalances(groupId, expenses, settlements, memberIds) {
 }
 ```
 
-**Debt simplification — greedy min-transfer.**
-
-```ts
-function simplifyDebts(net: Record<string, number>) {
-  const debtors   = Object.entries(net).filter(([,v]) => v < -0.01).map(([uid,v]) => ({ uid, amt: -v })).sort((a,b) => b.amt-a.amt);
-  const creditors = Object.entries(net).filter(([,v]) => v >  0.01).map(([uid,v]) => ({ uid, amt:  v })).sort((a,b) => b.amt-a.amt);
-  const out: {from:string,to:string,amount:number}[] = [];
-  let d=0, c=0;
-  while (d < debtors.length && c < creditors.length) {
-    const pay = Math.min(debtors[d].amt, creditors[c].amt);
-    out.push({ from: debtors[d].uid, to: creditors[c].uid, amount: Math.round(pay*100)/100 });
-    debtors[d].amt -= pay; creditors[c].amt -= pay;
-    if (debtors[d].amt < 0.01) d++;
-    if (creditors[c].amt < 0.01) c++;
-  }
-  return out;
-}
-```
+**Settling up — pairwise nets, not greedy min-transfer.**
+Tally does not run debt simplification. `calcPairwiseNets(memberId, expenses, settlements)`
+computes, from one member's perspective, their net with each other member they
+actually transacted with — never inventing a transfer between two people who
+never shared an expense. `SettleUpSheet` (`src/components/SettleUpSheet.tsx`)
+is a dumb, props-driven component fed a `Transfer[]` built from this — no
+balance derivation happens inside it. `summarizeBalances(pairwise)` collapses
+one member's pairwise map into hero numbers (`owedToMe`/`iOwe`/`net`) for
+display. A greedy min-transfer algorithm (`simplifyDebts`) was built and
+tested early on but never shipped past a single now-deleted route
+(`/groups/[id]/settle`) — removed 2026-08-02 once every settle-up entry point
+converged on the pairwise model, so a "you owe $12" never points at someone
+you've never split anything with.
 
 **Activity feed — derived from existing tables, no separate events table.**
 The activity feed is a merged + sorted query over `expenses` and `settlements`. No extra writes needed — `created_at` on each table is the event log. For edited expenses, include rows where `updated_at` is recent even if `created_at` is old.
@@ -664,14 +659,11 @@ Settlements are always group-scoped (`settlements.group_id` is never null). The 
 The home screen aggregates total owed/owing per person across all groups:
 
 ```ts
-// Computed client-side from existing group balance data — no extra queries
-const netPerPerson = allGroupBalances
-  .flatMap(group => simplifyDebts(calcNetBalances(group)))
-  .reduce((acc, debt) => {
-    if (debt.from === currentUserId)
-      acc[debt.to] = (acc[debt.to] || 0) + debt.amount
-    return acc
-  }, {} as Record<string, number>)
+// Computed client-side from existing per-group caches — no extra queries.
+// Per group: calcPairwiseNets(mySeatId, expenses, settlements) → my net with
+// each other member of that group. Merge across groups by profile id (seats
+// translate to profile ids at this step — guests without a profile stay
+// seat-scoped) and sum. summarizeBalances(merged) gives the hero numbers.
 // → "You owe Sam $50" (tap to see: Apartment $30, Big Sur $20)
 ```
 
@@ -792,7 +784,7 @@ const CATEGORIES = [
 | Groups list | `/groups` |
 | Group detail | `/groups/:id` |
 | Add expense | `/groups/:id/add` |
-| Settle up | `/groups/:id/settle` |
+| Settle up | `SettleUpSheet`, opened in place from group detail (no dedicated route) |
 | Create group | `/groups/new` |
 | Activity | `/activity` |
 | Me / notifications | `/me` |
@@ -813,7 +805,6 @@ app/                   # Next.js App Router
     new/page.tsx
     [id]/page.tsx
     [id]/add/page.tsx
-    [id]/settle/page.tsx
   add/[add_code]/page.tsx
   invite/[token]/page.tsx
   activity/page.tsx
@@ -824,7 +815,7 @@ components/            # Shared UI — Avatar, BalanceBadge, Card, Row, Btn, etc
 queries/               # TanStack Query hooks — useExpenses, useSettlements, etc.
 lib/
   supabase.ts          # Supabase client (browser + server variants)
-  balance.ts           # calcNetBalances + simplifyDebts
+  balance.ts           # calcNetBalances + calcPairwiseNets
   categories.ts        # CATEGORIES + detectCategory
   splits.ts            # makeSplits
 store/

@@ -65,7 +65,7 @@ never cached in the DB — recomputation happens on read.
 
 | File | Purpose |
 |---|---|
-| `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold), `simplifyDebts` (greedy min-transfer) — all pure, tested incl. pairwise↔net invariant |
+| `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold) — all pure, tested incl. pairwise↔net invariant. No min-transfer simplification (`simplifyDebts`, deleted 2026-08-02) — settling up always uses pairwise nets |
 | `feed.ts` | `mergeFeed` — expenses + settlements → one `created_at`-sorted tagged timeline |
 | `api.ts` | `postJson` — the one way to call internal API routes; always throws the server's `{ error }` |
 | `splits.ts` | `makeEqualSplits` / `makePercentSplits` / `makeExactSplits` / `rescaleSplits` — rounding remainder to first row |
