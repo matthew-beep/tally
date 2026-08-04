@@ -9,7 +9,7 @@ import { Card } from '@/components/Card'
 import { SectionLabel } from '@/components/SectionLabel'
 import { HeroSkeleton } from '@/components/HomeScreenSkeleton'
 import { useCurrentProfile, useNotifications } from '@/queries/useProfile'
-import { useGlobalBalances } from '@/queries/useGlobalBalances'
+import { useGlobalBalances, resolveSeatId } from '@/queries/useGlobalBalances'
 import { useGroups } from '@/queries/useGroups'
 import { useAllActivity } from '@/queries/useActivity'
 import { PersonProfileSheet } from '@/components/home/PersonProfileSheet'
@@ -19,7 +19,7 @@ import { ActivityRow } from '@/components/ActivityRow'
 import { GroupInviteCard } from '@/components/notifications/GroupInviteCard'
 import { SettlementConfirmCard } from '@/components/notifications/SettlementConfirmCard'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
-import type { Profile, Notification, ActivityItem } from '@/types'
+import type { Profile, Notification, ActivityItem, PersonPart } from '@/types'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -27,13 +27,6 @@ function hashSlot(id: string): 0 | 1 | 2 | 3 {
   let h = 0
   for (let i = 0; i < id.length; i++) h = (Math.imul(h, 31) + id.charCodeAt(i)) | 0
   return (Math.abs(h) % 4) as 0 | 1 | 2 | 3
-}
-
-interface PersonPart {
-  groupId: string
-  groupName: string
-  groupEmoji: string
-  amount: number
 }
 
 interface PersonEntry {
@@ -70,12 +63,23 @@ function buildPeopleFlow(gb: NonNullable<ReturnType<typeof useGlobalBalances>['d
 
     const parts = Object.entries(groups)
       .filter(([, amt]) => Math.abs(amt) >= 0.01)
-      .map(([groupId, amount]) => ({
-        groupId,
-        groupName: groupMap[groupId]?.name ?? 'Unknown Group',
-        groupEmoji: groupMap[groupId]?.emoji ?? '💸',
-        amount,
-      }))
+      .flatMap(([groupId, amount]) => {
+        // Every entry here came from a seat in this group, and my own seat was
+        // already proven to exist before the pairwise math ran, so both of
+        // these always resolve — the guard only keeps the ids non-optional for
+        // the settlement write path downstream.
+        const groupMemberId = resolveSeatId(gb, groupId, personId)
+        const mySeatId      = resolveSeatId(gb, groupId, myId)
+        if (!groupMemberId || !mySeatId) return []
+        return [{
+          groupId,
+          groupName: groupMap[groupId]?.name ?? 'Unknown Group',
+          groupEmoji: groupMap[groupId]?.emoji ?? '💸',
+          amount,
+          groupMemberId,
+          mySeatId,
+        }]
+      })
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
 
     people.push({

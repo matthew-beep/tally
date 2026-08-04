@@ -117,6 +117,24 @@ describe('makeExactSplits', () => {
     const splits = makeExactSplits('e1', [{ group_member_id: 'a', owed_amount: 5 }])
     expect(splits[0].expense_id).toBe('e1')
   })
+
+  it('leaves rows untouched when no total is given', () => {
+    const splits = makeExactSplits('e1', [
+      { group_member_id: 'a', owed_amount: 3.33 },
+      { group_member_id: 'b', owed_amount: 3.33 },
+    ])
+    expect(sum(splits)).toBe(6.66)
+  })
+
+  it('enforces the split-sum invariant against the payer when given a total', () => {
+    const splits = makeExactSplits('e1', [
+      { group_member_id: 'payer', owed_amount: 3.33 },
+      { group_member_id: 'b', owed_amount: 3.33 },
+      { group_member_id: 'c', owed_amount: 3.33 },
+    ], 10, 'payer')
+    expect(sum(splits)).toBe(10)
+    expect(splits.find(s => s.group_member_id === 'payer')!.owed_amount).toBe(3.34)
+  })
 })
 
 describe('rescaleSplits', () => {

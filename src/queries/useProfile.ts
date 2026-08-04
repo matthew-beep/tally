@@ -118,8 +118,10 @@ export function useNotifications() {
     queryFn: async () => {
       const user = await getAuthUser(supabase)
       // Unread only — the bell badge and notification list both show unread items.
-      // This query uses refetchOnMount (standard default); the unread count badge
-      // uses refetchInterval: 30_000 in its own query (not defined here).
+      // This query uses refetchOnMount (standard default). Per CLAUDE.md's sync
+      // rules the unread *count* badge will get its own query with
+      // refetchInterval: 30_000 — that query does not exist yet (see TODO.md
+      // "Unread count badge on nav bell"), so nothing polls today.
       const { data, error } = await supabase
         .from('notifications')
         // FK hints required: notifications has both settlement_id and group_id FKs,

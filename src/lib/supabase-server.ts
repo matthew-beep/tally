@@ -1,3 +1,8 @@
+// Build-time guard: this module holds the service-role client, which bypasses
+// RLS entirely. Importing it from a Client Component is a hard build error
+// rather than a key silently shipped in a browser bundle.
+import 'server-only'
+
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 

@@ -58,7 +58,7 @@ export function ModeSheet() {
           <button
             onClick={() => {
               setFabOpen(false)
-              router.push(activeGroupId ? `/groups/${activeGroupId}/add` : '/groups')
+              router.push(activeGroupId ? `/groups/${activeGroupId}?add=1` : '/groups')
             }}
             style={{
               background: T.ink,

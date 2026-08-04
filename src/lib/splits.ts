@@ -78,13 +78,22 @@ export function rescaleSplits(
   )
 }
 
+// Unlike the other two builders, the caller supplies the amounts outright, so
+// this only rounds them. Pass `total` (and ideally `payerId`) to also enforce
+// the split-sum invariant here rather than trusting the caller's arithmetic —
+// sub-cent drift from a percentage-derived amount lands on the payer, same
+// convention as everywhere else. Without `total` the rows are returned as
+// given, which is what a caller that has already balanced them wants.
 export function makeExactSplits(
   expenseId: string,
-  splits: { group_member_id: string; owed_amount: number }[]
+  splits: { group_member_id: string; owed_amount: number }[],
+  total?: number,
+  payerId?: string
 ): Omit<ExpenseSplit, 'id'>[] {
-  return splits.map(s => ({
+  const rounded = splits.map(s => ({
     expense_id: expenseId,
     group_member_id: s.group_member_id,
     owed_amount: round2(s.owed_amount),
   }))
+  return total === undefined ? rounded : absorbRemainder(rounded, round2(total), payerId)
 }

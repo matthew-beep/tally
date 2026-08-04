@@ -7,14 +7,7 @@ import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
 import { formatAmount, stripNegative } from '@/lib/money'
 import { T, FH, FMONO } from '@/design/tokens'
-import type { Profile } from '@/types'
-
-interface PersonPart {
-  groupId: string
-  groupName: string
-  groupEmoji: string
-  amount: number
-}
+import type { Profile, PersonPart } from '@/types'
 
 interface BalanceSheetProps {
   open: boolean
@@ -197,6 +190,10 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
   const cents = (abs % 1).toFixed(2).slice(1)
   const groupCount = visibleParts.length
   const groupLabel = groupCount === 1 ? '1 group' : `${groupCount} groups`
+  // Settle-all writes one settlement row per group, so the CTA names the row
+  // count — it's the one fact the confirm screen exists to disclose.
+  const canSettleAll = groupCount > 0
+  const confirmLabel = groupCount === 1 ? 'Record payment' : `Record ${groupCount} payments`
 
   useEffect(() => {
     if (open) {
@@ -280,19 +277,27 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
           )}
 
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <p style={{ fontSize: 11.5, lineHeight: 1.5, color: T.inkFaint, padding: '0 4px 4px', margin: 0 }}>
+              {owed
+                ? `Each group is recorded separately and stays pending until confirmed.`
+                : `${firstName} gets a separate confirmation request for each group.`}
+            </p>
             <button
               type="button"
+              disabled={!canSettleAll}
               // UI-only for now — multi-group settlement write comes next
               onClick={() => {}}
               style={{
                 width: '100%', padding: 16, borderRadius: 18,
-                background: T.sun, color: T.sunOn,
-                border: 0, cursor: 'pointer', fontFamily: 'inherit',
+                background: canSettleAll ? T.sun : T.surfaceAlt,
+                color: canSettleAll ? T.sunOn : T.inkFaint,
+                border: 0, cursor: canSettleAll ? 'pointer' : 'default', fontFamily: 'inherit',
                 fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
-                boxShadow: '0 8px 24px rgba(242,192,74,0.35)',
+                boxShadow: canSettleAll ? '0 8px 24px rgba(242,192,74,0.35)' : 'none',
+                transition: 'all 0.18s',
               }}
             >
-              Confirm settlement
+              {confirmLabel} · {formatAmount(abs)}
             </button>
             <button
               type="button"

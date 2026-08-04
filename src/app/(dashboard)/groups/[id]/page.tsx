@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
@@ -26,8 +26,12 @@ export default function GroupDetailPage() {
   const params  = useParams()
   const groupId = params.id as string
   const router  = useRouter()
+  const searchParams = useSearchParams()
 
-  const [addExpenseOpen,  setAddExpenseOpen]  = useState(false)
+  // ?add=1 opens the expense sheet on arrival — the deep-link target for the
+  // FAB and for the legacy /groups/[id]/add URL. Read once as the initial
+  // state so closing the sheet doesn't fight the param still being in the URL.
+  const [addExpenseOpen,  setAddExpenseOpen]  = useState(() => searchParams.get('add') === '1')
   const [settleOpen,      setSettleOpen]      = useState(false)
   const [balanceExpanded, setBalanceExpanded] = useState(false)
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)

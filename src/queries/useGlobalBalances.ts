@@ -19,6 +19,20 @@ export interface GlobalBalances {
   groupMap: Record<string, { id: string; name: string; emoji: string }>
 }
 
+// Seat lookup across the mixed id space effectiveId() produces below: real
+// users are keyed by profile id, guests by their own seat id — so the find has
+// to try both fields. Callers need this because money writes are seat-keyed
+// while everything cross-group is profile-keyed.
+export function resolveSeatId(
+  gb: GlobalBalances,
+  groupId: string,
+  personId: string,
+): string | undefined {
+  return gb.membersPerGroup[groupId]?.find(
+    m => m.user_id === personId || m.id === personId,
+  )?.id
+}
+
 // Derivation, not a query: folds the per-group caches (useAllGroupData)
 // into cross-group aggregates. It has no cache key of its own — mutations
 // invalidate the per-group keys and this recomputes automatically.

@@ -113,6 +113,19 @@ export interface Transfer {
   slot: 0 | 1 | 2 | 3
 }
 
+// Presentational — one person's balance with me inside a single group, built
+// by buildPeopleFlow (dashboard) and consumed by the home sheets. Carries both
+// seat ids because settlements FK to group_members, not profiles: a part is
+// everything needed to write its own settlement row without a further lookup.
+export interface PersonPart {
+  groupId: string
+  groupName: string
+  groupEmoji: string
+  amount: number          // + they owe me, − I owe them (my perspective)
+  groupMemberId: string   // counterparty's seat in this group
+  mySeatId: string        // my seat in this group — differs per group
+}
+
 export type ActivityItem =
   | {
       type: 'expense'

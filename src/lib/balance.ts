@@ -1,5 +1,15 @@
 import type { Expense, Settlement } from '@/types'
 
+/**
+ * Soft-delete invariant: deleted expenses are invisible to every balance
+ * calculation. One predicate so the two entry points below can't drift.
+ * Truthiness rather than `=== null` — a partially-selected row can carry
+ * `undefined` here, which `=== null` would wrongly treat as deleted.
+ */
+export function isLive(e: Pick<Expense, 'deleted_at'>): boolean {
+  return !e.deleted_at
+}
+
 export function calcNetBalances(
   groupId: string,
   expenses: Expense[],
@@ -9,7 +19,7 @@ export function calcNetBalances(
   const net = Object.fromEntries(memberIds.map(id => [id, 0]))
 
   expenses
-    .filter(e => e.group_id === groupId && !e.deleted_at)
+    .filter(e => e.group_id === groupId && isLive(e))
     .forEach(e => {
       e.splits?.forEach(s => {
         if (s.group_member_id === e.paid_by) return
@@ -48,7 +58,7 @@ export function summarizeBalances(
 }
 
 export function calcPairwiseNets(memberId: string, expenses: Expense[], settlements: Settlement[]): Record<string, number> {
-  expenses = expenses.filter(e => e.deleted_at === null)
+  expenses = expenses.filter(isLive)
 
   const net: Record<string, number> = {}
 

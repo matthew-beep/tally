@@ -6,14 +6,7 @@ import { Avatar } from '@/components/Avatar'
 import { firstName as getFirstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
 import { T, FH, FMONO } from '@/design/tokens'
-import type { Profile } from '@/types'
-
-interface PersonPart {
-  groupId: string
-  groupName: string
-  groupEmoji: string
-  amount: number
-}
+import type { Profile, PersonPart } from '@/types'
 
 interface PersonProfileSheetProps {
   open: boolean

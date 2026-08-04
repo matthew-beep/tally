@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { useMyGroupIds } from './useMyGroupIds'
 import { expensesQueryOptions } from './useExpenses'
@@ -33,14 +34,29 @@ export function useAllGroupData(): AllGroupData {
     settlementResults.some(r => r.isLoading) ||
     memberResults.some(r => r.isLoading)
 
-  const expensesByGroup: Record<string, Expense[]> = {}
-  const settlementsByGroup: Record<string, Settlement[]> = {}
-  const membersByGroup: Record<string, GroupMember[]> = {}
-  ids.forEach((gid, i) => {
-    expensesByGroup[gid]    = expenseResults[i]?.data ?? []
-    settlementsByGroup[gid] = settlementResults[i]?.data ?? []
-    membersByGroup[gid]     = memberResults[i]?.data ?? []
-  })
+  // This return value is a useMemo dependency of both useGlobalBalances and
+  // useAllActivity. Rebuilding it every render gave it a new identity every
+  // render, so neither of those memos ever hit and all the cross-group balance
+  // and activity math re-ran on every parent render. Key on dataUpdatedAt —
+  // it bumps exactly when a query's data changes, and keeps the dep array a
+  // fixed length (spreading the per-group results would not).
+  const idsKey = ids.join(',')
+  const dataVersion = [
+    ...expenseResults.map(r => r.dataUpdatedAt),
+    ...settlementResults.map(r => r.dataUpdatedAt),
+    ...memberResults.map(r => r.dataUpdatedAt),
+  ].join(',')
 
-  return { groupIds: ids, expensesByGroup, settlementsByGroup, membersByGroup, isLoading }
+  return useMemo<AllGroupData>(() => {
+    const expensesByGroup: Record<string, Expense[]> = {}
+    const settlementsByGroup: Record<string, Settlement[]> = {}
+    const membersByGroup: Record<string, GroupMember[]> = {}
+    ids.forEach((gid, i) => {
+      expensesByGroup[gid]    = expenseResults[i]?.data ?? []
+      settlementsByGroup[gid] = settlementResults[i]?.data ?? []
+      membersByGroup[gid]     = memberResults[i]?.data ?? []
+    })
+    return { groupIds: ids, expensesByGroup, settlementsByGroup, membersByGroup, isLoading }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsKey, dataVersion, isLoading])
 }

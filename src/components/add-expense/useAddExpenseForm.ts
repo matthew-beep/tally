@@ -291,7 +291,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
         }] : []),
         ...amountsIds.map(id => ({ group_member_id: id, owed_amount: parseNum(exactAmounts[id]) })),
       ]
-      splits    = makeExactSplits('', exactInputs)
+      splits    = makeExactSplits('', exactInputs, roundedAmt, paidById)
       splitType = 'exact'
     }
 

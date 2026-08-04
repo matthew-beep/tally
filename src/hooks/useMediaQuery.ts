@@ -3,7 +3,14 @@
 import { useEffect, useState } from 'react'
 
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false)
+  // Resolve synchronously on the client so the first paint is already correct.
+  // Defaulting to `false` made every consumer render its desktop branch for one
+  // frame on mobile — most visibly AddExpenseForm, which flashed the two-column
+  // modal before swapping to the sheet. Guarded for SSR, where there's no
+  // matchMedia and `false` is the only answer available.
+  const [matches, setMatches] = useState(() =>
+    typeof window === 'undefined' ? false : window.matchMedia(query).matches
+  )
 
   useEffect(() => {
     const mq = window.matchMedia(query)

@@ -125,7 +125,11 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
        on which surface opened it — the fork is entirely in how each caller
        builds its `Transfer`(s) before rendering the sheet.
    - **Follow-up decisions (2026-07-31)** — both extend the same
-     `Transfer.direction` field, no new prop needed:
+     `Transfer.direction` field, no new prop needed. **Generalized
+     2026-08-03 — see item 5 (a)–(e) for the settled model**; the
+     creditor-skips-pending rule below is a special case of 5(a), and the
+     `settlements.method` column decided above may belong on a payment
+     rather than per allocation (5(c)).
      - **Owed-to-you rows become actionable: "Mark as paid."** Today's list
        screen only had a no-op "Remind" for that direction (see above — now
        dropped, not just stubbed). Tapping it opens the same record-payment
@@ -222,13 +226,13 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    as a side effect of item 1 above.
 
 5. **Finish cross-group settlement flow from dashboard** 🟡 — **UI shipped
-   2026-08-02, data layer still open.** `BalanceSheet.tsx` no longer routes
-   away to a group page at all (the `/groups/[id]/settle` route it used to
-   target is deleted, see item 1). It now has its own two screens, both
-   still no-op on the write:
+   2026-08-02; seat plumbing + confirm-screen copy shipped 2026-08-03;
+   writes still open.** `BalanceSheet.tsx` no longer routes away to a group
+   page at all (the `/groups/[id]/settle` route it used to target is
+   deleted, see item 1). It has its own two screens, both still no-op on
+   the write:
    - **Balance screen's "Settle up with X" CTA** → a settle-all confirm
-     screen: full net total, every group at its full balance, single
-     "Confirm settlement" button.
+     screen: total, every group at its full balance, single confirm button.
    - **Tapping a specific group row** → a new `GroupSettleScreen`, drilled
      into in place (no navigation): that one group's balance as a big
      editable number, Full/Half/Clear quick-set chips, its own "Settle $X
@@ -238,45 +242,368 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    `Dashboard Settle.html` in the `splitter` claude.ai/design project
    (`36d6382c-156c-422e-afd2-063025ff0a0f`).
 
-   **Data layer — not started, design worked out 2026-08-02:**
-   - **Seat resolution.** `PersonPart` (built in `buildPeopleFlow`,
-     `(dashboard)/page.tsx`) is profile-keyed and has no
-     `group_members.id` — but `settlements.from_member_id`/`to_member_id`
-     FK to `group_members`. Add a `resolveSeatId(gb, groupId, personId)`
-     helper (`gb.membersPerGroup[groupId].find(m => m.user_id === personId
-     || m.id === personId)?.id`) and extend `PersonPart` with
-     `groupMemberId` (counterparty seat) + `mySeatId`, resolved once in
-     `buildPeopleFlow` so `BalanceSheet` stays dumb/props-driven.
-   - **One batch mutation for both buttons** — `useCreateSettlements()`
-     (plural, new, alongside `useCreateSettlement` in `useSettlements.ts`)
-     takes an array of settlement rows and does a single
-     `.insert([...])` call. A multi-row Supabase insert compiles to one
-     atomic SQL `INSERT`, so this covers both the single-row drill-down
-     case and the N-row settle-all case without a transaction-wrapping
-     RPC. `onSuccess` invalidates `['settlements', groupId]` for every
-     distinct `group_id` in the batch.
-   - **Status isn't uniform per row.** Same rule as item 1's follow-up
-     decision (creditor-initiated settlements skip pending): a row where
-     *they* owe *me* inserts `status: 'confirmed'` directly (I'm the one
-     saying "they paid me"); a row where *I* owe *them* inserts `'pending'`
-     (awaiting their confirmation). Settle-all can produce a mix of both
-     in one batch depending on each group's direction.
-   - **Blocks on the same trigger fix item 1 already flagged and never
-     shipped**: `notify_settlement_created` fires `settlement_confirm` to
-     `to_user` unconditionally, which is wrong for a `confirmed`-on-insert
-     row (`to_user` would be yourself). Needs the `NEW.status` branch
-     described under item 1 before either "mark as paid" or this feature's
-     confirmed-rows can ship without spamming a self-confirmation.
-   - Wire both `BalanceSheet.tsx` CTAs to build their row array (1 row for
-     the drill-down, N for settle-all) and call `useCreateSettlements`.
+   **Landed 2026-08-03 — seat resolution.** `PersonPart` hoisted to
+   `src/types/index.ts` (it was declared three times identically — dashboard
+   page, `BalanceSheet`, `PersonProfileSheet`) and extended with
+   `groupMemberId` (counterparty's seat) + `mySeatId` (mine — differs per
+   group). `resolveSeatId(gb, groupId, personId)` added to
+   `useGlobalBalances.ts`; `buildPeopleFlow`'s `.map` became a `.flatMap`
+   that fills both. Needed because money writes are seat-keyed
+   (`settlements.from_member_id`/`to_member_id` FK `group_members`) while
+   everything cross-group is profile-keyed. The helper tries both
+   `user_id` and `id` because `effectiveId` (`useGlobalBalances:45`) folds
+   real users to their profile id but leaves guests on their seat id — so
+   `personId` is not consistently one kind of id. `BalanceSheet` stays
+   dumb/props-driven; a part now carries everything needed to write its own
+   settlement row with no further lookup.
+
+   **Landed 2026-08-03 — confirm screen.** Settle-all's CTA names the row
+   count, and a line above it states the notification consequence
+   (direction-aware — see (a)). CTA disabled at `groupCount === 0`. Both
+   still `onClick={() => {}}`. **Superseded in part by (b) below:** the CTA
+   currently shows `Math.abs(net)`, which is the wrong figure for
+   mixed-direction batches and must become gross before the write lands.
+
+   ---
+
+   **Decided 2026-08-03 — the settlement/payment model.** Worked out in one
+   session; this is the only record of it. Five linked decisions:
+
+   **(a) Confirmation status is directional.** The rule is not "who
+   initiated it" but *does my claim improve my own financial position?*
+
+   | What I record | Status | Other person gets |
+   |---|---|---|
+   | I owe you → I paid you | `pending` | Confirm request (action) |
+   | You owe me → you paid me | `confirmed` | FYI notification |
+
+   Claiming I paid a debt is self-serving, so it needs the payee's
+   assent. Claiming someone paid me *removes* money owed to me — it costs
+   me, not them, so there's nobody to protect. They still get told, because
+   their balance moved. Same rule as item 1's follow-up decision, stated
+   generally.
+
+   **(a′) Amended 2026-08-03 — status is a property of the payment, not of
+   each allocation.** Applying (a) per row breaks on mixed-direction
+   batches. Worked example: Apartment (Alex owes me $20), Big Sur (I owe
+   $25), Dinner (I owe $15). Per-row status gives two `pending` rows summing
+   to $40, so Alex is asked "Matthew says they paid you $40" — but the
+   transfer Matthew actually sends is the **net $20**. Alex is being asked to
+   vouch for a payment that never happened in that shape.
+
+   Fix: compute the **net across the batch**, and let its sign set the
+   status for *every* row in the batch:
+   - Batch nets to *I paid you* → self-serving → whole batch `pending`,
+     payee gets one confirm request **for the net**.
+   - Batch nets to *you paid me* → costs me → whole batch `confirmed`,
+     payer gets one FYI.
+
+   (a)'s principle is unchanged — it's asked once per payment instead of
+   once per row, which is just (c) applied one level further. Per-row status
+   was an artifact of thinking settlement-first.
+
+   **Rejected alternative: "any row pending → batch pending."** Agrees with
+   net-direction in the common case but inverts in one: Apartment (Alex owes
+   me $50) + Big Sur (I owe $10) nets to Alex paying me $40, yet has a
+   pending row — so that rule would ask Alex to confirm a payment Alex is
+   *receiving credit for*. Net-direction gets it right (`confirmed`, FYI to
+   Alex).
+
+   Consequences: no schema change — `settlements.status` stays per row, just
+   always uniform within a batch. Deny deletes the whole batch including the
+   offsetting rows (the offset only existed as part of that netting); confirm
+   flips the whole batch. Both already follow from (d). And notification
+   grouping gets *simpler* than (e) assumed — since every row in a batch
+   shares one status, a batch always produces one card of one type, never
+   the two-cards-of-two-types case (e) was written against.
+
+   The gross/net split lands where it belongs: **allocations are gross**
+   (that's what zeroes each group), **the payment is net** (that's what
+   someone confirms).
+
+   **(b) Settle-all means "zero every open group with this person," not
+   "settle the net."** Directions can differ per group (owe in Apartment,
+   owed in Big Sur — a normal case, not an edge one). The action settles
+   each group at its own full balance, so the money moved is **gross**.
+   Example: owe $30 in Apartment, owed $20 in Big Sur → hero says "you owe
+   $10," but settle-all writes a $30 row and a $20 row, allocating $50
+   across the two groups. The net alone must not stand as the CTA figure.
+   Review state shows both directions and the gross total:
+   ```
+   Settle everything with Alex
+     You pay Alex   $30
+     Alex pays you  $20
+     2 groups · $50 total
+   ```
+   Settling the net instead was rejected: it can't be expressed anyway
+   (settlements are group-scoped, so zeroing both groups requires touching
+   both), and it would leave balances open after an action called "settle
+   all."
+
+   **Refined by (a′)** on two points. First, statuses: both rows above take
+   the batch's status, not their own — the batch nets to "I owe $10," so
+   both are `pending`. Second, the review screen should also name the **net
+   transfer**, because that's the money that actually moves and the figure
+   the payee gets asked to confirm. Show both — gross per direction, net as
+   the transfer. Neither alone is honest: net alone hides that two groups
+   are being zeroed, gross alone implies $50 changes hands when $10 does.
+
+   **(c) A payment is not a settlement.** One Venmo transfer of $45 is one
+   payment; the settlement rows are its *allocation* across groups.
+   Settlements stay group-scoped and seat-keyed — the payment identity is
+   carried as a stamp, not a table:
+   ```sql
+   ALTER TABLE settlements
+     ADD COLUMN batch_id uuid NOT NULL DEFAULT gen_random_uuid();
+   ```
+   **Every settlement gets one**, not just batched ones. Nullable-when-
+   standalone is cheaper in the migration and more expensive everywhere
+   downstream — notification grouping, confirm mutation, card copy would
+   each need an "is this batched" branch. Universal means a lone settlement
+   is a batch of one and the single case is the degenerate version, not a
+   special case. Two consequences of the default: `useCreateSettlement`
+   (singular) needs **no changes** — Postgres fills it; and existing rows
+   backfill correctly for free, each becoming its own batch, which is what
+   they were.
+
+   Balance math is untouched by all of this. The invariant counts
+   settlements with `status IN ('pending','confirmed')` — i.e. all of
+   them — so confirmation status has never affected balances, and moving
+   the confirmation concept up to payment level doesn't reach
+   `calcPairwiseNets`/`calcNetBalances` at all. Blast radius is the
+   settle/confirm/notify path only.
+
+   **(d) No partial confirm — confirm/deny always act on the whole batch.**
+   Earlier sketches had an expandable card letting the payee confirm one
+   group and deny another. That models something physically impossible: one
+   transfer either arrived or it didn't; you can't half-receive $45. If the
+   payer really did pay per group, they'd settle per group (the group-page
+   `SettleUpSheet` path is unchanged), producing separate batches — so the
+   action boundary and the payment boundary line up by construction.
+
+   **(e) Batching applies to all four notification types, not just the
+   request.** `notify_settlement_denied` and `notify_settlement_confirmed`
+   currently fire per row, so a payee confirming a 3-row batch sends the
+   payer three "✓ confirmed" notifications and denying sends three
+   denials — the same spam, reverse direction. Grouping must cover the
+   info rows on `/me` too.
+
+   **Simplified by (a′):** every row in a batch now shares one status, so a
+   batch always yields **one card of one type**. (e) was written assuming a
+   mixed batch could produce a confirm card *and* an FYI card side by side;
+   that case no longer exists. The card leads with the net transfer and
+   lists the allocations beneath it:
+   ```
+   Matthew says they paid you $20
+     Big Sur     you receive  $25
+     Dinner      you receive  $15
+     Apartment   you paid     $20   (offset)
+     ─────────────────────────────
+     Net to you  $20
+     [Confirm $20]   [Deny]
+   ```
+
+   **Implementation fork (decided: client-side grouping).** Notifications
+   are trigger-owned — CLAUDE.md: "App code never writes to `notifications`
+   directly" — and `notify_settlement_created` is `FOR EACH ROW`, so the
+   client cannot create one notification spanning N rows. Two ways out:
+   - **Rejected for now:** statement-level trigger with a transition table
+     (`REFERENCING NEW TABLE AS new_rows`) emitting one notification per
+     INSERT statement. Matches the model exactly and handles the 1-row case
+     identically, but the read path breaks: a notification pointing at N
+     settlements can't use `notifications.settlement_id`, and can't FK to
+     `settlements.batch_id` either (not unique — N rows share it), so
+     PostgREST embedding at `useProfile.ts:130` stops working. Doing it
+     properly wants a `settlement_batches` table both tables FK to.
+   - **Chosen:** triggers stay per-row; `useNotifications` groups the
+     returned rows by `settlement.batch_id` and renders one card per batch.
+     The action is still the boundary — nothing inferred from timestamps.
+     Costs one nullable-free column and no notification schema change.
+     The bell badge must count **distinct batches**, not rows; that query
+     doesn't exist yet (`useProfile.ts:120-124`), so it gets written that
+     way from the start rather than retrofitted.
+   `batch_id` is forward-compatible: if a real `payments` table is ever
+   wanted (the natural home for `method`/`note`/`paid_date` — see item 1's
+   `settlements.method` decision, which arguably belongs there instead), it
+   becomes the FK and nothing built now is thrown away.
+
+   **Group feed shows settlements plainly — no cross-group annotation.**
+   Rejected "Matthew paid Alex $30 · part of a $45 payment": the group feed
+   is visible to *every* active member, so that leaks to bystanders that
+   Matthew and Alex have business in a group they can't see. "Matthew
+   settled $30 with Alex" is complete and true within that group's ledger.
+   Hiding settlements from the group feed entirely was also rejected — the
+   group's balance would change with no visible cause.
+
+   **Storing settlements relationship-level instead of group-scoped was
+   considered and rejected.** It would make one payment one row and dissolve
+   the allocation problem, but a group could then no longer compute its own
+   balance from its own rows — it'd have to decide at read time how much of
+   a $45 payment belonged to it, an answer that shifts every time someone
+   adds an expense. That breaks the balance invariant, which is the core of
+   the app.
+
+   **Guests:** a guest exists in exactly one group and has no profile, so a
+   guest settle is always a batch of one and stays on the per-row path. No
+   special handling needed; noted so it isn't rediscovered as a bug.
+
+   **Copy:** `Confirm payment` (one) / `Confirm payments` (multiple), and
+   `Confirm $45` for a batch — the amount is more informative than "all,"
+   and matches the design system's "be plain about money" rule.
+
+   **This departs from CLAUDE.md deliberately.** Its cross-group section
+   says settlement is "UI aggregation, not a data model change" and that
+   each group's settlement "generates its own confirmation notification to
+   the payee." (b)–(e) override that. The spec predates anyone thinking
+   about notification volume. **CLAUDE.md still needs a supersession
+   pointer — not yet written.**
+
+   ---
+
+   **Remaining work, in order:**
+   1. **Trigger status branch** — `notify_settlement_created` fires
+      `settlement_confirm` to the payee unconditionally, so a
+      `confirmed`-on-insert row asks you to confirm your own action. Branch
+      on `NEW.status`: `pending` → `settlement_confirm` to payee;
+      `confirmed` → `settlement_confirmed` to payer (informational). Flagged
+      under item 1 since 2026-07-31 and never shipped; blocks (a)'s
+      confirmed rows and item 1's "mark as paid" alike.
+   2. **`batch_id` migration** per (c).
+   3. **`useCreateSettlements()`** — plural, alongside `useCreateSettlement`
+      in `useSettlements.ts`. Takes an array, does one `.insert([...])`; a
+      multi-row Supabase insert compiles to one atomic SQL `INSERT`, so no
+      transaction-wrapping RPC is needed. Generates one client-side uuid per
+      settle-all action, stamped across the rows. **Status is computed once
+      for the whole batch** from the sign of its net, per (a′) — not per
+      row, and a batch never mixes. Invalidation must cover the activity
+      keys, not just `['settlements', groupId]` — this is the
+      `invalidateMoneyData` extraction under Consolidation.
+   4. **Wire both CTAs** — 1 row for the drill-down, N for settle-all — and
+      fix the settle-all review screen to show gross per direction *and* the
+      net transfer, per (b) as refined by (a′). The CTA currently shows
+      `Math.abs(net)` alone.
+   5. **Batch grouping in the notification list** per (e) + the fork
+      decision — one card per batch, leading with the net transfer — and the
+      bell badge counting distinct batches.
+   6. **Fix the two `buildPeopleFlow` gaps below** — the zero-net person is
+      a genuine hole in settle-all's reachability, so it should land with
+      this work rather than after it.
+
+   **Two known gaps in `buildPeopleFlow` (`(dashboard)/page.tsx`), both from
+   gating the dashboard on the *net* while (b) settles per group:**
+   - **A person whose balances offset exactly disappears.** The loop skips
+     anyone whose net rounds under a cent (`if (Math.abs(net) < 0.01)
+     continue`), but net is summed across groups — so Apartment +$40 /
+     Big Sur −$25 / Dinner −$15 nets to exactly $0 and the person never
+     appears on the dashboard, despite three open balances, making
+     settle-all unreachable for them. Under (b) the row should appear
+     whenever **any group** has an open balance, not when the net is
+     non-zero. Found while narrating the flow end to end, 2026-08-03.
+   - **Sub-cent residue is left behind.** `net` sums *all* per-group entries
+     while `parts` filters at `>= 0.01`, so the hero can disagree with the
+     by-group rows, and settle-all — which iterates `parts` — wouldn't
+     strictly zero the person out. Invisible in dollars. Fix by deriving
+     `net` from the filtered parts; left alone so far because it changes
+     displayed numbers.
 
 6. **Activity page — flat recent feed, not keyed by group** 🟡 — **done**
    `/activity` is a single chronological feed (`useAllActivity()`); home rail
    uses `useAllActivity(6)`. Group shows as row metadata via `showGroup`.
    Removed `ActivityGroup` bucketing.
 
-7. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
-   multi-agent pass) once 1–6 are done, before calling it shippable.
+7. **Add-expense entry point in the nav bar** 🟡 — **not started, do not
+   implement yet** (logged 2026-08-03). Today add-expense is only reachable
+   from inside a group: `groups/[id]/page.tsx`'s triggers and the
+   `/groups/[id]/add` route. `TabBar.tsx` has no add button and no FAB, so
+   CLAUDE.md's "Tab bar + FAB" navigation model has never actually been
+   built — the FAB is the missing half.
+
+   **Design source** — import via the `claude_design` MCP
+   (`https://api.anthropic.com/v1/design/mcp`, auth via `/design-login`).
+   Same `splitter` project the settle-up and expense-action designs came
+   from (`36d6382c-156c-422e-afd2-063025ff0a0f`); the whole project is
+   readable.
+
+   Selection:
+   <https://claude.ai/design/p/36d6382c-156c-422e-afd2-063025ff0a0f?file=Add+Expense+Full+Flow.html>
+
+   - Primary file: `Add Expense Full Flow.html`
+   - Imports it pulls in, all worth reading: `add-expense-flow.jsx`,
+     `design-canvas.jsx`, `ios-frame.jsx`, `nav-add-expense.jsx`,
+     `tally-shared.jsx`, `tweaks-panel.jsx`
+
+   **Scope:** implement `Add Expense Full Flow.html`, adding an add-expense
+   button to the nav bar.
+
+   **Prior art to reuse rather than rebuild** — the form itself already
+   exists and is sheet-ready: `AddExpenseForm.tsx` plus
+   `add-expense/MobilePanel.tsx` / `DesktopPanel.tsx`, already driven by
+   `ModalOrSheet` and local `addExpenseOpen` state on the group page. The
+   open question this design has to answer is group selection: every
+   existing entry point already knows its group, but a nav-level button
+   doesn't — CLAUDE.md's FAB spec says "pick existing group or create new"
+   before the form. Check what the design does here before building.
+
+   **Scope note:** `design-canvas.jsx`, `ios-frame.jsx` and
+   `tweaks-panel.jsx` are the design project's own harness (canvas chrome,
+   phone frame, live-tweak controls), not app surface — read them to
+   interpret the mockup, don't port them. Same call made for the
+   `ExpenseActionSheet` import under Desktop §19e.
+
+8. **Mobile presentation pass — sheets and app chrome** 🟡 (2026-08-03, Matthew's
+   observations; the pointers below are where to start looking, not diagnoses)
+   - **Settle drawer sizing.** The settle sheet is content-sized while
+     add-expense is not: `globals.css` gives `.tally-sheet-content` a
+     `max-height: calc(100dvh - 40px)`, but only
+     `.tally-sheet-content.add-expense-panel-root` also pins a fixed `height`.
+     So the settle sheet grows and shrinks as it swaps between its list and
+     record-payment screens instead of holding one height. Either give the
+     settle root the same treatment, or make fixed-height the default for
+     multi-screen sheets.
+   - **App background doesn't cover the full screen on mobile.** `body` gets
+     `var(--tally-page-bg)` under `html, body { height: 100% }`. `100%` doesn't
+     track the visual viewport as mobile browser chrome collapses — likely wants
+     `min-height: 100dvh`, and/or the mesh-gradient blobs moved onto a
+     fixed-position layer so they don't scroll away from the fold.
+   - **Drop the header/footer rules.** The hairlines read as heavy on mobile:
+     `.home-topbar`'s inline `borderBottom` (`(dashboard)/page.tsx`), the group
+     detail topbar and header band (`groups/[id]/page.tsx`), and the
+     add-expense desktop footer. Decide whether they go everywhere or only
+     below the mobile breakpoint.
+     **Sequencing note:** if "Now" §4 option B lands (shared mobile app header
+     with a notifications slot), do that *first* — it replaces three header
+     patterns with one, and this becomes a single rule change instead of four.
+     Also worth knowing here: Groups and Activity have no header at all, so
+     their titles scroll out of view. Option B fixes that too.
+
+9. **Settlement notification semantics** 🟡 — two related problems, both
+   trigger/schema territory, both worth settling *before* item 5 wires up the
+   settle-all write.
+   - **[bug] Recording money owed *to* you notifies the wrong person.**
+     `notify_settlement_created`
+     (`20260721000000_baseline_schema.sql:163`) notifies `to_member_id`'s
+     profile unconditionally, and `settlements` has no "who recorded this"
+     column for it to branch on. So marking "Sam paid me" (from=Sam, to=me)
+     sends **me** a "Sam says they paid you — confirm?" notification about a row
+     I just created myself, and Sam is never told anything. Fix needs a
+     `settlements.recorded_by` column, then: recorded by the payer → notify the
+     payee to confirm (today's behaviour, correct); recorded by the payee →
+     arguably skip the pending state altogether (you don't confirm money you
+     yourself say you received) and send the payer an informational
+     `settlement_recorded` instead. That last part is a new value in the
+     `notifications_type_check` constraint.
+   - **[question] "Settle all with X" fans out one notification per group.**
+     `CLAUDE.md` specifies one settlement row per group, each firing its own
+     `settlement_confirm`. Settling 4 shared groups drops 4 rows in the payee's
+     bell for what the user experienced as a single action. Options: keep N
+     settlements but correlate them (batch id on `settlements`, one notification
+     per batch); one notification pointing at many settlements (join table); or
+     accept the fan-out and group them in the UI only. The first two are schema
+     changes plus a `CLAUDE.md` amendment — decide before building settle-all,
+     because retrofitting a batch id after rows exist is worse.
+
+10. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
+    multi-agent pass) once 1–9 are done, before calling it shippable.
 
 ---
 
@@ -368,12 +695,75 @@ evidence of abuse. `/api/ocr` (Phase 3) must launch with a limiter (same
 counting pattern against an OCR-requests log; ~20/day per user — it burns
 real compute).
 
-### 4. Small wins: bell badge + app-level prefetch 🟢
+### 4. Small wins: notification surface + app-level prefetch 🟡
 
-Badge **depends on step 2** — ship it first or the count is permanently wrong.
+Notification count **depends on step 2** — ship it first or the count is
+permanently wrong. Also depends on the settlement-notification fix (punch list
+item 9): a count is only useful once notifications reach the right person.
 
-- [ ] **Unread count badge on nav bell** — single-int query,
-  `refetchInterval: 30_000` while tab active (per CLAUDE.md sync rules)
+- [ ] **Where notifications live — decide before building** 🟡 *(discussed
+  2026-08-03; supersedes the old "unread count badge on nav bell" line, which
+  described a nav that was never built)*
+
+  **There is no bell icon in the app.** `TabBar.tsx` and `Sidebar.tsx` both
+  render the same four items — Home · Groups · Activity · Me — and notifications
+  live inside `/me`, stacked above the profile editor. So the badge would land
+  on the **Me tab**, which reads as "something is wrong with your account"
+  rather than "Sam is waiting on you."
+
+  Compounding it, the same content is currently in three places: home's
+  `NeedsAttentionRail` (actionable only), `/me` (actionable + info), and
+  passively in `/activity`. No surface owns it.
+
+  **Option A — badge the Me tab. ~1h.** `TabBar.tsx` already has the full
+  render path: `WebNavBadge` imported, `NAV_BADGES` slot at line 19 (a
+  hardcoded empty object), both dot and number variants handled. So mobile is
+  "write the count query, feed the object." `Sidebar.tsx` has no badge slot, so
+  desktop needs one. Cheap, works, semantically muddy.
+
+  **Option B — global notification icon in a shared header. 4–6h. Preferred.**
+  A persistent top-right icon on every page, opening a `NotificationsSheet`
+  via `ModalOrSheet` (bottom sheet on mobile, modal on desktop, same primitive
+  as everything else). The blocker is that **there is no shared header to put
+  it in**:
+
+  | Route | Mobile header today |
+  |---|---|
+  | Home | `.home-topbar` — sticky, greeting + New group + avatar |
+  | Groups | none — in-content title + button, scrolls away |
+  | Activity | none — in-content title, scrolls away |
+  | Me | none — avatar sits in content |
+  | Group detail | bespoke — back + name + settings gear |
+
+  Three patterns, and `(dashboard)/layout.tsx` provides sidebar + tab bar +
+  mode sheet but no header. So B means extracting a shared mobile app header
+  (title slot + per-page actions slot + fixed notifications slot) into the
+  dashboard layout and migrating five routes onto it.
+
+  That's worth doing on its own merits: titles currently scroll out of view on
+  Groups and Activity, and punch-list item 8 already wants to rework header
+  treatment — so the header gets touched either way. B absorbs part of item 8
+  rather than adding to it.
+
+  It also resolves the three-places problem: the sheet becomes **the** inbox,
+  `/activity` goes back to pure history, and the home rail becomes an optional
+  "while you're here" nudge rather than the primary surface.
+
+  Rough split for B: shared header extraction 2–3h (five routes), notifications
+  sheet ~1h (`GroupInviteCard` / `SettlementConfirmCard` already exist and are
+  already shared between home and `/me`), count query ~30m, desktop placement
+  ~1h. Desktop is less urgent — the sidebar is persistent and never scrolls away.
+
+  **Recommendation: B, but scheduled after the P0 work** (see
+  `docs/publish-roadmap.md`). It's the largest P1 item and touches every
+  dashboard route. If launch timing gets tight, A buys most of the signal for
+  an hour and can be upgraded to B later — the count query is the same either
+  way.
+
+- [ ] **Unread count query** (needed by both options) — single int,
+  `refetchInterval: 30_000`, `refetchIntervalInBackground: false` (per
+  CLAUDE.md sync rules). Note punch-list item 9: if cross-group settlements
+  get batched, this must count **distinct batches**, not rows.
 - [ ] **App-level data prefetch** — `useGlobalBalances` only runs on the home
   page, so deep-linked pages lack cross-group balance data (avatar taps on
   the group detail balance card have nothing to show):
@@ -543,14 +933,28 @@ Group detail 2-column layout (§19) shipped.
   core" in `docs/review-todo.md`** (calcPairwiseNets + summarizeBalances,
   seat-space core, identity fold in the hook). Decided worth doing
   2026-07-13; build on request.
-- [ ] 🟢 **Avatar slot color ×8, two conventions** — `hashSlot(id)` defined
-  identically in 5 files (home, SuggestedMembers, AddMemberModal,
-  BalanceBreakdownModal, MemberCombobox), `slotFor(members, id)`
-  (index-based) in 3 (group detail, settle, ExpenseActionSheet). The two
-  conventions give the SAME person DIFFERENT colors on different screens
-  (hash of id vs position in member list). Pick one (index-based matches
-  the style guide's "deterministic by slot"), export it once (e.g. from
-  `lib/memberDisplay.ts`), delete the other 7 copies.
+- [ ] 🟡 **Avatar slot color — two conventions, and they're not interchangeable**
+  — *rewritten 2026-08-02; the earlier "just migrate everything to index-based"
+  direction was wrong and would have broken call sites.*
+  - **`slotFor` half: done.** Exported once from `lib/memberDisplay.ts`; the 3
+    index-based copies (group detail, settle, `ExpenseActionSheet`) are deleted.
+    The settle copy went with the route.
+  - **`hashSlot` half: still 3 copies** — `(dashboard)/page.tsx:26`,
+    `MemberCombobox.tsx:23`, `SuggestedMembers.tsx`. Two of the original 5 went
+    away with `AddMemberModal`/`BalanceBreakdownModal`, not by migration.
+  - **Why they can't just be merged:** `slotFor(members, id)` needs a member
+    array to take a position in. The remaining `hashSlot` sites don't have one —
+    `MemberCombobox:52,178` and `SuggestedMembers:57,119` render *search results
+    and suggestions* (people not yet in any group), and `buildPeopleFlow`
+    (`page.tsx:78`) builds *cross-group* people, where no single group's member
+    list applies. `hashSlot` is the correct function at all three. Forcing
+    index-based there means fabricating a member array.
+  - **The actual open question** (product, hence 🟡): a person shows one colour
+    inside a group and a different one on home/search. Fixing that means going
+    hash-only everywhere and giving up position-stable colours within a group —
+    or accepting the split and documenting the rule (`slotFor` inside a group,
+    `hashSlot` for context-free lists). Either way, export the chosen helper(s)
+    from `lib/memberDisplay.ts` and delete the 3 local `hashSlot` copies.
 - [ ] 🟢 **Display-name fallback** — `lib/memberDisplay.ts` exists but 10
   files still inline `display_name ?? name` (mostly on `ProfileSnippet`,
   which the helper doesn't accept). Add a profile-shaped overload and
