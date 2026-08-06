@@ -427,13 +427,65 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    `settlements.method` decision, which arguably belongs there instead), it
    becomes the FK and nothing built now is thrown away.
 
+   **(f) Every settlement notifies the counterparty — confirmed 2026-08-04.**
+   No settlement direction is silent. The type differs, the delivery doesn't:
+
+   | I record | Counterparty gets | Actions |
+   |---|---|---|
+   | I owe you → I paid you | confirm request | Confirm / Deny |
+   | You owe me → you paid me | FYI | Dismiss only |
+   | Batch (either direction) | one card for the **net**, per (a′) | per the batch's status |
+
+   The FYI row is dismiss-only by design — there is nothing to approve (see
+   (a): the claim costs the recorder, not the recipient), but the recipient's
+   balance moved, so silence isn't an option. "Dismiss" is just the existing
+   `read` flag; no new mechanism.
+
+   **Decided 2026-08-05 — the FYI gets its own type, `settlement_recorded`.**
+   Item 9's proposal won over item 5 step 1's "reuse `settlement_confirmed`,
+   no migration." Reuse would render "Alex confirmed your payment ✓" and
+   "Alex marked you as settled" as one type, forcing `infoLabel()`
+   (`me/page.tsx:120`) to re-derive which event it was from the settlement
+   row; a distinct type keeps the copy honest, and widening
+   `notifications_type_check` is a few lines. **Shipped** in
+   `20260805000000_settlement_notification_direction.sql` (applied to the
+   linked project the same day) — see the plan below for what still has to
+   land client-side before it does anything.
+
+   **The batch card's dropdown lists groups, not expenses.** Settlements have
+   never been tied to individual expenses — that's what makes "partial
+   settlements just work" (CLAUDE.md). A $45 payment allocates across *groups*
+   at whatever each group's balance is; there is no expense-level breakdown to
+   expand into. The card in (e) is the shape: net transfer on top, one line per
+   group underneath, offsetting rows marked as such.
+
    **Group feed shows settlements plainly — no cross-group annotation.**
    Rejected "Matthew paid Alex $30 · part of a $45 payment": the group feed
    is visible to *every* active member, so that leaks to bystanders that
    Matthew and Alex have business in a group they can't see. "Matthew
    settled $30 with Alex" is complete and true within that group's ledger.
-   Hiding settlements from the group feed entirely was also rejected — the
-   group's balance would change with no visible cause.
+
+   **Reopened 2026-08-04 — do settlements show in the group feed at all?**
+   Previously recorded here as rejected. Matthew raised it again, so it's an
+   open decision, not a closed one. Mechanically it's cheap: `mergeFeed`
+   (`src/lib/feed.ts:10`) is presentational only — it concatenates and sorts,
+   and balance math (`calcPairwiseNets`/`calcNetBalances`) reads the
+   `settlements` query directly and never goes through it. So
+   `mergeFeed(expenses, [])` at `groups/[id]/page.tsx:84` hides the rows with
+   settling still zeroing the group exactly as before.
+   - **The standing objection:** the group's balance changes with no visible
+     cause — Alex goes from $30 to $0 and the feed says nothing. If this ships,
+     it likely needs a replacement affordance (a "settled" divider, or folding
+     the event into the balance card), not a plain deletion.
+   - **Second call site:** `useActivity.ts:38` also calls `mergeFeed`, feeding
+     `/activity` and the home rail. Since activity went flat-and-chronological
+     with the group as row metadata (`showGroup`), the same settlements
+     reappear there tagged with the group they were just hidden from. Decide
+     whether the scope is "the group detail page is expenses-only" (one call
+     site) or "settlements are never shown in a group context" (both).
+   - **Not the privacy fix.** If the concern is bystanders inferring
+     cross-group business, that's already handled above — the plain row leaks
+     nothing. This decision is only about ledger noise.
 
    **Storing settlements relationship-level instead of group-scoped was
    considered and rejected.** It would make one payment one row and dissolve
@@ -460,34 +512,105 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
 
    ---
 
-   **Remaining work, in order:**
-   1. **Trigger status branch** — `notify_settlement_created` fires
-      `settlement_confirm` to the payee unconditionally, so a
-      `confirmed`-on-insert row asks you to confirm your own action. Branch
-      on `NEW.status`: `pending` → `settlement_confirm` to payee;
-      `confirmed` → `settlement_confirmed` to payer (informational). Flagged
-      under item 1 since 2026-07-31 and never shipped; blocks (a)'s
-      confirmed rows and item 1's "mark as paid" alike.
-   2. **`batch_id` migration** per (c).
-   3. **`useCreateSettlements()`** — plural, alongside `useCreateSettlement`
-      in `useSettlements.ts`. Takes an array, does one `.insert([...])`; a
-      multi-row Supabase insert compiles to one atomic SQL `INSERT`, so no
-      transaction-wrapping RPC is needed. Generates one client-side uuid per
-      settle-all action, stamped across the rows. **Status is computed once
-      for the whole batch** from the sign of its net, per (a′) — not per
-      row, and a batch never mixes. Invalidation must cover the activity
-      keys, not just `['settlements', groupId]` — this is the
-      `invalidateMoneyData` extraction under Consolidation.
-   4. **Wire both CTAs** — 1 row for the drill-down, N for settle-all — and
-      fix the settle-all review screen to show gross per direction *and* the
-      net transfer, per (b) as refined by (a′). The CTA currently shows
-      `Math.abs(net)` alone.
-   5. **Batch grouping in the notification list** per (e) + the fork
-      decision — one card per batch, leading with the net transfer — and the
-      bell badge counting distinct batches.
-   6. **Fix the two `buildPeopleFlow` gaps below** — the zero-net person is
-      a genuine hole in settle-all's reachability, so it should land with
-      this work rather than after it.
+   **Remaining work, in order.** Written up as a plan 2026-08-05. Phase 1 is
+   mechanical and unblocks everything; phase 2 is the batch model; phase 3 is
+   the cleanup that shouldn't ship after the flow it protects.
+
+   ### Phase 0 — trigger status branch ✅ **done 2026-08-05**
+
+   - [x] `20260805000000_settlement_notification_direction.sql`, **applied to
+     the linked project** (`migration list` shows it local + remote). Widens
+     `notifications_type_check` with `settlement_recorded` and rewrites
+     `notify_settlement_created` to branch on `NEW.status`: `pending` →
+     `settlement_confirm` to the payee; `confirmed` → `settlement_recorded`
+     to the payer, informational. Guest seats notify nobody in either branch
+     (the `user_id IS NOT NULL` guard is unchanged). Flagged under item 1
+     since 2026-07-31; it blocked (a)'s confirmed rows and item 1's "mark as
+     paid" alike.
+   - **No `recorded_by` column** — `docs/publish-roadmap.md:40` called for
+     one, but that predates (a′). Status already encodes who recorded it and
+     is uniform across a batch, so the trigger has everything it needs. One
+     less column, no backfill.
+   - [x] `docs/schema.md` updated to match (type list + trigger table). Fixed
+     a stale row found en route: `notify_group_invite_declined` was still
+     listed as live but was dropped in `20260729000000`.
+
+   ### Phase 1 — activate it client-side 🟢 **~30–45 min**
+
+   The DB branches on status, but nothing ever inserts `confirmed`, so every
+   insert still takes the old path and behaviour is byte-identical to before
+   the migration. Until this lands, phase 0 is inert. (DB-ahead-of-client is
+   the safe ordering here; the reverse would have written rows the trigger
+   mishandled.)
+
+   - [ ] **`useCreateSettlement`** (`useSettlements.ts:43`) — stop hardcoding
+     `status: 'pending'`. Take the direction from the caller and insert
+     `confirmed` when the creditor is the one recording.
+   - [ ] **`SettleUpSheet.handleConfirm`** (`SettleUpSheet.tsx:181-193`) —
+     pass it. `activeTransfer.direction` is already in scope at `:183` for
+     the from/to swap, so this is one added field, no new plumbing.
+   - [ ] **`types/index.ts:88`** — add `settlement_recorded` to the
+     `Notification` union.
+   - [ ] **`me/page.tsx`** — three spots: `INFO_TYPES` (`:113`), a case in
+     `infoLabel()` (`:120`), and the amount line at `:217`, which branches on
+     `settlement_confirmed || settlement_denied` and would otherwise render
+     the new type with no amount under it.
+   - **Deliberately nothing** in `useNotifications` — `useProfile.ts:130`
+     already embeds the settlement with both members' profiles, so the new
+     rows hydrate as-is. And `ACTIONABLE_TYPES` (`(dashboard)/page.tsx:381`)
+     already excludes it correctly: a dismiss-only FYI must not reach home's
+     `NeedsAttentionRail`.
+
+   ### Phase 2 — the batch model
+
+   - [ ] **Second trigger migration** — phase 0 only covered INSERT.
+     `notify_settlement_confirmed` and `notify_settlement_denied` are still
+     `FOR EACH ROW`, so confirming a 3-row batch sends the payer three "✓
+     confirmed" notifications and denying sends three denials. Same spam,
+     reverse direction. This is (e), and it is *not* fixed by what shipped.
+   - [ ] **`batch_id` migration** per (c) —
+     `ADD COLUMN batch_id uuid NOT NULL DEFAULT gen_random_uuid()`. Universal,
+     not nullable-when-standalone. Existing rows each become their own batch
+     for free, and `useCreateSettlement` (singular) needs no change since
+     Postgres fills it.
+   - [ ] **`useCreateSettlements()`** — plural, alongside `useCreateSettlement`
+     in `useSettlements.ts`. Takes an array, does one `.insert([...])`; a
+     multi-row Supabase insert compiles to one atomic SQL `INSERT`, so no
+     transaction-wrapping RPC is needed. Generates one client-side uuid per
+     settle-all action, stamped across the rows. **Status is computed once
+     for the whole batch** from the sign of its net, per (a′) — not per
+     row, and a batch never mixes. Invalidation must cover the activity
+     keys, not just `['settlements', groupId]` — this is the
+     `invalidateMoneyData` extraction under Consolidation.
+   - [ ] **Wire both CTAs** — 1 row for the drill-down, N for settle-all — and
+     fix the settle-all review screen to show gross per direction *and* the
+     net transfer, per (b) as refined by (a′). The CTA currently shows
+     `Math.abs(net)` alone.
+   - [ ] **Batch grouping in the notification list** per (e) + the fork
+     decision — one card per batch, leading with the net transfer.
+   - [ ] **Unread count query** — doesn't exist yet (`useProfile.ts:120-124`
+     says so in a comment). Must count **distinct batches**, not rows, so
+     write it after `batch_id` lands rather than retrofitting it. Gated on
+     the "Now" §4 surface decision (A: badge the Me tab / B: shared header)
+     for *where* it renders, but the query is the same either way.
+
+   ### Phase 3 — close the gaps this flow opens
+
+   - [ ] **Delete a settlement** — now the *only* remedy for a wrongly
+     recorded "you paid me," since phase 1 makes that path skip confirmation
+     entirely. Needs `useDeleteSettlement`, a UI entry point (settlement rows
+     in the group feed aren't tappable at all today, unlike the expense rows
+     directly above them), and its own RLS migration: DELETE was never
+     restricted, so any active group member can likely delete any settlement
+     right now. Detail under item 1's "New: delete a settlement".
+   - [ ] **Fix the two `buildPeopleFlow` gaps below** — the zero-net person is
+     a genuine hole in settle-all's reachability, so it should land with
+     this work rather than after it.
+   - [ ] **CLAUDE.md supersession pointer** — still unwritten. Its notification
+     type list (`:302-303`) predates `settlement_recorded`, and its
+     cross-group section still says settlement is "UI aggregation, not a data
+     model change" and that each group "generates its own confirmation
+     notification to the payee." (b)–(f) override both.
 
    **Two known gaps in `buildPeopleFlow` (`(dashboard)/page.tsx`), both from
    gating the dashboard on the *net* while (b) settles per group:**
@@ -579,28 +702,30 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
 9. **Settlement notification semantics** 🟡 — two related problems, both
    trigger/schema territory, both worth settling *before* item 5 wires up the
    settle-all write.
-   - **[bug] Recording money owed *to* you notifies the wrong person.**
-     `notify_settlement_created`
-     (`20260721000000_baseline_schema.sql:163`) notifies `to_member_id`'s
-     profile unconditionally, and `settlements` has no "who recorded this"
-     column for it to branch on. So marking "Sam paid me" (from=Sam, to=me)
-     sends **me** a "Sam says they paid you — confirm?" notification about a row
-     I just created myself, and Sam is never told anything. Fix needs a
-     `settlements.recorded_by` column, then: recorded by the payer → notify the
-     payee to confirm (today's behaviour, correct); recorded by the payee →
-     arguably skip the pending state altogether (you don't confirm money you
-     yourself say you received) and send the payer an informational
-     `settlement_recorded` instead. That last part is a new value in the
-     `notifications_type_check` constraint.
-   - **[question] "Settle all with X" fans out one notification per group.**
-     `CLAUDE.md` specifies one settlement row per group, each firing its own
-     `settlement_confirm`. Settling 4 shared groups drops 4 rows in the payee's
-     bell for what the user experienced as a single action. Options: keep N
-     settlements but correlate them (batch id on `settlements`, one notification
-     per batch); one notification pointing at many settlements (join table); or
-     accept the fan-out and group them in the UI only. The first two are schema
-     changes plus a `CLAUDE.md` amendment — decide before building settle-all,
-     because retrofitting a batch id after rows exist is worse.
+   - **[bug] Recording money owed *to* you notifies the wrong person** —
+     **DB half fixed 2026-08-05, client half is item 5 phase 1.**
+     `notify_settlement_created` notified `to_member_id`'s profile
+     unconditionally, so marking "Sam paid me" (from=Sam, to=me) sent **me** a
+     "Sam says they paid you — confirm?" about a row I had just written myself,
+     and Sam was told nothing. Now branches on `NEW.status` and sends the payer
+     an informational `settlement_recorded` on the creditor-recorded path — the
+     new constraint value proposed here, adopted.
+     **The `settlements.recorded_by` column proposed above was not built and
+     is not needed**: (a′) makes status itself the carrier of who recorded it,
+     uniform across a batch. Still reachable today from `SettleUpSheet`'s
+     "Owed to you" section until phase 1 lands, because
+     `useCreateSettlement` still inserts `pending` unconditionally.
+   - **[question] "Settle all with X" fans out one notification per group** —
+     **resolved**; superseded by item 5 (c)+(e). Of the three options weighed
+     here, the first won: keep N settlement rows, correlate them with a
+     `batch_id`, render one card per batch. The join-table variant was rejected
+     on the read path (a notification pointing at N settlements can't use
+     `notifications.settlement_id`, and `batch_id` isn't unique so it can't be
+     FK'd either — PostgREST embedding at `useProfile.ts:130` would break), and
+     pure UI grouping was rejected as inferring the action boundary rather than
+     recording it. Grouping is client-side by `batch_id`; triggers stay
+     per-row. The `CLAUDE.md` amendment this bullet anticipated is item 5
+     phase 3's supersession pointer.
 
 10. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
     multi-agent pass) once 1–9 are done, before calling it shippable.
@@ -874,6 +999,18 @@ Creator (`created_by`) is the admin.
   `DashboardPage` wrapper used elsewhere; consider aligning (see Desktop)
 - [ ] **Balance cards expand button** 🟡 — modal with full per-person
   breakdown (who owes what, across which groups)
+- [ ] 🟢 **Money display must be exact — stop dropping cents** (decided
+  2026-08-05, fix later). Three treatments coexist on one card:
+  `BalanceTable.tsx:90` floors the row amount, `:115` renders the
+  breakdown beneath it with full cents, `:69` *rounds* the column header
+  (`toFixed(0)`). $30.80 reads $30 / $30.80 / $31 top to bottom, so the
+  header can exceed the row it sums. Home repeats it —
+  `(dashboard)/page.tsx:172` truncates the gross figures under a net
+  rendered with cents at `:159-162`. **Decision: always show the cents.**
+  The floors are half-ported `<Money>` anatomy (`BalanceBadge.tsx:29-30`
+  has the correct whole + padded-cents version); the math-layer
+  `Math.round(x*100)/100` is unrelated and stays. Full write-up in
+  `docs/review-todo.md` #6.
 
 ### Desktop / web layout — remaining
 

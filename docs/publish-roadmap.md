@@ -29,28 +29,37 @@ Three things block a launch. Everything else is polish or post-v1.
 
 ## P0 — blocks any real user
 
-### 1. Settlement notification semantics 🟡→🟢 · **2–3h**
+### 1. Settlement notification semantics 🟢 · **~45m left** (was 2–3h)
 
-`useCreateSettlement` inserts `status: 'pending'` unconditionally and
-`notify_settlement_created` notifies `to_member_id` regardless of who wrote the
-row. Marking "Sam paid me" sends **you** a request to confirm your own claim,
-and Sam is never told. Reachable today from `SettleUpSheet`'s "Owed to you"
-section.
+**DB half shipped 2026-08-05.** `20260805000000_settlement_notification_direction.sql`
+is applied to the linked project: `notifications_type_check` widened with
+`settlement_recorded`, and `notify_settlement_created` now branches on
+`NEW.status` — `pending` → `settlement_confirm` to the payee, `confirmed` →
+`settlement_recorded` to the payer.
 
-- Migration: add `settlements.recorded_by`, widen `notifications_type_check`
-  with `settlement_recorded`, rewrite the trigger to branch on who recorded.
-  Follow `20260729000000_wire_group_invite_notifications.sql` — it already does
-  the drop/add-constraint dance.
-- `useCreateSettlement`: set `recorded_by`; insert `confirmed` rather than
-  `pending` when the payee is the one recording.
-- Update `src/types/index.ts` and `CLAUDE.md`'s settlement section.
+**The decision this item was waiting on is made:** yes, a payee-recorded
+payment skips the pending state. Claiming someone paid you *costs* you — it
+erases money owed to you — so there is nobody to protect. Balance semantics are
+untouched, because the invariant counts `status IN ('pending','confirmed')`,
+i.e. all of them; confirmation has never moved a number.
 
-**Decision needed first:** when the payee records the payment, does it skip the
-pending state entirely? I'd say yes — you don't confirm money you yourself say
-you received — but it changes the balance semantics slightly, so it's your call.
+**`settlements.recorded_by` is not needed** — the earlier plan for it predates
+the batch model. Status itself carries who recorded it, and is uniform across
+every row of one payment. No column, no backfill.
 
-**Do this first.** It's small, and item 2 writes settlements — building that
-against wrong notification semantics means migrating rows later.
+Remaining, all client-side and mechanical — until it lands the migration is
+inert, since `useCreateSettlement` (`useSettlements.ts:43`) still inserts
+`pending` unconditionally and every row takes the old branch:
+
+- `useCreateSettlement`: insert `confirmed` when the creditor is recording;
+  `SettleUpSheet.handleConfirm` already has `direction` in scope to pass.
+- `src/types/index.ts:88` — add the new type to the `Notification` union.
+- `me/page.tsx` — `INFO_TYPES`, `infoLabel()`, and the amount line at `:217`.
+
+Step-by-step in `TODO.md` item 5, phase 1.
+
+**Still do this before item 2** — it writes settlements, and building that
+against the old semantics means migrating rows later.
 
 ### 2. Dashboard settle writes 🟢 · **2–3h**
 
@@ -227,10 +236,11 @@ point rediscovering them on fourteen screens.
 **Recommended: 18–27h** (adds CI, the guard, mobile fixes, the full responsive
 sweep, and the badge).
 
-Roughly **4–7 focused sessions.** Four 🟡 decisions gate the work and are worth
-making before the next session starts:
+Roughly **4–7 focused sessions.** ~~Four~~ **three** 🟡 decisions gate the work
+and are worth making before the next session starts:
 
-1. Do payee-recorded settlements skip the pending state? (item 1)
+1. ~~Do payee-recorded settlements skip the pending state?~~ **Decided
+   2026-08-05: yes.** Shipped as far as the database — see item 1.
 2. Does Share ship or get cut? (above)
 3. Does the JS sheet breakpoint move to 1023px to match the layout CSS? (item 7)
 4. Notification surface — badge the Me tab (1h) or global icon in a shared
@@ -246,5 +256,11 @@ making before the next session starts:
 - **No CI until item 4**, so every estimate above assumes manual verification.
   Doing item 4 first would be defensible.
 - **Test coverage is 47 tests over `lib/` only** — splits, balance, feed. No
-  component or integration tests. The settlement trigger change in item 1 is
-  not covered by anything automated; verify it by hand against a real database.
+  component or integration tests.
+- **The item 1 trigger migration shipped unverified** (2026-08-05). It applied
+  cleanly, but nothing automated covers triggers and no settlement has been
+  recorded against it by hand yet. It is currently unreachable — every insert
+  still goes down the `pending` branch, which is the pre-existing behaviour —
+  so the risk is deferred, not taken. **Exercise both branches manually the
+  moment phase 1 lands**, and check that the `settlement_recorded` row reaches
+  the payer rather than the recorder.

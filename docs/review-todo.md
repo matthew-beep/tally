@@ -257,6 +257,25 @@ see #6 above). This list is fully closed out.
    `<Money>` anatomy component from the style guide, still deferred per
    `TODO.md`'s original note (rebuild once, migrate ~5-10 hero spots in
    one sweep, not opportunistically). Typecheck + production build clean.
+
+   **Reopened 2026-08-05 — some of those un-swept sites drop cents, and
+   that's now a decided bug, not a deferral.** Deferring the `<Money>`
+   anatomy left several sites rendering a floored whole number with no
+   `.cents` span to follow it — the `Math.floor` only ever made sense as
+   half of the lockup. `BalanceTable` shows all three treatments at once:
+   row amount floors (`BalanceTable.tsx:90`), the row's own breakdown
+   lines render full cents via `formatAmount` (`:115`), and the column
+   header sum *rounds* (`:69`, `toFixed(0)`). So $30.80 reads as $30 in
+   the row, $30.80 one line below it, and $31 in the header above —
+   the header can land a dollar over the row it summarises. Same split on
+   home: `grossOwedToMe.toFixed(0)` (`(dashboard)/page.tsx:172`) sits
+   directly under a net figure rendered with full cents (`:159-162`).
+   **Decided: money is always exact — show $30.80.** No site truncates or
+   rounds for display; `Math.round(x*100)/100` in the math layer stays as
+   is (it scrubs float drift, it isn't a display choice). `BalanceBadge`
+   (`:29-30`) already does the correct whole+padded-cents anatomy and is
+   the reference for the fix. Deferred to the `<Money>` sweep as before —
+   the decision is now recorded, only the work is outstanding.
 7. - [x] ~~**[style] Expense row rendered 4 ways**~~ — **partially done,
    scoped down 2026-07-26.** As previously noted, the four renderings
    differ on purpose — only the emoji tile was actually identical.

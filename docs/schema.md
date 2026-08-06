@@ -126,7 +126,8 @@ notifications (
   recipient_id  uuid → profiles NOT NULL,
   type          text CHECK IN ('group_invite', 'group_invite_accepted',
                   'group_invite_declined', 'settlement_confirm',
-                  'settlement_confirmed', 'settlement_denied'),
+                  'settlement_confirmed', 'settlement_recorded',
+                  'settlement_denied'),
   settlement_id uuid → settlements ON DELETE CASCADE,  -- settlement types
   group_id      uuid → groups ON DELETE CASCADE,       -- invite types
   read          boolean DEFAULT false,
@@ -150,8 +151,8 @@ CLAUDE.md but **do not exist yet** — itemized mode is a UI placeholder.
 | `log_expense_edit` | `expenses` BEFORE UPDATE | Snapshots the old row into `expense_history` |
 | `notify_group_invite` | `group_members` INSERT | `group_invite` → invitee (skipped for guests: `user_id IS NULL`) |
 | `notify_group_invite_accepted` | `group_members` UPDATE | Two branches (since `20260711_decline_to_guest`): pending→active **with `user_id` still set** → `group_invite_accepted` → `invited_by`; pending row with `user_id` cleared (decline-with-history → guest conversion) → `group_invite_declined` → `invited_by` |
-| `notify_group_invite_declined` | `group_members` DELETE of pending | `group_invite_declined` → `invited_by` (the no-history decline path; declines with financial history go through the UPDATE conversion above instead) |
-| `notify_settlement_created` | `settlements` INSERT | `settlement_confirm` → payee (resolved via `group_members.user_id`; skipped for guests) |
+| ~~`notify_group_invite_declined`~~ | — | **Gone.** Written for the old DELETE-based decline path and never had a trigger attached; dropped in `20260729000000`. Both decline paths now run through `notify_group_invite_accepted`'s second branch above. |
+| `notify_settlement_created` | `settlements` INSERT | **Branches on `NEW.status`** (since `20260805000000`): `pending` (debtor recorded — "I paid you") → `settlement_confirm` → payee; `confirmed` (creditor recorded — "you paid me") → `settlement_recorded` → payer, informational. Recipient resolved via `group_members.user_id`; skipped for guests in either branch. Status carries the direction of the claim, so no `recorded_by` column is needed. |
 | `notify_settlement_confirmed` | `settlements` UPDATE pending→confirmed | `settlement_confirmed` → payer |
 | `notify_settlement_denied` | `settlements` DELETE of pending | `settlement_denied` → payer |
 
