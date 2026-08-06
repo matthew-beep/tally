@@ -115,6 +115,7 @@ const INFO_TYPES: Notification['type'][] = [
   'group_invite_declined',
   'settlement_confirmed',
   'settlement_denied',
+  'settlement_recorded',
 ]
 
 function infoLabel(n: Notification): string {
@@ -123,6 +124,7 @@ function infoLabel(n: Notification): string {
     case 'group_invite_declined':  return `Invite declined — ${n.group?.name ?? 'group'}`
     case 'settlement_confirmed':   return '✓ Payment confirmed'
     case 'settlement_denied':      return '✗ Payment denied'
+    case 'settlement_recorded':    return '✓ Marked as settled'
     default: return ''
   }
 }
@@ -214,9 +216,9 @@ export default function MePage() {
                   <div style={{ fontSize: 13, color: T.ink }}>
                     {infoLabel(n)}
                   </div>
-                  {(n.type === 'settlement_confirmed' || n.type === 'settlement_denied') && (
+                  {(n.type === 'settlement_confirmed' || n.type === 'settlement_denied' || n.type === 'settlement_recorded') && (
                     <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 4 }}>
-                      {formatAmount(Number(n.settlement?.amount ?? 0))}
+                      {formatAmount(Number(n.amount ?? n.settlement?.amount ?? 0))}
                     </div>
                   )}
                 </Card>

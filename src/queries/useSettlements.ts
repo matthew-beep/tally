@@ -37,10 +37,12 @@ export function useCreateSettlement(groupId: string) {
       amount: number
       note?: string
       settled_date: string
+      direction: 'owe' | 'owed'
     }) => {
+      const { direction, ...rest } = payload
       const { data, error } = await supabase
         .from('settlements')
-        .insert({ ...payload, group_id: groupId, status: 'pending' })
+        .insert({ ...rest, group_id: groupId, status: direction === 'owe' ? 'pending' : 'confirmed' })
         .select()
         .single()
       if (error) throw error
@@ -56,8 +58,16 @@ export function useConfirmSettlement() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
-      await supabase.from('settlements').update({ status: 'confirmed' }).eq('id', id)
+    mutationFn: async ({ id, groupId, notificationId }: { id: string; groupId: string; notificationId: string }) => {
+      // Deny deletes the settlement outright, which cascades into notifications
+      // (settlement_id REFERENCES settlements ON DELETE CASCADE) — no explicit
+      // read-marking needed there. Confirm only updates status, so the row
+      // survives and the original settlement_confirm notification must be
+      // marked read explicitly, same pattern as useAcceptGroupInvite.
+      await Promise.all([
+        supabase.from('settlements').update({ status: 'confirmed' }).eq('id', id),
+        supabase.from('notifications').update({ read: true }).eq('id', notificationId),
+      ])
       return { id, groupId }
     },
     onSuccess: ({ groupId }) => {

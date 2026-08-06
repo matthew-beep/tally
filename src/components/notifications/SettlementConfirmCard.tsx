@@ -23,7 +23,7 @@ export function SettlementConfirmCard({ notification }: { notification: Notifica
       {s.note && <div style={{ fontSize: 12, color: T.inkMuted, marginBottom: 12 }}>{s.note}</div>}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
-          onClick={() => confirm.mutate({ id: s.id, groupId: s.group_id })}
+          onClick={() => confirm.mutate({ id: s.id, groupId: s.group_id, notificationId: notification.id })}
           disabled={confirm.isPending}
           style={{ flex: 1, background: T.mintSoft, color: T.mintInk, border: 'none', borderRadius: T.r.md, padding: '10px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif' }}
         >

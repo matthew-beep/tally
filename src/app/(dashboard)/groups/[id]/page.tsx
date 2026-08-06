@@ -429,7 +429,9 @@ export default function GroupDetailPage() {
                         )
                       }
 
-                      // settlement
+                      // settlement — quiet ledger treatment: same row rhythm as an
+                      // expense (no tinted background), icon tile + a small mono
+                      // "settled"/"pending" tag in the caption line does the signaling.
                       const s          = item.data
                       const fromMember = memberById[s.from_member_id]
                       const toMember   = memberById[s.to_member_id]
@@ -437,21 +439,34 @@ export default function GroupDetailPage() {
                       const toName     = toMember ? displayName(toMember) : '…'
                       const youFrom    = s.from_member_id === myId
                       const youTo      = s.to_member_id   === myId
+                      const confirmed  = s.status === 'confirmed'
 
                       return (
-                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12, borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none', background: s.status === 'confirmed' ? T.mintSoft : 'transparent' }}>
-                          <div style={{ width: 40, height: 40, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-                            {s.status === 'confirmed' ? '✓' : '⏳'}
+                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12, borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
+                          <div style={{ width: 40, height: 40, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: confirmed ? T.mintInk : T.inkMuted, flexShrink: 0 }}>
+                            {confirmed ? (
+                              <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
+                                <path d="M3 8.5l3.2 3.2L13 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            ) : (
+                              <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
+                                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.8"/>
+                                <path d="M8 5v3.2l2.2 1.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
                           </div>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: s.status === 'confirmed' ? T.mintInk : T.ink }}>
+                            <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>
                               {youFrom ? 'You' : fromName} paid {youTo ? 'you' : toName}
                             </div>
-                            <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2 }}>
-                              {s.status === 'pending' ? 'Pending confirmation' : 'Confirmed'}{s.note ? ` · ${s.note}` : ''}
+                            <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontFamily: FMONO, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: confirmed ? T.mintInk : T.inkMuted, background: confirmed ? T.mintSoft : T.surfaceAlt, padding: '1px 6px', borderRadius: 4 }}>
+                                {confirmed ? 'settled' : 'pending'}
+                              </span>
+                              {s.note && <span>{s.note}</span>}
                             </div>
                           </div>
-                          <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: s.status === 'confirmed' ? T.mintInk : T.ink, flexShrink: 0 }}>
+                          <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: confirmed ? T.mintInk : T.ink, flexShrink: 0 }}>
                             {formatAmount(Number(s.amount))}
                           </div>
                         </div>

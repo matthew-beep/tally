@@ -188,6 +188,7 @@ export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, pre
       amount,
       note: note || undefined,
       settled_date: new Date().toISOString().slice(0, 10),
+      direction: activeTransfer.direction,
     })
     handleClose()
   }

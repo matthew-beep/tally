@@ -535,7 +535,7 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      a stale row found en route: `notify_group_invite_declined` was still
      listed as live but was dropped in `20260729000000`.
 
-   ### Phase 1 — activate it client-side 🟢 **~30–45 min**
+   ### Phase 1 — activate it client-side ✅ **done 2026-08-05**
 
    The DB branches on status, but nothing ever inserts `confirmed`, so every
    insert still takes the old path and behaviour is byte-identical to before
@@ -543,15 +543,15 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    the safe ordering here; the reverse would have written rows the trigger
    mishandled.)
 
-   - [ ] **`useCreateSettlement`** (`useSettlements.ts:43`) — stop hardcoding
+   - [x] **`useCreateSettlement`** (`useSettlements.ts:43`) — stop hardcoding
      `status: 'pending'`. Take the direction from the caller and insert
      `confirmed` when the creditor is the one recording.
-   - [ ] **`SettleUpSheet.handleConfirm`** (`SettleUpSheet.tsx:181-193`) —
+   - [x] **`SettleUpSheet.handleConfirm`** (`SettleUpSheet.tsx:181-193`) —
      pass it. `activeTransfer.direction` is already in scope at `:183` for
      the from/to swap, so this is one added field, no new plumbing.
-   - [ ] **`types/index.ts:88`** — add `settlement_recorded` to the
+   - [x] **`types/index.ts:88`** — add `settlement_recorded` to the
      `Notification` union.
-   - [ ] **`me/page.tsx`** — three spots: `INFO_TYPES` (`:113`), a case in
+   - [x] **`me/page.tsx`** — three spots: `INFO_TYPES` (`:113`), a case in
      `infoLabel()` (`:120`), and the amount line at `:217`, which branches on
      `settlement_confirmed || settlement_denied` and would otherwise render
      the new type with no amount under it.
@@ -560,6 +560,53 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      rows hydrate as-is. And `ACTIONABLE_TYPES` (`(dashboard)/page.tsx:381`)
      already excludes it correctly: a dismiss-only FYI must not reach home's
      `NeedsAttentionRail`.
+   - **Verified live**: test-account → gmail-account debtor/creditor pair,
+     creditor marked paid, group feed went green + confirmed, gmail account
+     got the `settlement_recorded` FYI on `/me` (not on the dashboard rail —
+     correctly excluded by `ACTIONABLE_TYPES`, since it's dismiss-only).
+
+   **[bug] found + fixed same day, adjacent to this work — `useConfirmSettlement`
+   never marked its own notification read.** `useNotifications()` only returns
+   `read = false` rows, but confirming a settlement only updated
+   `settlements.status`, never the originating `settlement_confirm`
+   notification's `read` flag — so the confirm-request card never went away,
+   even though the settlement itself was already confirmed and live in the
+   feed. Fixed by giving `useConfirmSettlement` a `notificationId` param and
+   marking it read in the same `Promise.all`, matching the pattern
+   `useAcceptGroupInvite`/`useDeclineGroupInvite` already use
+   (`useSettlements.ts`, `SettlementConfirmCard.tsx`). `useDenySettlement`
+   needed no equivalent change — its `DELETE` already cascades the
+   notification away via `settlement_id REFERENCES settlements ON DELETE
+   CASCADE`.
+
+   **[bug][critical] found + fixed same day — denying a settlement always
+   failed.** `notify_settlement_denied()` (`AFTER DELETE FOR EACH ROW`) tried
+   to `INSERT INTO notifications (..., settlement_id) VALUES (..., OLD.id)`
+   — but the settlement row is already gone by the time an `AFTER DELETE`
+   trigger fires, and `notifications.settlement_id` has a strict (non-
+   deferrable) FK requiring it to exist. Every deny attempt threw `23503:
+   insert or update on table "notifications" violates foreign key constraint
+   "notifications_settlement_id_fkey"`, aborting the whole `DELETE` — the
+   settlement was never actually denied. Verified live 2026-08-05 against the
+   linked project inside a rolled-back transaction (no data persisted); zero
+   `settlement_denied` rows existed in the table beforehand, consistent with
+   this having never worked since it was written.
+
+   Fix: `20260805010000_settlement_notification_amount.sql`, **applied to
+   the linked project**. Added `notifications.amount numeric(10,2)`.
+   `notify_settlement_denied` no longer references `settlement_id` at all —
+   structurally can't, since deny's whole point is deleting that row — and
+   stamps `OLD.amount` onto the notification directly instead, read before
+   the `DELETE` takes effect. Applied to all three settlement trigger
+   functions (not just denied) for symmetry, and because Phase 3's planned
+   "delete a settlement" feature would otherwise cascade-erase
+   `settlement_confirmed`/`settlement_recorded` amounts too the moment a
+   confirmed settlement is deleted after the fact. Client: `Notification.amount`
+   added to `types/index.ts`; `me/page.tsx`'s amount line now reads
+   `n.amount ?? n.settlement?.amount` (denormalized path first, FK-join path
+   as fallback for the three types that still safely use it). Re-verified
+   live post-fix: deny succeeds, notification lands with `settlement_id:
+   null, amount: <correct>`.
 
    ### Phase 2 — the batch model
 
@@ -727,8 +774,83 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      per-row. The `CLAUDE.md` amendment this bullet anticipated is item 5
      phase 3's supersession pointer.
 
-10. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
-    multi-agent pass) once 1–9 are done, before calling it shippable.
+10. **Post-settlement confirmation screen** 🟢 — after completing a settlement,
+    show a brief success state instead of just closing the sheet — "Settled $X
+    with [Name]." Today `SettleUpSheet.handleConfirm` (`SettleUpSheet.tsx:181-193`)
+    calls `handleClose()` immediately on mutation success with no acknowledgment
+    at all; you tap confirm and the sheet just vanishes.
+    - **Design reference already exists, previously deferred.** Item 1 flagged
+      `SFPaymentSent`/`SFSettlementConfirmed` — full-screen success states in
+      `Settle Up Flow.html` (`splitter` claude.ai/design project,
+      `36d6382c-156c-422e-afd2-063025ff0a0f`) — as "out of scope for this item."
+      This is that work, picked back up.
+    - **Scope:** a third `Screen` state in `SettleUpSheet`
+      (`'list' | 'record-payment' | 'success'`), shown after `handleConfirm`'s
+      `mutateAsync` resolves, before the sheet closes. Check the design for
+      auto-dismiss vs. tap-to-close. Copy should read fine for both directions
+      given item 5(a)'s pending/confirmed split — "Settled $X with [Name]" works
+      either way; only diverge if the design itself differentiates paid vs.
+      marked-as-paid.
+    - **Independent of item 5's batch model** — this covers the single-transfer
+      `SettleUpSheet` path and can ship on its own. Settle-all (once item 5
+      phase 2 lands) will eventually want its own summary screen ("Settled $50
+      across 2 groups with Alex") — note it here so it isn't rediscovered as a
+      gap, but don't scope it now.
+
+11. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
+    multi-agent pass) once 1–10 are done, before calling it shippable.
+
+12. **Bounded rail — merge notifications + activity in the home rail** 🟡
+    *(logged 2026-08-05, not started — scoped only this session)* — cap the
+    "needs attention" module and fix its recent-activity preview to a real
+    fixed size, so notifications can never push activity down.
+
+    **Design source** — `claude_design` MCP, same `splitter` project
+    (`36d6382c-156c-422e-afd2-063025ff0a0f`):
+    <https://claude.ai/design/p/36d6382c-156c-422e-afd2-063025ff0a0f?file=Feed+Notifications+Merge.html>
+    — top section, "Recommended — bounded rail (capped Attention + fixed
+    Activity)" (`FNBoundedDash`/`FNBoundedRail`/`FNAttnRow`/`FNPreviewRow`/
+    `FNReviewModal` in `feed-notif-merge.jsx`). The file's four earlier
+    unbounded merge directions (stacked/tabbed/unified/priority) are kept
+    for comparison only, not in scope.
+
+    **Current state is closer to this than it looks** — `NeedsAttentionRail`
+    (`(dashboard)/page.tsx` ~L376–427) already has the two-module shape
+    (needs-attention + recent activity via `useAllActivity(6)`, already a
+    fixed-count non-scrolling preview). What's missing:
+    - **No cap** — `actionable` renders every matching notification inline,
+      unbounded. Needs: slice to 2 + a "+N more" overflow row/button.
+    - **Confirm/deny/accept/decline happen inline** via `GroupInviteCard.tsx` /
+      `SettlementConfirmCard.tsx`'s own buttons calling
+      `useConfirmSettlement`/`useDenySettlement`
+      (`useSettlements.ts`)/`useAcceptGroupInvite`/`useDeclineGroupInvite`
+      (`useMembers.ts`) directly. The design's `FNAttnRow` is a denser row
+      whose button opens a **review modal** instead — the mutation call
+      moves there. No new mutations needed, just relocating the call sites.
+      Build the modal on the existing `src/components/modal/` `ModalOrSheet`
+      system, same local `useState<Item | null>` open/close pattern as
+      `ExpenseActionSheet`/`home/BalanceSheet.tsx`.
+    - **Activity limit** — drop `useAllActivity(6)` → `(5)` to match the
+      design's fixed 5-row preview. `useAllActivity(limit)` already supports
+      this (its own comment calls out "home recent rail" as the intended
+      use case) — no data-layer change.
+    - No `Notification` type change, no new queries — `useNotifications()`
+      (`useProfile.ts`) is already unread-only; capping is client-side.
+
+    **Overlaps with "Now" §4** ("Where notifications live — decide before
+    building") — that item's Option B (shared header + global
+    `NotificationsSheet`) would make the home rail a secondary "while
+    you're here" nudge rather than the primary inbox. Decide relative
+    priority/sequencing against that before building this, not after.
+
+    **Also needs: update the skeleton loaders.** `HomeScreenSkeleton.tsx`
+    has no skeleton for the rail at all — `NeedsAttentionRail`'s loading
+    state today is a bare `"Loading…"` text stub (`page.tsx:413`), not the
+    `Bone`/`CardShell` pattern the rest of the home skeleton uses
+    (`HeroSkeleton`/`GroupsSkeleton`/`ActivitySkeleton` in
+    `HomeScreenSkeleton.tsx`). Once the rail's row count/shape changes here
+    (capped attention rows, 5-row preview), add a matching bone skeleton for
+    both modules so loading doesn't visually jump when data arrives.
 
 ---
 

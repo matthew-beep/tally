@@ -92,8 +92,10 @@ export interface Notification {
     | 'settlement_confirm'
     | 'settlement_confirmed'
     | 'settlement_denied'
+    | 'settlement_recorded'
   settlement_id: string | null
   group_id: string | null
+  amount: number | null  // denormalized off the settlement — survives it being deleted (see settlement_denied)
   read: boolean
   created_at: string
   settlement?: Settlement
