@@ -610,9 +610,10 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
 
    ### Phase 2 — the batch model
 
-   - [x] **`batch_id` migration** per (c) — written 2026-08-08 as
-     `20260808000000_settlement_batch_id.sql`. **Not yet pushed to the linked
-     project** (`migration list` shows it local-only). Contents:
+   - [x] **`batch_id` migration** per (c) — `20260808000000_settlement_batch_id.sql`,
+     written and **applied to the linked project** 2026-08-08 (`migration list`
+     shows it local + remote). Inert until the client reads `batch_id` —
+     same DB-ahead-of-client ordering as phase 0. Contents:
      - `settlements.batch_id uuid NOT NULL DEFAULT gen_random_uuid()`,
        universal per (c). Existing rows each become their own batch for free
        and `useCreateSettlement` (singular) needs no change, since Postgres
@@ -699,31 +700,71 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      `review-todo.md` RLS audit flagging only UPDATE was read as "DELETE is
      open" when it meant "DELETE was already fine." No migration needed; this
      is client work only.
-   - [ ] **Fix the two `buildPeopleFlow` gaps below** — the zero-net person is
-     a genuine hole in settle-all's reachability, so it should land with
-     this work rather than after it.
+   - [ ] **`buildPeopleFlow` — the sub-cent residue and the `AllSquare` copy**
+     (see below). Reduced 2026-08-08: the zero-net person, which was the
+     reason this sat in phase 3 rather than later, is now a decision rather
+     than a bug — the gate stays. What's left is minor and not gating.
    - [ ] **CLAUDE.md supersession pointer** — still unwritten. Its notification
      type list (`:302-303`) predates `settlement_recorded`, and its
      cross-group section still says settlement is "UI aggregation, not a data
      model change" and that each group "generates its own confirmation
      notification to the payee." (b)–(f) override both.
 
-   **Two known gaps in `buildPeopleFlow` (`(dashboard)/page.tsx`), both from
-   gating the dashboard on the *net* while (b) settles per group:**
-   - **A person whose balances offset exactly disappears.** The loop skips
-     anyone whose net rounds under a cent (`if (Math.abs(net) < 0.01)
-     continue`), but net is summed across groups — so Apartment +$40 /
-     Big Sur −$25 / Dinner −$15 nets to exactly $0 and the person never
-     appears on the dashboard, despite three open balances, making
-     settle-all unreachable for them. Under (b) the row should appear
-     whenever **any group** has an open balance, not when the net is
-     non-zero. Found while narrating the flow end to end, 2026-08-03.
-   - **Sub-cent residue is left behind.** `net` sums *all* per-group entries
+   **`buildPeopleFlow` (`(dashboard)/page.tsx`) — one decided, one open.**
+   Both were filed 2026-08-03 as gaps from gating the dashboard on the *net*
+   while (b) settles per group.
+
+   - **The net-zero person: keep the gate. Decided 2026-08-08, not a bug.**
+     The loop skips anyone whose net rounds under a cent
+     (`if (Math.abs(net) < 0.01) continue`, `:58`), so Apartment +$40 /
+     Big Sur −$25 / Dinner −$15 nets to $0 and the person never appears.
+     Previously filed as a hole in settle-all's reachability. It isn't:
+     - **The per-group balances stay fully settleable** from each group's own
+       detail page, which has its own `SettleUpSheet`. What's unreachable is
+       only the cross-group *convenience* of doing all three at once. The
+       earlier "settle-all is unreachable for them" framing overstated it.
+     - **Square on net means no money needs to move.** Owing $40 in one group
+       and being owed $40 in another are two independently true statements,
+       not a discrepancy to reconcile. Leaving them open and letting future
+       expenses accrete against them is normal use — same spirit as "partial
+       settlements just work."
+     - **Showing the row would create an undefined case in (a′).** Status is
+       set by the sign of the batch net; a net-zero settle-all has no sign.
+       Keeping the gate means the sign is never zero and (a′) stays total as
+       written.
+     - **Known consequence, accepted:** `DeleteGroupSheet` and
+       `/api/groups/members/remove` both block on non-zero balances, so
+       deleting Big Sur or removing the member is blocked by a balance the
+       dashboard says doesn't exist. The remedy is settling that group from
+       its own page, which works today — a discoverability wrinkle, not a
+       dead end.
+   - **Cross-group affordance on the group page — declined 2026-08-08, not
+     deferred.** Considered: when settling in a group where the counterparty
+     has an offsetting balance elsewhere, nudge with "Alex owes you $40 in Big
+     Sur — settle both and no money needs to change hands." Framed as
+     opportunity rather than warning, and the group-feed privacy objection
+     wouldn't have applied (the sheet is your own view of your own balances,
+     not the member-visible feed). Dropped because the per-group ledgers are
+     already correct — cross-group netting is a convenience that belongs on
+     the dashboard, where you've explicitly asked for a person-level view.
+     **What this saves in Phase 2:** the sheet stays group-scoped, so
+     `Transfer` does *not* need to absorb `groupId`/`mySeatId`, and
+     `SettleUpSheet`'s `groupId`/`mySeatId` props stay put. The two settle
+     surfaces stay separate — `SettleUpSheet` group-scoped on the group page,
+     `BalanceSheet`'s own screens cross-group on the dashboard — and
+     `PersonPart` already carries everything the batch write needs. Step 1 is
+     just the plural, group-unbound mutation. Revisit only if the sheet ever
+     has to express rows in more than one group.
+   - [ ] **Still open — sub-cent residue.** `net` sums *all* per-group entries
      while `parts` filters at `>= 0.01`, so the hero can disagree with the
      by-group rows, and settle-all — which iterates `parts` — wouldn't
      strictly zero the person out. Invisible in dollars. Fix by deriving
      `net` from the filtered parts; left alone so far because it changes
-     displayed numbers.
+     displayed numbers. Independent of the net-zero decision above.
+   - [ ] **Still open — `AllSquare` copy.** With one counterparty you're
+     net-square with, home renders "All square" while their group still shows
+     an open balance to every member of it. Consistent if home is read as
+     net-framed, confusing otherwise. Copy-only, blocking nothing.
 
 6. **Activity page — flat recent feed, not keyed by group** 🟡 — **done**
    `/activity` is a single chronological feed (`useAllActivity()`); home rail
