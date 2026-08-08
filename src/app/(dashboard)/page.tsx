@@ -7,7 +7,7 @@ import { Avatar } from '@/components/Avatar'
 import { BalanceBadge } from '@/components/BalanceBadge'
 import { Card } from '@/components/Card'
 import { SectionLabel } from '@/components/SectionLabel'
-import { HeroSkeleton } from '@/components/HomeScreenSkeleton'
+import { HomeMainSkeleton, AttentionSkeleton, RailActivitySkeleton } from '@/components/HomeScreenSkeleton'
 import { useCurrentProfile, useNotifications } from '@/queries/useProfile'
 import { useGlobalBalances, resolveSeatId } from '@/queries/useGlobalBalances'
 import { useGroups } from '@/queries/useGroups'
@@ -380,8 +380,12 @@ function RecentGroups({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalan
 
 const ACTIONABLE_TYPES: Notification['type'][] = ['group_invite', 'settlement_confirm']
 
-function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
+/** Row count for the rail's activity preview — skeleton mirrors it. */
+const RAIL_ACTIVITY_LIMIT = 6
+
+function NeedsAttentionRail({ notifications, notificationsLoading, activityItems, activityLoading }: {
   notifications: Notification[]
+  notificationsLoading: boolean
   activityItems: ActivityItem[]
   activityLoading: boolean
 }) {
@@ -392,7 +396,9 @@ function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
   return (
     <div className="home-rail">
       <SectionHeader label="Needs attention" />
-      {actionable.length === 0 ? (
+      {notificationsLoading ? (
+        <AttentionSkeleton />
+      ) : actionable.length === 0 ? (
         <div style={{ fontSize: 12, color: T.inkFaint, lineHeight: 1.55, marginBottom: 20 }}>
           Nothing waiting on you. Payments to confirm and group invites will land here.
         </div>
@@ -410,7 +416,7 @@ function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
         <>
           <SectionHeader label="Recent activity" action={{ text: 'See all', onClick: () => router.push('/activity') }} />
           {activityLoading ? (
-            <div style={{ fontSize: 12, color: T.inkFaint }}>Loading…</div>
+            <RailActivitySkeleton rows={RAIL_ACTIVITY_LIMIT} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {recent.map(item => (
@@ -430,8 +436,8 @@ function NeedsAttentionRail({ notifications, activityItems, activityLoading }: {
 
 export default function HomePage() {
   const { data: gb, isLoading } = useGlobalBalances()
-  const { data: notifications = [] } = useNotifications()
-  const { data: activityItems = [], isLoading: activityLoading } = useAllActivity(6)
+  const { data: notifications = [], isLoading: notificationsLoading } = useNotifications()
+  const { data: activityItems = [], isLoading: activityLoading } = useAllActivity(RAIL_ACTIVITY_LIMIT)
   const [profilePerson, setProfilePerson] = useState<PersonEntry | null>(null)
   const [balancePerson, setBalancePerson]   = useState<PersonEntry | null>(null)
 
@@ -444,7 +450,7 @@ export default function HomePage() {
       <div className="home-scroll">
         <div className="home-main">
           {isLoading || !gb ? (
-            <HeroSkeleton />
+            <HomeMainSkeleton />
           ) : (
             <div className="home-content" style={{ display: 'flex', flexDirection: 'column', gap: 26, flex: 1, minHeight: 0 }}>
               <div style={{ flexShrink: 0 }}>
@@ -458,7 +464,12 @@ export default function HomePage() {
             </div>
           )}
         </div>
-        <NeedsAttentionRail notifications={notifications} activityItems={activityItems} activityLoading={activityLoading} />
+        <NeedsAttentionRail
+          notifications={notifications}
+          notificationsLoading={notificationsLoading}
+          activityItems={activityItems}
+          activityLoading={activityLoading}
+        />
       </div>
 
       {profilePerson?.profile && (

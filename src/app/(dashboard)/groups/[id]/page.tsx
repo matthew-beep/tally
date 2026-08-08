@@ -10,9 +10,11 @@ import { formatAmount } from '@/lib/money'
 import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
 import { SettleUpSheet } from '@/components/SettleUpSheet'
+import { GroupLeaderboard } from '@/components/GroupLeaderboard'
 import { SettingsIcon } from 'lucide-react'
 import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
+import { calcLeaderboard } from '@/lib/leaderboard'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement, Transfer } from '@/types'
@@ -55,6 +57,10 @@ export default function GroupDetailPage() {
 
   // Desktop members ledger — sorted by group standing, highest first
   const orderedMembers = [...members].sort((a, b) => (net[b.id] ?? 0) - (net[a.id] ?? 0))
+
+  // Leaderboard — gross fronted, ranked. Deliberately not `net`: this answers
+  // "who's been covering the group", which settlements don't undo.
+  const leaderboard = calcLeaderboard(groupId, expenses, memberIds)
 
   const oweMeEntries = Object.entries(pairwiseNets).filter(([, v]) => v > 0.01)
   const IOweEntries  = Object.entries(pairwiseNets).filter(([, v]) => v < -0.01)
@@ -369,6 +375,9 @@ export default function GroupDetailPage() {
                   </div>
                 )}
               </div>
+
+              {/* ── Leaderboard — collapsed by default, both breakpoints ── */}
+              {false && <GroupLeaderboard entries={leaderboard} members={members} myId={myId} />}
 
               {/* ── Expense + settlement feed ── */}
               {dateOrder.map(date => (

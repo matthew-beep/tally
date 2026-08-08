@@ -60,21 +60,29 @@ export default function InvitePage() {
   async function handleAccept() {
     if (!group || submitting) return
     setSubmitting(true)
+    setError(null)
     const supabase = createClient()
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return
+    if (!session) { setSubmitting(false); return }
 
-    if (memberStatus === 'pending') {
-      await supabase
-        .from('group_members')
-        .update({ status: 'active' })
-        .eq('group_id', group.id)
-        .eq('user_id', session.user.id)
-        .eq('status', 'pending')
-    } else {
-      await supabase
-        .from('group_members')
-        .insert({ group_id: group.id, user_id: session.user.id, status: 'active' })
+    // Both writes were previously unchecked, then navigated regardless — a
+    // rejected join dropped you on a group page you aren't a member of, where
+    // RLS returns nothing and the group reads as empty rather than as an error.
+    const { error: joinError } = memberStatus === 'pending'
+      ? await supabase
+          .from('group_members')
+          .update({ status: 'active' })
+          .eq('group_id', group.id)
+          .eq('user_id', session.user.id)
+          .eq('status', 'pending')
+      : await supabase
+          .from('group_members')
+          .insert({ group_id: group.id, user_id: session.user.id, status: 'active' })
+
+    if (joinError) {
+      setError(joinError.message || 'Could not join the group — try again')
+      setSubmitting(false)
+      return
     }
 
     router.push(`/groups/${group.id}`)

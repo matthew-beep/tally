@@ -64,10 +64,19 @@ export function useConfirmSettlement() {
       // read-marking needed there. Confirm only updates status, so the row
       // survives and the original settlement_confirm notification must be
       // marked read explicitly, same pattern as useAcceptGroupInvite.
-      await Promise.all([
-        supabase.from('settlements').update({ status: 'confirmed' }).eq('id', id),
-        supabase.from('notifications').update({ read: true }).eq('id', notificationId),
-      ])
+      //
+      // Sequential, not Promise.all: marking the request read is only correct
+      // if the settlement actually got confirmed. Run in parallel, a rejected
+      // UPDATE (RLS allows the payee only) still retires the card, leaving the
+      // settlement pending with nothing left in the UI to act on it.
+      const { error: confirmError } = await supabase
+        .from('settlements').update({ status: 'confirmed' }).eq('id', id)
+      if (confirmError) throw confirmError
+
+      const { error: readError } = await supabase
+        .from('notifications').update({ read: true }).eq('id', notificationId)
+      if (readError) throw readError
+
       return { id, groupId }
     },
     onSuccess: ({ groupId }) => {
@@ -82,7 +91,12 @@ export function useDenySettlement() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
-      await supabase.from('settlements').delete().eq('id', id)
+      // Checked, not fire-and-forget: this DELETE failed on every attempt from
+      // the day it was written until 20260805010000 (the trigger's FK
+      // violation), and nothing noticed precisely because the error was
+      // dropped here — PostgREST returns it in `error` rather than throwing.
+      const { error } = await supabase.from('settlements').delete().eq('id', id)
+      if (error) throw error
       return { id, groupId }
     },
     onSuccess: ({ groupId }) => {

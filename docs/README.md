@@ -14,6 +14,7 @@ design spec), the code and these docs win. Notable drift is called out inline.
 | [responsive-qa.md](./responsive-qa.md) | Breakpoint contract and the per-feature mobile/tablet/desktop test sweep |
 | [review-checklist.md](./review-checklist.md) | File-by-file reading order for a full manual code review |
 | [notifications-and-membership-design.md](./notifications-and-membership-design.md) | Paused design discussion: invite accept/decline notifications, activity-vs-notification framework, `group_members.status` semantics |
+| [social-and-leaderboard-design.md](./social-and-leaderboard-design.md) | Planned: expense reactions/comments, the expense detail drawer, and the group leaderboard — data model, RLS shape, phasing |
 
 ## What Tally is
 

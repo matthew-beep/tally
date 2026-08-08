@@ -47,7 +47,14 @@ export async function POST(request: Request) {
     .from('group_members')
     .insert({ group_id: group.id, user_id: userId, name: creatorName, status: 'active' })
   if (creatorError) {
-    await admin.from('groups').delete().eq('id', group.id)
+    // Compensating delete — if it also fails the group is orphaned (no members,
+    // so invisible to every RLS view and unreachable in the UI). Nothing useful
+    // to tell the caller, who is already getting a 500, but it must not vanish
+    // silently: an orphan row is only ever findable from the logs.
+    const { error: rollbackError } = await admin.from('groups').delete().eq('id', group.id)
+    if (rollbackError) {
+      console.error('[groups/create] rollback failed, orphaned group', group.id, rollbackError.message)
+    }
     return NextResponse.json({ error: 'Failed to create group' }, { status: 500 })
   }
 

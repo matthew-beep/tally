@@ -110,7 +110,12 @@ settlements (
   note           text,
   settled_date   date,             -- when payment happened (user-set)
   created_at     timestamptz,      -- when recorded (activity sort key)
-  status         text DEFAULT 'pending'  -- 'pending' | 'confirmed'; denial = DELETE
+  status         text DEFAULT 'pending', -- 'pending' | 'confirmed'; denial = DELETE
+  batch_id       uuid NOT NULL DEFAULT gen_random_uuid()
+                 -- added 20260808000000. The payment these rows allocate: one
+                 -- transfer zeroing N groups writes N rows sharing a batch_id.
+                 -- Universal, so a lone settlement is a batch of one. Status is
+                 -- uniform across a batch (set by the sign of its net).
 )
 
 expense_history (
@@ -130,6 +135,14 @@ notifications (
                   'settlement_denied'),
   settlement_id uuid → settlements ON DELETE CASCADE,  -- settlement types
   group_id      uuid → groups ON DELETE CASCADE,       -- invite types
+  amount        numeric(10,2),   -- added 20260805010000. Denormalized off the
+                                 -- settlement so it survives deletion —
+                                 -- settlement_denied has no settlement to read.
+  batch_id      uuid,            -- added 20260808000000. Stamped by the trigger,
+                                 -- not joined through settlement_id (which is
+                                 -- NULL for settlement_denied). NULL for invite
+                                 -- types. Client groups the list by this; the
+                                 -- unread count counts distinct values.
   read          boolean DEFAULT false,
   created_at    timestamptz
 )
@@ -154,7 +167,14 @@ CLAUDE.md but **do not exist yet** — itemized mode is a UI placeholder.
 | ~~`notify_group_invite_declined`~~ | — | **Gone.** Written for the old DELETE-based decline path and never had a trigger attached; dropped in `20260729000000`. Both decline paths now run through `notify_group_invite_accepted`'s second branch above. |
 | `notify_settlement_created` | `settlements` INSERT | **Branches on `NEW.status`** (since `20260805000000`): `pending` (debtor recorded — "I paid you") → `settlement_confirm` → payee; `confirmed` (creditor recorded — "you paid me") → `settlement_recorded` → payer, informational. Recipient resolved via `group_members.user_id`; skipped for guests in either branch. Status carries the direction of the claim, so no `recorded_by` column is needed. |
 | `notify_settlement_confirmed` | `settlements` UPDATE pending→confirmed | `settlement_confirmed` → payer |
-| `notify_settlement_denied` | `settlements` DELETE of pending | `settlement_denied` → payer |
+| `notify_settlement_denied` | `settlements` DELETE of pending | `settlement_denied` → payer. Sets no `settlement_id` — the row is already gone and the FK would reject it (fixed `20260805010000`); `amount` and `batch_id` are read off `OLD` instead. |
+
+All three settlement triggers stay `FOR EACH ROW` and stamp `NEW`/`OLD.batch_id`
+onto the notification (since `20260808000000`). A payment spanning N groups
+therefore produces N notification rows sharing one `batch_id`, and the client
+collapses them into one card — grouping is client-side by design (TODO.md item
+5 (e)), since a statement-level trigger emitting one row could not use
+`settlement_id` and could not FK to `batch_id` either.
 
 ## RLS
 

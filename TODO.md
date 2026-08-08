@@ -610,16 +610,39 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
 
    ### Phase 2 — the batch model
 
-   - [ ] **Second trigger migration** — phase 0 only covered INSERT.
-     `notify_settlement_confirmed` and `notify_settlement_denied` are still
-     `FOR EACH ROW`, so confirming a 3-row batch sends the payer three "✓
-     confirmed" notifications and denying sends three denials. Same spam,
-     reverse direction. This is (e), and it is *not* fixed by what shipped.
-   - [ ] **`batch_id` migration** per (c) —
-     `ADD COLUMN batch_id uuid NOT NULL DEFAULT gen_random_uuid()`. Universal,
-     not nullable-when-standalone. Existing rows each become their own batch
-     for free, and `useCreateSettlement` (singular) needs no change since
-     Postgres fills it.
+   - [x] **`batch_id` migration** per (c) — written 2026-08-08 as
+     `20260808000000_settlement_batch_id.sql`. **Not yet pushed to the linked
+     project** (`migration list` shows it local-only). Contents:
+     - `settlements.batch_id uuid NOT NULL DEFAULT gen_random_uuid()`,
+       universal per (c). Existing rows each become their own batch for free
+       and `useCreateSettlement` (singular) needs no change, since Postgres
+       fills it.
+     - **`notifications.batch_id uuid` (nullable) — added beyond the original
+       plan, and it's what makes grouping work at all.** The plan assumed the
+       client could reach a batch through `notifications.settlement_id →
+       settlements.batch_id`. That join is dead exactly where batching matters
+       most: `settlement_denied` carries `settlement_id = NULL` by
+       construction (since `20260805010000` — the settlement is deleted before
+       the `AFTER DELETE` trigger fires, and the FK would reject it), so a
+       denied batch would be precisely as ungroupable as it is today. A stamped
+       column groups all four types uniformly whether or not the settlement
+       still exists, and makes the unread count a distinct-`batch_id` count
+       with no embed.
+     - All three settlement trigger functions rewritten to stamp it; a
+       backfill for existing unread notifications (recovers everything except
+       `settlement_denied`, which has no settlement left to read); indexes on
+       both columns.
+     - `Settlement.batch_id` / `Notification.batch_id` added to
+       `types/index.ts`; `docs/schema.md` updated (its `notifications` block
+       was also still missing `amount` from `20260805010000`).
+   - [ ] ~~**Second trigger migration**~~ — **largely absorbed by the above,
+     2026-08-08.** This existed to stop `notify_settlement_confirmed` /
+     `notify_settlement_denied` firing `FOR EACH ROW`. With grouping keyed on a
+     stamped column they can stay per-row — which is what the (e) fork already
+     decided for INSERT — and the client collapses N rows into one card. So (e)
+     is still open, but as **client work in `useNotifications`**, not a
+     migration. Tracked in "Batch grouping in the notification list" below;
+     nothing further is owed on the DB side.
    - [ ] **`useCreateSettlements()`** — plural, alongside `useCreateSettlement`
      in `useSettlements.ts`. Takes an array, does one `.insert([...])`; a
      multi-row Supabase insert compiles to one atomic SQL `INSERT`, so no
@@ -629,27 +652,53 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      row, and a batch never mixes. Invalidation must cover the activity
      keys, not just `['settlements', groupId]` — this is the
      `invalidateMoneyData` extraction under Consolidation.
+     **Must pass `batch_id` explicitly on every row.** The column default is
+     per-row, so relying on it would give each row in a batch a *different*
+     uuid — silently splitting one payment into N batches of one rather than
+     failing loudly. The default exists for the singular path only.
    - [ ] **Wire both CTAs** — 1 row for the drill-down, N for settle-all — and
      fix the settle-all review screen to show gross per direction *and* the
      net transfer, per (b) as refined by (a′). The CTA currently shows
      `Math.abs(net)` alone.
    - [ ] **Batch grouping in the notification list** per (e) + the fork
-     decision — one card per batch, leading with the net transfer.
+     decision — one card per batch, leading with the net transfer. Now also
+     carries what the dropped trigger migration was for: group by
+     `notifications.batch_id` in `useNotifications`, render one card per batch,
+     and change `useConfirmSettlement`/`useDenySettlement` from
+     `.eq('id', id)` to `.in('id', ids)`. Symmetric with the write path — one
+     statement each way, per-row triggers emit N notifications sharing a
+     batch_id, and the client collapses those on the return trip too.
+     **Until this lands, denying one row of a batch leaves the rest live** —
+     a payee can half-receive a payment, which (d) says is impossible. That's
+     the sharpest reason this is the next piece after the migration, not the
+     notification noise.
    - [ ] **Unread count query** — doesn't exist yet (`useProfile.ts:120-124`
      says so in a comment). Must count **distinct batches**, not rows, so
      write it after `batch_id` lands rather than retrofitting it. Gated on
      the "Now" §4 surface decision (A: badge the Me tab / B: shared header)
      for *where* it renders, but the query is the same either way.
+     **Gotcha:** `notifications.batch_id` is NULL for `group_invite*` types,
+     so the count is distinct non-null `batch_id` **plus** rows where it's
+     NULL — not a bare `count(distinct batch_id)`, which would collapse every
+     pending invite into one.
 
    ### Phase 3 — close the gaps this flow opens
 
    - [ ] **Delete a settlement** — now the *only* remedy for a wrongly
      recorded "you paid me," since phase 1 makes that path skip confirmation
-     entirely. Needs `useDeleteSettlement`, a UI entry point (settlement rows
-     in the group feed aren't tappable at all today, unlike the expense rows
-     directly above them), and its own RLS migration: DELETE was never
-     restricted, so any active group member can likely delete any settlement
-     right now. Detail under item 1's "New: delete a settlement".
+     entirely. Needs `useDeleteSettlement` and a UI entry point (settlement
+     rows in the group feed aren't tappable at all today, unlike the expense
+     rows directly above them). Detail under item 1's "New: delete a
+     settlement".
+     **Correction 2026-08-08 — the RLS migration this called for is already
+     done.** Both this bullet and item 1 claimed "DELETE was never restricted,
+     so any active group member can likely delete any settlement." Not true:
+     `settlements: parties can delete` is in the baseline schema
+     (`20260721000000:805`) and already restricts DELETE to `from_member_id` /
+     `to_member_id` — exactly the permission item 1 decided on. The
+     `review-todo.md` RLS audit flagging only UPDATE was read as "DELETE is
+     open" when it meant "DELETE was already fine." No migration needed; this
+     is client work only.
    - [ ] **Fix the two `buildPeopleFlow` gaps below** — the zero-net person is
      a genuine hole in settle-all's reachability, so it should land with
      this work rather than after it.
@@ -1104,6 +1153,44 @@ Creator (`created_by`) is the admin.
   dependency), confirmed the stack renders, stacks, and auto-dismisses with
   zero console errors, then deleted the scratch route. Typecheck + full
   build + 45/45 tests clean.
+- [x] **Unchecked Supabase errors — audited + fixed 2026-08-08.** Follow-on
+  from the global error surface above, which couldn't help at any of these
+  sites because none of them threw. PostgREST returns failures in `error`
+  rather than throwing, so an unchecked call resolves as success and the UI
+  reports the action as done. All 56 `.from(` call sites reviewed; ~15 already
+  did `if (error) throw error` and were left alone.
+  - **The toast never showed the real message.** `providers.tsx`'s
+    `MutationCache.onError` tested `error instanceof Error`, but a
+    `PostgrestError` is a plain object — so every existing `throw error` site
+    fell through to the generic "Something went wrong." Now reads `.message`
+    off anything carrying one. One-line fix, lifts all sites at once.
+  - **`useAcceptGroupInvite`** — worst of the set. Membership UPDATE and
+    notification read-marking ran as an unchecked `Promise.all`: a rejected
+    join still retired the invite card, and since `useNotifications` is
+    unread-only, the invitee was left never having joined with no way left to
+    accept. Now sequential and checked, including a zero-rows-matched guard
+    (seat no longer pending ⇒ not an acceptance, don't retire the card).
+  - **`useConfirmSettlement` / `useDenySettlement` / `useDeclineGroupInvite`** —
+    same `Promise.all` shape, same fix. Deny's swallowed error is why the FK
+    bug above went unnoticed from the day it was written: the `23503` came
+    back in `error` and the client dropped it.
+  - **`invite/[token]` `handleAccept`** — two bare `await`s then `router.push`
+    regardless; a rejected join dropped you on a group page you aren't a member
+    of, where RLS returns nothing and it reads as an empty group. Now surfaces
+    the error and stays put. Also fixed a stuck `submitting` on the no-session
+    early return.
+  - **Two fail-open guards** (both failed open in exactly the case they exist
+    for): `/api/groups/members/remove` coalesced failed expense/settlement
+    queries to `[]`, computing a $0 net and waving through removal of a member
+    who owes money; `HandleInput`'s availability check read a failed lookup as
+    'available', green-lighting a taken handle that then dies on the UNIQUE
+    constraint. The latter got a new `HandleState` value, `'error'` — both
+    consumers gate on `=== 'available'`, so it blocks submission for free.
+  - Smaller: `/api/groups/create`'s compensating delete now logs if the
+    rollback itself fails (orphaned group is otherwise only findable in the
+    DB); `/api/groups/members/add`'s caller lookup no longer reports "not a
+    member" to a member when the lookup errored; `useRecentCollaborators`
+    throws instead of rendering a failure as "no recent people."
 - [ ] **Generated Supabase types** 🟡 (needs linked-project login) —
   `types/index.ts` is handwritten and has already drifted (Notification
   union). `npx supabase gen types typescript --linked > src/types/supabase.ts`,

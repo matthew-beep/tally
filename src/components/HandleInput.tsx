@@ -4,7 +4,14 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { T, FH, F } from '@/design/tokens'
 
-export type HandleState = 'empty' | 'invalid' | 'checking' | 'taken' | 'available'
+// 'error' = the availability lookup itself failed. Distinct from 'invalid'
+// (the handle is malformed) so the copy can say so, and distinct from
+// 'available' so a failed check can never green-light a taken handle.
+export type HandleState = 'empty' | 'invalid' | 'checking' | 'taken' | 'available' | 'error'
+
+// States that render coral + an ✗ pip: something is wrong and the handle
+// can't be saved as typed.
+const isProblem = (s: HandleState) => s === 'taken' || s === 'invalid' || s === 'error'
 
 function isValidHandle(h: string): boolean {
   return h.length >= 3 && h.length <= 30 && /^[a-z0-9][a-z0-9._]*[a-z0-9]$/.test(h)
@@ -98,12 +105,22 @@ export function HandleInput({
 
     debounceRef.current = setTimeout(async () => {
       const supabase = createClient()
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select('id')
         .eq('handle', value)
         .neq('id', currentProfileId)
         .limit(1)
+
+      // Fail closed. Unchecked, a failed lookup returns no rows and reads as
+      // 'available' — so a taken handle gets a green light here and then dies
+      // on the UNIQUE constraint at save time with a far less obvious message.
+      if (error) {
+        setState('error')
+        setSuggestions([])
+        onStateChange?.('error')
+        return
+      }
 
       if (data?.length) {
         setState('taken')
@@ -120,8 +137,8 @@ export function HandleInput({
   }, [value, currentHandle, currentProfileId, profileName])
 
   const borderColor =
-    state === 'available'                    ? T.mint :
-    state === 'taken' || state === 'invalid' ? T.coral :
+    state === 'available' ? T.mint :
+    isProblem(state)      ? T.coral :
     T.lineStrong
 
   const statusText =
@@ -129,11 +146,12 @@ export function HandleInput({
     state === 'taken'     ? `@${value} is taken. Try one of these:` :
     state === 'available' ? `@${value} is yours.` :
     state === 'invalid'   ? 'Min 3 chars. Letters, numbers, . and _ only.' :
+    state === 'error'     ? `Couldn't check @${value} — check your connection and try again.` :
                             'Letters, numbers, . and _ only. Min 3 chars.'
 
   const statusColor =
-    state === 'available'                    ? T.mintInk :
-    state === 'taken' || state === 'invalid' ? T.coralInk :
+    state === 'available' ? T.mintInk :
+    isProblem(state)      ? T.coralInk :
     T.inkMuted
 
   return (
@@ -176,14 +194,14 @@ export function HandleInput({
           width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background:
-            state === 'available'                    ? T.mintSoft  :
-            state === 'taken' || state === 'invalid' ? T.coralSoft :
-            state === 'checking'                     ? T.surfaceAlt : 'transparent',
+            state === 'available' ? T.mintSoft  :
+            isProblem(state)      ? T.coralSoft :
+            state === 'checking'  ? T.surfaceAlt : 'transparent',
           transition: 'background 0.18s',
         }}>
-          {state === 'available'                    && <PipCheck />}
-          {(state === 'taken' || state === 'invalid') && <PipX />}
-          {state === 'checking'                     && <PipSpinner />}
+          {state === 'available' && <PipCheck />}
+          {isProblem(state)      && <PipX />}
+          {state === 'checking'  && <PipSpinner />}
         </div>
       </div>
 

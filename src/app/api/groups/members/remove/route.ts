@@ -37,22 +37,29 @@ export async function POST(request: Request) {
 
   // Recompute the balance server-side — never trust a client-supplied "it's
   // settled" claim for a destructive action.
-  const { data: memberRows } = await admin
+  // Each of these must be checked, not coalesced to []: a failed query would
+  // otherwise compute a $0 net and wave through the removal of a member who
+  // owes money — the guard failing open in exactly the case it exists for.
+  const { data: memberRows, error: memberErr } = await admin
     .from('group_members')
     .select('id')
     .eq('group_id', groupId)
     .in('status', ['pending', 'active'])
+  if (memberErr) return NextResponse.json({ error: memberErr.message }, { status: 500 })
   const memberIds = (memberRows ?? []).map((m: { id: string }) => m.id)
 
-  const { data: expenses } = await admin
+  const { data: expenses, error: expenseErr } = await admin
     .from('expenses')
     .select('*, splits:expense_splits(id, group_member_id, owed_amount)')
     .eq('group_id', groupId)
     .is('deleted_at', null)
-  const { data: settlements } = await admin
+  if (expenseErr) return NextResponse.json({ error: expenseErr.message }, { status: 500 })
+
+  const { data: settlements, error: settlementErr } = await admin
     .from('settlements')
     .select('*')
     .eq('group_id', groupId)
+  if (settlementErr) return NextResponse.json({ error: settlementErr.message }, { status: 500 })
 
   const net = calcNetBalances(groupId, (expenses ?? []) as Expense[], (settlements ?? []) as Settlement[], memberIds)
   if (Math.abs(net[memberId] ?? 0) >= 0.01)

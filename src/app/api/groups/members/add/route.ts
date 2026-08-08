@@ -21,13 +21,16 @@ export async function POST(request: Request) {
 
   // Only active members may add people. Checked against the service-role
   // client so the answer never depends on the caller's RLS view.
-  const { data: caller } = await admin
+  const { data: caller, error: callerError } = await admin
     .from('group_members')
     .select('id')
     .eq('group_id', groupId)
     .eq('user_id', invitedBy)
     .eq('status', 'active')
     .maybeSingle()
+  // Fails closed either way, but distinguish the two: unchecked, a failed
+  // lookup reports "not a member" to someone who is one.
+  if (callerError) return NextResponse.json({ error: callerError.message }, { status: 500 })
   if (!caller) return NextResponse.json({ error: 'Not a member of this group' }, { status: 403 })
 
   // invited_by is set on guest rows too, so the limit covers the whole

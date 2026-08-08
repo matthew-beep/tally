@@ -78,6 +78,7 @@ export interface Settlement {
   settled_date: string
   created_at: string
   status: 'pending' | 'confirmed'
+  batch_id: string  // the payment these rows allocate; a lone settlement is a batch of one
   from_member?: GroupMember
   to_member?: GroupMember
 }
@@ -96,6 +97,7 @@ export interface Notification {
   settlement_id: string | null
   group_id: string | null
   amount: number | null  // denormalized off the settlement — survives it being deleted (see settlement_denied)
+  batch_id: string | null  // stamped, not joined — settlement_denied has no settlement_id to read it through. NULL for invite types.
   read: boolean
   created_at: string
   settlement?: Settlement

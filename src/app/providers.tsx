@@ -6,6 +6,19 @@ import { createClient } from '@/lib/supabase'
 import { ToastStack } from '@/components/Toast'
 import { useUIStore } from '@/store/ui'
 
+// PostgrestError is a plain object, not an Error instance — so `throw error`
+// straight off a Supabase result (the pattern used throughout src/queries)
+// would otherwise always fall through to the generic message and hide what
+// actually went wrong. Read `.message` off anything that carries one.
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const m = (error as { message: unknown }).message
+    if (typeof m === 'string' && m.length > 0) return m
+  }
+  return 'Something went wrong. Try again.'
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -22,9 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // instead of silently leaving the UI in a "did that work?" state.
         mutationCache: new MutationCache({
           onError: error => {
-            useUIStore.getState().pushToast(
-              error instanceof Error ? error.message : 'Something went wrong. Try again.'
-            )
+            useUIStore.getState().pushToast(errorMessage(error))
           },
         }),
       })
