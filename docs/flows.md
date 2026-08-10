@@ -101,12 +101,22 @@ mobile strip, ⏳ in the empty-state preview.
    `['settlements', gid]`) — home/activity aggregates are derivations over
    those caches and recompute on their own.
 
-## Edit / delete an expense
+## Expense detail / edit / delete
 
 Tapping an expense row on the group page opens `ExpenseActionSheet`
-(`src/components/ExpenseActionSheet.tsx`) — a three-screen bottom-sheet flow:
+(`src/components/ExpenseActionSheet.tsx` — the name predates the redesign) —
+a three-screen bottom-sheet flow:
 
-- **Actions** — expense summary + per-person split chips, Edit / Delete.
+- **Detail** — the default screen. Emoji tile, description, who paid, the
+  expense date, and an "(edited)" marker; then one row per participant
+  showing that person's *net from this expense alone* (`+` fronted for
+  others, `−` owes the payer), derived by `calcExpenseNets`
+  (`src/lib/balance.ts`). The payer gets a row even when they hold no split
+  of their own, which is why the net can't be written as
+  `amount − amountPerHead`. Edit / Delete sit in a `ModalFooter` rather than
+  being the point of the sheet — this is the surface expense reactions and
+  comments land on (see
+  [social-and-leaderboard-design.md](./social-and-leaderboard-design.md)).
 - **Edit drawer** — amount, description, and payer are editable (dirty-field
   highlights, Save disabled until valid + dirty). *Split membership is
   read-only*; the payer picker only offers members already in the split.

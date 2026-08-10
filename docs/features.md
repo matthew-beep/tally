@@ -65,7 +65,8 @@ never cached in the DB — recomputation happens on read.
 
 | File | Purpose |
 |---|---|
-| `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold) — all pure, tested incl. pairwise↔net invariant. No min-transfer simplification (`simplifyDebts`, deleted 2026-08-02) — settling up always uses pairwise nets |
+| `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold), `calcExpenseNets` (one expense's effect per participant — detail sheet only, not a balance) — all pure, tested incl. pairwise↔net invariant. No min-transfer simplification (`simplifyDebts`, deleted 2026-08-02) — settling up always uses pairwise nets |
+| `leaderboard.ts` | `calcLeaderboard` — gross fronted per member, ranked. Not a balance: settlements never subtract from it |
 | `feed.ts` | `mergeFeed` — expenses + settlements → one `created_at`-sorted tagged timeline |
 | `api.ts` | `postJson` — the one way to call internal API routes; always throws the server's `{ error }` |
 | `splits.ts` | `makeEqualSplits` / `makePercentSplits` / `makeExactSplits` / `rescaleSplits` — rounding remainder to first row |
@@ -79,7 +80,8 @@ never cached in the DB — recomputation happens on read.
 | Component | Purpose |
 |---|---|
 | `AddExpenseForm` / `AddExpenseSheet` | Add-expense form, mobile sheet + desktop modal branches |
-| `ExpenseActionSheet` | Expense tap → actions / edit drawer / delete confirm |
+| `ExpenseActionSheet` | Expense tap → detail (per-person nets, edit/delete footer) / edit drawer / delete confirm |
+| `GroupLeaderboard` | Collapsible "who fronted the most" bars on the group page |
 | `MemberCombobox`, `SuggestedMembers` | Member search input + recents |
 | `DeleteGroupSheet` | Delete-group confirmation (opened from group settings' danger zone) |
 | `Avatar`, `BalanceBadge` | Design-system atoms (slot-colored avatars, balance chips) |

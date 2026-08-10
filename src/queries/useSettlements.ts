@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { buildSettlementBatch, type SettlementAllocation } from '@/lib/settlements'
 import type { Settlement } from '@/types'
 
 // Shared by useSettlements (single group) and useAllGroupData (fan-out) so
@@ -27,29 +28,46 @@ export function useSettlements(groupId: string) {
   return useQuery(settlementsQueryOptions(groupId))
 }
 
-export function useCreateSettlement(groupId: string) {
+/**
+ * One payment, written as N settlement rows sharing a `batch_id` and one
+ * status. Group-unbound: a batch can span groups, so scoping lives on each
+ * allocation rather than on the hook.
+ *
+ * There is no singular variant. A one-group settle is a batch of one and takes
+ * this same path — the status rule (item 5 (a′)) is subtle enough that having
+ * it in two places is how the two drift apart.
+ */
+export function useCreateSettlements() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (payload: {
-      from_member_id: string
-      to_member_id: string
-      amount: number
+    mutationFn: async ({ allocations, note, settledDate }: {
+      allocations: SettlementAllocation[]
       note?: string
-      settled_date: string
-      direction: 'owe' | 'owed'
+      settledDate?: string
     }) => {
-      const { direction, ...rest } = payload
-      const { data, error } = await supabase
-        .from('settlements')
-        .insert({ ...rest, group_id: groupId, status: direction === 'owe' ? 'pending' : 'confirmed' })
-        .select()
-        .single()
+      // Generated here, not left to the column default: the default is
+      // per-row, so relying on it would give every row in a batch a different
+      // uuid and silently split one payment into N batches of one.
+      const rows = buildSettlementBatch(allocations, {
+        batchId: crypto.randomUUID(), note, settledDate,
+      })
+      if (rows.length === 0) throw new Error('Nothing to settle.')
+
+      // A multi-row insert compiles to one atomic SQL INSERT — all rows or
+      // none — so a batch can never land half-written.
+      const { data, error } = await supabase.from('settlements').insert(rows).select()
       if (error) throw error
-      return data as Settlement
+      return data as Settlement[]
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+    onSuccess: rows => {
+      // Activity, the home rail and global balances all derive from the
+      // per-group settlement caches with no keys of their own, so invalidating
+      // each affected group covers every surface.
+      for (const groupId of new Set(rows.map(r => r.group_id))) {
+        qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      }
+      qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
 }

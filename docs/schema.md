@@ -196,10 +196,19 @@ recursing into itself; `user_id = auth.uid()` is valid because
 group_id IN (SELECT get_my_group_ids())
 ```
 
-⚠️ The helper does **not** filter `status = 'active'` — pending and left
-members retain full read access. Known open finding; the fix (status
-filter in the fn + a pending-invitee `groups` preview policy so invite
-notifications keep showing the group name) is scoped in review-todo.
+The helper **does** filter `status = 'active'`, so pending and left members
+get no read access through it. This closes the finding scoped in
+review-todo, whose two halves are both present in the baseline: the status
+filter in the function (`20260721000000_baseline_schema.sql:41`) and the
+`groups: pending invitee can preview` policy (line 766) that keeps invite
+notifications able to show the group name. Corrected 2026-08-09 — this note
+previously described the finding as open, which it hasn't been since the
+baseline snapshot.
+
+Two policies enforce the same status check inline rather than through the
+helper — `expenses` UPDATE (line 714) and `expense_history` SELECT (line
+724). Same result, but they won't follow if the helper's definition ever
+changes.
 
 Fixes worth knowing (all in `supabase/migrations/`):
 

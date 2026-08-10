@@ -520,6 +520,7 @@ export default function GroupDetailPage() {
         expense={expenseSheet}
         members={members}
         groupId={groupId}
+        mySeatId={myId}
         onClose={() => setExpenseSheet(null)}
       />
 

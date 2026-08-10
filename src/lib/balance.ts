@@ -1,3 +1,4 @@
+import { round2 } from './money'
 import type { Expense, Settlement } from '@/types'
 
 /**
@@ -55,6 +56,55 @@ export function summarizeBalances(
   owedToMe = Math.round(owedToMe * 100) / 100
   iOwe     = Math.round(iOwe * 100) / 100
   return { owedToMe, iOwe, net: Math.round((owedToMe - iOwe) * 100) / 100 }
+}
+
+export interface ExpenseNet {
+  memberId: string
+  /** Their share of this one expense. */
+  owed: number
+  /** + they fronted this much for others, − they owe the payer this much. */
+  net: number
+}
+
+/**
+ * One expense's effect on each participant, from that expense alone.
+ *
+ * This is the detail-sheet view of an expense: the payer sees what they're out
+ * of pocket for everyone else, each other participant sees what they owe. It is
+ * NOT a balance — settlements and every other expense are deliberately absent.
+ *
+ * The payer always gets a row even when they hold no split of their own (they
+ * paid for a meal they didn't eat), which is why this can't be written as the
+ * obvious `amount − amountPerHead`.
+ *
+ * Pass `memberOrder` (the group's member array) to keep row order — and so
+ * avatar colour slots — consistent with every other screen.
+ */
+export function calcExpenseNets(
+  expense: Pick<Expense, 'amount' | 'paid_by' | 'splits'>,
+  memberOrder?: string[]
+): ExpenseNet[] {
+  const owedBy = new Map<string, number>()
+  for (const s of expense.splits ?? []) {
+    owedBy.set(s.group_member_id, (owedBy.get(s.group_member_id) ?? 0) + Number(s.owed_amount))
+  }
+  if (!owedBy.has(expense.paid_by)) owedBy.set(expense.paid_by, 0)
+
+  const amount = Number(expense.amount)
+  const rows: ExpenseNet[] = [...owedBy].map(([memberId, owed]) => ({
+    memberId,
+    owed: round2(owed),
+    net: round2((memberId === expense.paid_by ? amount : 0) - owed),
+  }))
+
+  if (!memberOrder) return rows
+  // Participants missing from the group list (e.g. a removed seat) sort last
+  // rather than jumping to the front on indexOf's -1.
+  const rank = (id: string) => {
+    const i = memberOrder.indexOf(id)
+    return i === -1 ? Number.MAX_SAFE_INTEGER : i
+  }
+  return rows.sort((a, b) => rank(a.memberId) - rank(b.memberId))
 }
 
 export function calcPairwiseNets(memberId: string, expenses: Expense[], settlements: Settlement[]): Record<string, number> {

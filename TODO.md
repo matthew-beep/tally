@@ -900,9 +900,76 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
     <https://claude.ai/design/p/36d6382c-156c-422e-afd2-063025ff0a0f?file=Feed+Notifications+Merge.html>
     — top section, "Recommended — bounded rail (capped Attention + fixed
     Activity)" (`FNBoundedDash`/`FNBoundedRail`/`FNAttnRow`/`FNPreviewRow`/
-    `FNReviewModal` in `feed-notif-merge.jsx`). The file's four earlier
-    unbounded merge directions (stacked/tabbed/unified/priority) are kept
-    for comparison only, not in scope.
+    `FNNotifCenter`/`FNMobileNotifCenter` in `feed-notif-merge.jsx`). The
+    file's four earlier unbounded merge directions (stacked/tabbed/unified/
+    priority) are kept for comparison only, not in scope.
+
+    **Design read in full 2026-08-09 — the rail has NO action buttons.**
+    This supersedes the `FNReviewModal` description below, which was written
+    from the component list rather than the file. `FNReviewModal` exists in
+    the source but is not the recommended path; the artboard subtitle is
+    explicit: *"The rail is a glanceable, bounded PREVIEW — no action buttons.
+    'Needs attention' shows the top 2 (then '+N more'); 'See all →' opens the
+    notification center — a scrollable, actionable workspace grouped by type
+    (Confirm payments / Group invites) where Confirm/Join actually happen."*
+
+    So the change is **two surfaces, not one**:
+
+    **(1) The rail — preview only.**
+    - `FN_ATTN_CAP = 2`, then a `+ N more` row, then a full-width
+      `See all →` button.
+    - Attention block is one sun-tinted card: `sunSoft` fill, `inset 0 0 0 1px
+      sun`, radius 16, rows hairline-separated in `sun`, all text `sunInk` at
+      1 / 0.8 / 0.55 opacity for name / reason / caption.
+    - `FNAttnRow`: 38px avatar (settlement) or 38px rounded emoji tile
+      (invite), name left + amount right on the top line, reason line
+      ("Says they paid you" / "Invited you to **Group**"), then
+      `emoji Group · Method`.
+    - `FNPreviewRow`: 32px `surfaceAlt` tile (category emoji, or a settlement
+      glyph), title, `emoji Group · Method · when`, signed amount right.
+      Fixed 5 rows, non-scrolling.
+
+    **(2) The notification center — where actions live.**
+    - Desktop `FNNotifCenter`: 560px modal, `maxHeight: 86%`, scrollable body,
+      header with title + coral count pill + close.
+    - Mobile `FNMobileNotifCenter`: bottom-sheet drawer at 88% height, grab
+      handle, scrim, sticky header (count pill, `Mark all read`, close), and
+      an **All / Payments / Invites** segmented filter.
+    - Both group by type: `Confirm payments · N`, then `Group invites · N`.
+    - Cards carry a 3px left accent — `mint` for settlements, `sun` for
+      invites — avatar/emoji tile, the sentence, `emoji Group · Method · when`,
+      amount in Bricolage on the right, optional italic note in a `surfaceAlt`
+      well, invite member-avatar stack, then the actions:
+      `Confirm payment` / `Not yet`, `Join group` / `Decline`.
+
+    Harness, read to interpret the mockup but **not ported** (same call as
+    item 7): `design-canvas.jsx`, `ios-frame.jsx`, `tweaks-panel.jsx`, and
+    `GhostDash`/`FNBoundedDash`'s placeholder dashboard. `tally-shared.jsx`
+    is only `TallyTokens`/`Avatar`/`fmtMoney` — the app's `T`, `Avatar` and
+    `formatAmount` already cover it.
+
+    **Two product decisions this forces — unresolved, decide before building:**
+    - **Confirming a payment becomes two clicks.** Today `SettlementConfirmCard`
+      sits on home with live Confirm/Deny. Under this design you glance, click
+      `See all →`, then confirm. A bounded rail is the gain; an extra click on
+      the app's most common action is the cost. The design is deliberate about
+      it — but it is a real regression in efficiency, not an oversight.
+    - **The notification center *is* "Now" §4 Option B's `NotificationsSheet`.**
+      Building it largely answers §4, and makes `/me`'s notification section
+      redundant (the center becomes the inbox). Resolve the two together
+      rather than building this and rediscovering §4 afterwards.
+
+    **Sequencing against item 5 phase 2 — matters, they collide.** Both rewrite
+    notification rendering: phase 2 groups `useNotifications` by `batch_id` and
+    reshapes `SettlementConfirmCard` into a batch card; this item *moves* that
+    card into the notification center and restyles it. Built in listed order,
+    the card is rewritten then immediately relocated. Split it instead:
+    1. **Data layer first** (surface-agnostic): group by `batch_id`, switch
+       `useConfirmSettlement`/`useDenySettlement` to `.in('id', ids)`. Both
+       surfaces need this either way.
+    2. **Then the notification center**, rendering the batch card once in its
+       final home.
+    3. **Then thin the rail** to preview rows + cap + `See all →`.
 
     **Current state is closer to this than it looks** — `NeedsAttentionRail`
     (`(dashboard)/page.tsx` ~L376–427) already has the two-module shape
@@ -914,18 +981,23 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
       `SettlementConfirmCard.tsx`'s own buttons calling
       `useConfirmSettlement`/`useDenySettlement`
       (`useSettlements.ts`)/`useAcceptGroupInvite`/`useDeclineGroupInvite`
-      (`useMembers.ts`) directly. The design's `FNAttnRow` is a denser row
-      whose button opens a **review modal** instead — the mutation call
-      moves there. No new mutations needed, just relocating the call sites.
-      Build the modal on the existing `src/components/modal/` `ModalOrSheet`
-      system, same local `useState<Item | null>` open/close pattern as
+      (`useMembers.ts`) directly. Those call sites move into the notification
+      center (see the 2026-08-09 note above — *not* a per-row review modal).
+      No new mutations needed, just relocation. Build the center on the
+      existing `src/components/modal/` `ModalOrSheet` system, which already
+      branches bottom-sheet on mobile / centered modal on desktop — exactly
+      the two treatments the design draws — with the same local
+      `useState<Item | null>` open/close pattern as
       `ExpenseActionSheet`/`home/BalanceSheet.tsx`.
     - **Activity limit** — drop `useAllActivity(6)` → `(5)` to match the
       design's fixed 5-row preview. `useAllActivity(limit)` already supports
       this (its own comment calls out "home recent rail" as the intended
       use case) — no data-layer change.
-    - No `Notification` type change, no new queries — `useNotifications()`
-      (`useProfile.ts`) is already unread-only; capping is client-side.
+    - No new queries — `useNotifications()` (`useProfile.ts`) is already
+      unread-only and capping is client-side. **Amended 2026-08-09:** the
+      "no `Notification` type change" half no longer holds — item 5 phase 2's
+      `batch_id` grouping changes the hook's return shape, which is why the
+      data layer has to land before either surface is rebuilt.
 
     **Overlaps with "Now" §4** ("Where notifications live — decide before
     building") — that item's Option B (shared header + global

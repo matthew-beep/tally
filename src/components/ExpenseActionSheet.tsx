@@ -5,9 +5,10 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
-import { ModalOrSheet, ModalContent } from '@/components/modal'
+import { ModalOrSheet, ModalContent, ModalFooter } from '@/components/modal'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { formatAmount, stripNegative } from '@/lib/money'
+import { calcExpenseNets } from '@/lib/balance'
 import { useDeleteExpense, useUpdateExpense } from '@/queries/useExpenses'
 import type { Expense, GroupMember } from '@/types'
 
@@ -15,10 +16,30 @@ interface Props {
   expense: Expense | null
   members: GroupMember[]
   groupId: string
+  /** The viewer's seat in this group — renders their own split row as "You". */
+  mySeatId?: string
   onClose: () => void
 }
 
-type Screen = 'actions' | 'edit' | 'delete-confirm'
+type Screen = 'detail' | 'edit' | 'delete-confirm'
+
+/** Midnight-qualified so a bare YYYY-MM-DD isn't parsed as UTC and shown a day early. */
+function expenseDay(dateStr: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+  })
+}
+
+function splitCaption(expense: Expense): string {
+  const n = expense.splits?.length ?? 0
+  if (expense.split_type === 'equal' && n > 0) {
+    return `Split ${n} ways · ${formatAmount(Number(expense.amount) / n)} each`
+  }
+  if (expense.split_type === 'exact')      return 'Split by exact amounts'
+  if (expense.split_type === 'percentage') return 'Split by percentage'
+  if (expense.split_type === 'itemized')   return 'Split by items'
+  return 'Split'
+}
 
 function DirtyDot() {
   return <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sun, display: 'inline-block' }} />
@@ -223,23 +244,89 @@ function DeleteConfirmDrawer({
   )
 }
 
-// ── Root action sheet ────────────────────────────────────────────────────
-export function ExpenseActionSheet({ expense, members, groupId, onClose }: Props) {
+// ── Detail ───────────────────────────────────────────────────────────────
+// Content-first view of one expense: what it was, who fronted it, and what it
+// did to each participant. Edit/Delete live in the footer rather than being
+// the point of the sheet. Reactions and comments land here next.
+function ExpenseDetailScreen({
+  expense, members, mySeatId,
+}: {
+  expense: Expense
+  members: GroupMember[]
+  mySeatId?: string
+}) {
+  const memberById: Record<string, GroupMember> = Object.fromEntries(members.map(m => [m.id, m]))
+  const payer     = memberById[expense.paid_by]
+  const payerName = payer ? (expense.paid_by === mySeatId ? 'You' : firstName(displayName(payer))) : '…'
+  const edited    = expense.updated_at && expense.updated_at !== expense.created_at
+  const nets      = calcExpenseNets(expense, members.map(m => m.id))
+
+  return (
+    <ModalContent style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Head — identity and the headline number */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+        <EmojiTile emoji={expense.category ?? '💸'} size={50} fontSize={25} radius={16} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: FH, fontSize: 18, fontWeight: 700, letterSpacing: -0.3, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {expense.description}
+          </div>
+          <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 2 }}>
+            <span style={{ color: T.inkMuted, fontWeight: 600 }}>{payerName}</span>
+            {' paid · '}{expenseDay(expense.expense_date)}
+            {edited && <span style={{ marginLeft: 5 }}>(edited)</span>}
+          </div>
+        </div>
+        <div style={{ fontFamily: FH, fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: T.ink, flexShrink: 0 }}>
+          {formatAmount(Number(expense.amount))}
+        </div>
+      </div>
+
+      {/* Per-person effect of this expense alone — not a running balance */}
+      <div>
+        <SectionLabel size="sm" style={{ marginBottom: 8, padding: '0 2px' }}>{splitCaption(expense)}</SectionLabel>
+        <div style={{ background: T.surfaceAlt, borderRadius: T.r.card, overflow: 'hidden' }}>
+          {nets.map((row, i) => {
+            const m      = memberById[row.memberId]
+            const isYou  = row.memberId === mySeatId
+            const name   = isYou ? 'You' : m ? firstName(displayName(m)) : '…'
+            const isPayer = row.memberId === expense.paid_by
+            const settled = Math.abs(row.net) < 0.01
+            return (
+              <div key={row.memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 14px', borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
+                <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, row.memberId)} size={28} isYou={isYou} />
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{name}</span>
+                  {isPayer && (
+                    <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: T.sunInk, background: T.sunSoft, padding: '1.5px 6px', borderRadius: T.r.pill }}>
+                      paid
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontFamily: FMONO, fontSize: 12.5, fontWeight: 700, flexShrink: 0, color: settled ? T.inkFaint : row.net > 0 ? T.mintInk : T.coralInk }}>
+                  {settled ? '—' : formatAmount(row.net, { sign: true })}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </ModalContent>
+  )
+}
+
+// ── Root sheet ───────────────────────────────────────────────────────────
+export function ExpenseActionSheet({ expense, members, groupId, mySeatId, onClose }: Props) {
   const deleteExpense = useDeleteExpense(groupId)
-  const [screen, setScreen] = useState<Screen>('actions')
+  const [screen, setScreen] = useState<Screen>('detail')
 
   useEffect(() => {
-    if (expense) setScreen('actions')
+    if (expense) setScreen('detail')
   }, [expense?.id])
 
   if (!expense) return null
 
-  const memberById: Record<string, GroupMember> = Object.fromEntries(members.map(m => [m.id, m]))
-  const payer     = memberById[expense.paid_by]
-  const payerName = payer ? displayName(payer) : '…'
-
   function handleClose() {
-    setScreen('actions')
+    setScreen('detail')
     onClose()
   }
 
@@ -257,7 +344,7 @@ export function ExpenseActionSheet({ expense, members, groupId, onClose }: Props
           expense={expense}
           members={members}
           groupId={groupId}
-          onCancel={() => setScreen('actions')}
+          onCancel={() => setScreen('detail')}
           onSaved={handleClose}
         />
       )}
@@ -267,91 +354,40 @@ export function ExpenseActionSheet({ expense, members, groupId, onClose }: Props
           expense={expense}
           memberCount={expense.splits?.length ?? members.length}
           isPending={deleteExpense.isPending}
-          onCancel={() => setScreen('actions')}
+          onCancel={() => setScreen('detail')}
           onConfirm={handleConfirmDelete}
         />
       )}
 
-      {screen === 'actions' && (
-        <ModalContent style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {/* Expense header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 14, borderBottom: `0.5px solid ${T.line}` }}>
-            <EmojiTile emoji={expense.category ?? '💸'} size={46} fontSize={22} radius={T.r.card} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.3, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {expense.description}
-              </div>
-              <div style={{ fontSize: 12.5, color: T.inkMuted, marginTop: 2 }}>
-                {payerName} paid · {formatAmount(Number(expense.amount))}
-              </div>
-            </div>
-          </div>
+      {screen === 'detail' && (
+        <>
+          <ExpenseDetailScreen expense={expense} members={members} mySeatId={mySeatId} />
 
-          {/* Split chips */}
-          {expense.splits && expense.splits.length > 0 && (
-            <div style={{ padding: '12px 0 14px', borderBottom: `0.5px solid ${T.line}` }}>
-              <SectionLabel size="sm" style={{ marginBottom: 9 }}>
-                {expense.split_type === 'equal'
-                  ? `Split equally · ${formatAmount(Number(expense.amount) / expense.splits.length)} each`
-                  : expense.split_type === 'exact' ? 'Split by exact amounts'
-                  : expense.split_type === 'percentage' ? 'Split by percentage'
-                  : 'Split by items'}
-              </SectionLabel>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {expense.splits.map(split => {
-                  const m    = memberById[split.group_member_id]
-                  const name = m ? displayName(m) : '…'
-                  return (
-                    <div key={split.group_member_id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: T.surfaceAlt, borderRadius: T.r.pill, padding: '4px 10px 4px 5px' }}>
-                      <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, split.group_member_id)} size={22} />
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{firstName(name)}</span>
-                      <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: FMONO }}>{formatAmount(Number(split.owed_amount))}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, paddingTop: 4 }}>
+          {/* Edit/Delete are demoted to a footer — the sheet is about the
+              expense, not about acting on it. ModalFooter is flexShrink:0
+              inside the flex column both Sheet and ModalPanel provide, so it
+              pins to the bottom while the detail above it scrolls. */}
+          <ModalFooter style={{ justifyContent: 'stretch', gap: 9 }}>
             <button
               onClick={() => setScreen('edit')}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 13, padding: '13px 16px', borderRadius: 13, background: 'transparent', border: `1px solid ${T.line}`, cursor: 'pointer', font: 'inherit', textAlign: 'left', color: T.ink }}
+              style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px 0', borderRadius: 13, border: 0, cursor: 'pointer', font: 'inherit', fontSize: 14.5, fontWeight: 700, background: T.ink, color: T.bg }}
             >
-              <div style={{ width: 36, height: 36, borderRadius: 11, background: T.surfaceAlt, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="15" height="15" viewBox="0 0 18 18" fill="none">
-                  <path d="M11 2.5l4 4-8.5 8.5H2.5v-4L11 2.5z" stroke={T.ink} strokeWidth="1.6" strokeLinejoin="round"/>
-                  <path d="M9 4.5l4 4" stroke={T.ink} strokeWidth="1.6"/>
-                </svg>
-              </div>
-              <span style={{ fontSize: 14.5, fontWeight: 700 }}>Edit expense</span>
-              <svg width="7" height="12" viewBox="0 0 7 12" fill="none" style={{ marginLeft: 'auto', opacity: 0.28, flexShrink: 0 }}>
-                <path d="M1 1l5 5-5 5" stroke={T.ink} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
               </svg>
+              Edit
             </button>
-
             <button
               onClick={() => setScreen('delete-confirm')}
-              style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 13, padding: '13px 16px', borderRadius: 13, background: 'transparent', border: `1px solid ${T.coral}44`, cursor: 'pointer', font: 'inherit', textAlign: 'left', color: T.coralInk }}
+              style={{ flex: 0.6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 13, border: 0, boxShadow: `inset 0 0 0 1px ${T.coral}`, cursor: 'pointer', font: 'inherit', fontSize: 14.5, fontWeight: 700, background: 'transparent', color: T.coralInk }}
             >
-              <div style={{ width: 36, height: 36, borderRadius: 11, background: T.coralSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="15" height="15" viewBox="0 0 18 18" fill="none">
-                  <polyline points="2.5,5 15.5,5" stroke={T.coralInk} strokeWidth="1.6" strokeLinecap="round"/>
-                  <path d="M6 5V3.5h6V5" stroke={T.coralInk} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  <rect x="3.5" y="5" width="11" height="10" rx="2" stroke={T.coralInk} strokeWidth="1.6"/>
-                  <path d="M9 8v4" stroke={T.coralInk} strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </div>
-              <span style={{ fontSize: 14.5, fontWeight: 700 }}>Delete expense</span>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <path d="M3 4.5h10M6 4.5V3h4v1.5M5 4.5l.6 8h4.8l.6-8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Delete
             </button>
-          </div>
-
-          <button
-            onClick={handleClose}
-            style={{ width: '100%', padding: '13px', borderRadius: 13, background: 'transparent', border: 0, cursor: 'pointer', font: 'inherit', fontSize: 14, fontWeight: 700, color: T.inkMuted, marginTop: 6 }}
-          >Cancel</button>
-        </ModalContent>
+          </ModalFooter>
+        </>
       )}
     </ModalOrSheet>
   )

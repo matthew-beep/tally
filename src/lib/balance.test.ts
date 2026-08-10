@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcNetBalances, calcPairwiseNets, summarizeBalances } from './balance'
+import { calcExpenseNets, calcNetBalances, calcPairwiseNets, summarizeBalances } from './balance'
 import type { Expense, Settlement } from '@/types'
 
 const G = 'group-1'
@@ -269,5 +269,62 @@ describe('pairwise ↔ net consistency', () => {
       const { net: pairNet } = summarizeBalances(calcPairwiseNets(me, expenses, settlements))
       expect(pairNet, `member ${me}`).toBe(net[me])
     }
+  })
+})
+
+describe('calcExpenseNets', () => {
+  it('credits the payer with everyone else’s share', () => {
+    const rows = calcExpenseNets(expense({ paid_by: 'a', splits: [
+      { group_member_id: 'a', owed_amount: 10 },
+      { group_member_id: 'b', owed_amount: 10 },
+      { group_member_id: 'c', owed_amount: 10 },
+    ]}))
+    expect(rows).toEqual([
+      { memberId: 'a', owed: 10, net: 20 },
+      { memberId: 'b', owed: 10, net: -10 },
+      { memberId: 'c', owed: 10, net: -10 },
+    ])
+  })
+
+  it('gives the payer a row when they took no share', () => {
+    const rows = calcExpenseNets(expense({ paid_by: 'a', splits: [
+      { group_member_id: 'b', owed_amount: 25 },
+      { group_member_id: 'c', owed_amount: 25 },
+    ]}))
+    expect(rows.find(r => r.memberId === 'a')).toEqual({ memberId: 'a', owed: 0, net: 50 })
+    expect(rows).toHaveLength(3)
+  })
+
+  it('handles an expense the payer alone is party to', () => {
+    const rows = calcExpenseNets(expense({ paid_by: 'a', splits: [
+      { group_member_id: 'a', owed_amount: 12 },
+    ]}))
+    expect(rows).toEqual([{ memberId: 'a', owed: 12, net: 0 }])
+  })
+
+  it('nets to zero across participants', () => {
+    const rows = calcExpenseNets(expense({ paid_by: 'b', splits: [
+      { group_member_id: 'a', owed_amount: 33.33 },
+      { group_member_id: 'b', owed_amount: 33.33 },
+      { group_member_id: 'c', owed_amount: 33.34 },
+    ]}))
+    expect(Math.round(rows.reduce((s, r) => s + r.net, 0) * 100) / 100).toBe(0)
+  })
+
+  it('orders rows by the group member list when given one', () => {
+    const rows = calcExpenseNets(expense({ paid_by: 'c', splits: [
+      { group_member_id: 'c', owed_amount: 5 },
+      { group_member_id: 'a', owed_amount: 5 },
+      { group_member_id: 'b', owed_amount: 5 },
+    ]}), ['a', 'b', 'c'])
+    expect(rows.map(r => r.memberId)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('sorts participants missing from the member list last', () => {
+    const rows = calcExpenseNets(expense({ paid_by: 'a', splits: [
+      { group_member_id: 'ghost', owed_amount: 5 },
+      { group_member_id: 'a', owed_amount: 5 },
+    ]}), ['a', 'b'])
+    expect(rows.map(r => r.memberId)).toEqual(['a', 'ghost'])
   })
 })

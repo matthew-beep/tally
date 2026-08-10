@@ -6,7 +6,7 @@ import { Avatar } from '@/components/Avatar'
 import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent } from '@/components/modal'
 import { formatAmount, stripNegative } from '@/lib/money'
-import { useCreateSettlement } from '@/queries/useSettlements'
+import { useCreateSettlements } from '@/queries/useSettlements'
 import type { Transfer } from '@/types'
 
 interface Props {
@@ -148,7 +148,7 @@ function ListDrawer({ transfers, onSelect }: { transfers: Transfer[]; onSelect: 
 
 // ── Root sheet ──────────────────────────────────────────────────────────
 export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, preselect }: Props) {
-  const createSettlement = useCreateSettlement(groupId)
+  const createSettlements = useCreateSettlements()
   const [screen, setScreen]                 = useState<Screen>('list')
   const [activeTransfer, setActiveTransfer] = useState<Transfer | null>(null)
 
@@ -180,15 +180,18 @@ export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, pre
 
   async function handleConfirm(amount: number, note: string) {
     if (!activeTransfer) return
-    const from = activeTransfer.direction === 'owe' ? mySeatId : activeTransfer.groupMemberId
-    const to   = activeTransfer.direction === 'owe' ? activeTransfer.groupMemberId : mySeatId
-    await createSettlement.mutateAsync({
-      from_member_id: from,
-      to_member_id: to,
-      amount,
-      note: note || undefined,
-      settled_date: new Date().toISOString().slice(0, 10),
-      direction: activeTransfer.direction,
+    // A batch of one. The from/to swap and the status rule both live in
+    // buildSettlementBatch now — this sheet only says which group, whose
+    // seats, how much, and which way.
+    await createSettlements.mutateAsync({
+      allocations: [{
+        groupId,
+        mySeatId,
+        theirSeatId: activeTransfer.groupMemberId,
+        amount,
+        direction: activeTransfer.direction,
+      }],
+      note,
     })
     handleClose()
   }
@@ -198,7 +201,7 @@ export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, pre
       {screen === 'record-payment' && activeTransfer ? (
         <RecordPaymentDrawer
           transfer={activeTransfer}
-          isPending={createSettlement.isPending}
+          isPending={createSettlements.isPending}
           onBack={() => setScreen('list')}
           onConfirm={handleConfirm}
         />
