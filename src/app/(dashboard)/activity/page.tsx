@@ -3,7 +3,8 @@
 import { T, FH } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { Card } from '@/components/Card'
-import { ActivityRow } from '@/components/ActivityRow'
+import { FeedCard } from '@/components/feed/FeedCard'
+import { toActivityCard } from '@/lib/feedCards'
 import { useAllActivity } from '@/queries/useActivity'
 import { useRouter } from 'next/navigation'
 import type { ActivityItem } from '@/types'
@@ -53,13 +54,14 @@ export default function ActivityPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {monthItems.map(item => (
-                <div
+                <FeedCard
                   key={item.id}
-                  onClick={() => router.push(`/groups/${item.groupId}`)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <ActivityRow item={item} showGroup />
-                </div>
+                  size="compact"
+                  model={{
+                    ...toActivityCard(item, true),
+                    onClick: () => router.push(`/groups/${item.groupId}`),
+                  }}
+                />
               ))}
             </div>
           </div>

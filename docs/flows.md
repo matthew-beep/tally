@@ -165,15 +165,48 @@ other production use, only its own tests).
 1. `ListDrawer` screen splits transfers into "Owed to you" / "You owe";
    tapping one opens `RecordPaymentDrawer` pre-filled with that transfer's
    amount (still editable — partial settlements just work).
-2. `useCreateSettlement` inserts with `status: 'pending'` — counts toward
-   balances immediately; the DB trigger sends `settlement_confirm` to the
-   payee (real users only; guests have no one to ask).
+2. `useCreateSettlements` writes the batch (see below). Rows count toward
+   balances immediately whatever their status; the DB trigger notifies the
+   counterparty (real users only — guests have no one to ask).
 3. Payee confirms (`useConfirmSettlement` → status `confirmed`, trigger
-   notifies payer) or denies (`useDenySettlement` → row DELETEd, balance
-   reverts, trigger notifies payer).
+   notifies payer) or denies (`useDenySettlement` → rows DELETEd, balance
+   reverts, trigger notifies payer). Both act on the **whole batch**.
 
 Partial settlements need no special handling — they're just amounts stacked
 against the running balance.
+
+### One payment, N settlement rows
+
+Settlements are group-scoped (`group_id` is never null), so a single transfer
+that zeroes balances in several groups has to write one row per group. Those
+rows are the *allocation* of one payment, and `settlements.batch_id`
+(`20260808000000`) is that payment's identity — universal, so a lone settlement
+is a batch of one and there is no special case. `useCreateSettlements` is
+correspondingly plural and group-unbound; `buildSettlementBatch`
+(`src/lib/settlements.ts`) turns allocations into rows.
+
+Two consequences worth internalizing:
+
+- **Allocations are gross; the payment is net.** Owing $30 in Apartment while
+  owed $20 in Big Sur means settle-all writes a $30 row and a $20 row — $50
+  allocated — but only $10 actually changes hands. Each group must zero at its
+  own full balance, so the rows cannot be netted against each other.
+- **Confirmation status belongs to the payment, not the row.** It is set once,
+  from the sign of the batch's net, and is uniform across the batch: a batch
+  netting to *I paid you* is self-serving and lands `pending` (the payee is
+  asked to confirm **the net**); one netting to *you paid me* costs the
+  recorder, so it lands `confirmed` with an informational
+  `settlement_recorded` to the other party. Per-row status would ask a payee
+  to vouch for a $40 transfer when $20 was sent.
+
+Confirm and deny therefore act on every row at once (`.in('id', ids)`) — one
+transfer either arrived or it didn't, and you cannot half-receive $45. Deny
+deletes the offsetting rows too; they only existed as part of that netting.
+
+Balance math is untouched by any of this: the invariant counts settlements with
+`status IN ('pending','confirmed')` — i.e. all of them — so status has never
+affected a balance, and moving it up to payment level doesn't reach
+`calcPairwiseNets` / `calcNetBalances`.
 
 ## Notifications & activity
 
@@ -182,7 +215,24 @@ Two separate systems:
 - **Notifications** (stored; action-required): written *only* by DB triggers.
   Read via `useNotifications` (unread only). Invite accept/decline and
   settlement confirm/deny actions live on the Me page
-  (`src/app/(dashboard)/me/page.tsx`).
+  (`src/app/(dashboard)/me/page.tsx`) and home's `NeedsAttentionRail`.
+
+  **Grouped client-side into one card per payment.** The triggers are
+  `FOR EACH ROW`, so an N-group batch emits N notifications; `groupNotifications`
+  (`src/lib/notifications.ts`) collapses them by `batch_id` into
+  `NotificationBatch[]`, and the hook returns those rather than raw rows.
+  Grouping is client-side by design: a statement-level trigger emitting one
+  notification per batch could use neither `notifications.settlement_id` (it
+  would point at N rows) nor an FK to `settlements.batch_id` (not unique), which
+  would break the PostgREST embed the read path depends on.
+
+  The grouping key is `notifications.batch_id`, stamped by the triggers rather
+  than joined through `settlement_id` — `settlement_denied` carries no
+  `settlement_id` at all (the row is deleted before the `AFTER DELETE` trigger
+  fires, and the FK would reject it), so the join would fail for exactly the
+  case grouping most needs to handle. Denied batches fall back to
+  `notifications.amount` and report no direction, since the seats that carried
+  it are gone.
 - **Activity** (derived; history): `mergeFeed` (`src/lib/feed.ts`) merges
   expenses + settlements into one `created_at`-sorted timeline; the group
   page buckets it by month, `useAllActivity` by group. No events table, no

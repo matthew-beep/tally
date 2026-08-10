@@ -376,8 +376,27 @@
   padding: 16px 16px 100px;
 }
 
-.group-detail-expense-split-info {
+.group-detail-expense-split-info,
+.feed-card-participants {
   display: none;
+}
+
+/* Reaction add button: on pointer devices it appears only when the card is
+   hovered, so an un-reacted expense carries no visible chrome and the feed
+   keeps its density. Kept visible while its picker is open (or focused, for
+   keyboard users) so it can't vanish out from under the popover it opened.
+   Touch has no hover, so the rule is scoped to devices that do. */
+@media (hover: hover) and (pointer: fine) {
+  .feed-card-row .reaction-add {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+
+  .feed-card-row:hover .reaction-add,
+  .feed-card-row .reaction-add[data-open],
+  .feed-card-row .reaction-add:focus-visible {
+    opacity: 1;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -426,7 +445,8 @@
     display: none !important;
   }
 
-  .group-detail-expense-split-info {
+  .group-detail-expense-split-info,
+  .feed-card-participants {
     display: inline-flex;
     align-items: center;
     gap: 7px;

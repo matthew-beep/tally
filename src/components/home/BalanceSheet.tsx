@@ -5,9 +5,25 @@ import { ModalOrSheet } from '@/components/modal'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
-import { formatAmount, stripNegative } from '@/lib/money'
+import { formatAmount, stripNegative, round2 } from '@/lib/money'
+import { useCreateSettlements } from '@/queries/useSettlements'
+import { SettleSuccess } from '@/components/settle/SettleSuccess'
+import type { SettlementAllocation } from '@/lib/settlements'
 import { T, FH, FMONO } from '@/design/tokens'
 import type { Profile, PersonPart } from '@/types'
+
+// A part carries its own group and both seat ids, so it is everything needed
+// to write one settlement row. `amount` is signed from my perspective:
+// positive = they owe me (I'm recording that they paid me), negative = I owe.
+function allocationFor(part: PersonPart, amount: number): SettlementAllocation {
+  return {
+    groupId: part.groupId,
+    mySeatId: part.mySeatId,
+    theirSeatId: part.groupMemberId,
+    amount: Math.abs(amount),
+    direction: part.amount > 0 ? 'owed' : 'owe',
+  }
+}
 
 interface BalanceSheetProps {
   open: boolean
@@ -19,7 +35,15 @@ interface BalanceSheetProps {
   parts: PersonPart[]
 }
 
-type Screen = 'balance' | 'confirm' | 'group'
+type Screen = 'balance' | 'confirm' | 'group' | 'success'
+
+// What the success screen shows, captured from the rows the insert returned so
+// the status is the database's answer rather than a client re-derivation.
+interface SettledSummary {
+  amount: number
+  status: 'pending' | 'confirmed'
+  groupCount: number
+}
 
 function GroupBreakdown({
   parts,
@@ -74,14 +98,16 @@ function GroupBreakdown({
 
 // Single-group drill-down — reached by tapping a row in the balance screen.
 // Editable amount scoped to just this one group; settling here never
-// touches the person's other groups. UI-only: the CTA is a no-op for now.
+// touches the person's other groups (it writes a batch of one).
 function GroupSettleScreen({
-  part, amount, firstName, onChangeAmount, onBack,
+  part, amount, firstName, isPending, onChangeAmount, onSettle, onBack,
 }: {
   part: PersonPart
   amount: number
   firstName: string
+  isPending: boolean
   onChangeAmount: (v: number) => void
+  onSettle: () => void
   onBack: () => void
 }) {
   const full = Math.abs(part.amount)
@@ -89,7 +115,7 @@ function GroupSettleScreen({
   const amtColor = partOwed ? T.mintInk : T.coralInk
   const clamp = (v: number) => Math.max(0, Math.min(full, Math.round(v * 100) / 100))
   const partial = amount > 0.005 && amount < full - 0.005
-  const canSettle = amount >= 0.005
+  const canSettle = amount >= 0.005 && !isPending
 
   return (
     <div style={{ overflowY: 'auto', paddingBottom: 44 }}>
@@ -152,8 +178,7 @@ function GroupSettleScreen({
         <button
           type="button"
           disabled={!canSettle}
-          // UI-only for now — per-group settlement write comes next
-          onClick={() => {}}
+          onClick={onSettle}
           style={{
             width: '100%', padding: 16, borderRadius: 18,
             background: canSettle ? T.sun : T.surfaceAlt,
@@ -175,6 +200,8 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
   const [screen, setScreen] = useState<Screen>('balance')
   const [groupPart, setGroupPart] = useState<PersonPart | null>(null)
   const [groupAmount, setGroupAmount] = useState(0)
+  const [settled, setSettled] = useState<SettledSummary | null>(null)
+  const createSettlements = useCreateSettlements()
 
   const owed = net > 0
   const amtColor  = owed ? T.mintInk  : T.coralInk
@@ -185,26 +212,41 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
     .filter(p => Math.abs(p.amount) >= 0.01)
     .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
 
-  const abs = Math.abs(net)
+  // Derived from the *filtered* parts, not the `net` prop: settle-all iterates
+  // visibleParts, so these are the figures the write will actually produce.
+  // (The prop sums every entry including sub-cent residue — see TODO item 5's
+  // buildPeopleFlow note.)
+  const grossOwed  = round2(visibleParts.filter(p => p.amount > 0).reduce((s, p) => s + p.amount, 0))
+  const grossOwe   = round2(visibleParts.filter(p => p.amount < 0).reduce((s, p) => s - p.amount, 0))
+  const grossTotal = round2(grossOwed + grossOwe)
+  // What actually changes hands. Allocations are gross — each group zeroes at
+  // its own full balance — but only the net is transferred (item 5 (b)).
+  const netTransfer = round2(grossOwed - grossOwe)
+  const mixed = grossOwed >= 0.01 && grossOwe >= 0.01
+
+  const abs = Math.abs(netTransfer)
   const whole = Math.floor(abs).toLocaleString()
   const cents = (abs % 1).toFixed(2).slice(1)
   const groupCount = visibleParts.length
   const groupLabel = groupCount === 1 ? '1 group' : `${groupCount} groups`
-  // Settle-all writes one settlement row per group, so the CTA names the row
-  // count — it's the one fact the confirm screen exists to disclose.
-  const canSettleAll = groupCount > 0
-  const confirmLabel = groupCount === 1 ? 'Record payment' : `Record ${groupCount} payments`
+  const canSettleAll = groupCount > 0 && !createSettlements.isPending
+  // Names the net, not the gross: the button is what you're committing to send,
+  // and gross alone would imply $50 changes hands when $10 does. The gross
+  // allocation is disclosed in the body above instead.
+  const confirmLabel = netTransfer >= 0 ? 'Mark as settled' : 'Record payment'
 
   useEffect(() => {
     if (open) {
       setScreen('balance')
       setGroupPart(null)
       setGroupAmount(0)
+      setSettled(null)
     }
   }, [open])
 
   function handleClose() {
     setScreen('balance')
+    setSettled(null)
     onClose()
   }
 
@@ -222,7 +264,33 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
     setScreen('confirm')
   }
 
-  const title = screen === 'confirm'
+  // Settle-all: one allocation per group, each at that group's full balance.
+  // Gross, deliberately — netting them would leave balances open after an
+  // action called "settle everything" (item 5 (b)). They share one batch_id
+  // and one status, so the counterparty is asked about the payment once.
+  async function handleSettleAll() {
+    if (visibleParts.length === 0) return
+    const rows = await createSettlements.mutateAsync({
+      allocations: visibleParts.map(p => allocationFor(p, p.amount)),
+    })
+    setSettled({ amount: Math.abs(netTransfer), status: rows[0].status, groupCount: rows.length })
+    setScreen('success')
+  }
+
+  // Drill-down: a single group, at whatever amount the user set. Never touches
+  // their other groups — a batch of one.
+  async function handleSettleGroup() {
+    if (!groupPart || groupAmount < 0.005) return
+    const rows = await createSettlements.mutateAsync({
+      allocations: [allocationFor(groupPart, groupAmount)],
+    })
+    setSettled({ amount: groupAmount, status: rows[0].status, groupCount: rows.length })
+    setScreen('success')
+  }
+
+  const title = screen === 'success'
+    ? 'Settled'
+    : screen === 'confirm'
     ? `Settle up with ${firstName}`
     : screen === 'group' && groupPart
     ? groupPart.groupName
@@ -230,12 +298,24 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
 
   return (
     <ModalOrSheet open={open} onClose={handleClose} title={title}>
-      {screen === 'group' && groupPart ? (
+      {screen === 'success' && settled ? (
+        <SettleSuccess
+          name={name}
+          profile={profile}
+          slot={slot}
+          amount={settled.amount}
+          status={settled.status}
+          groupCount={settled.groupCount}
+          onDone={handleClose}
+        />
+      ) : screen === 'group' && groupPart ? (
         <GroupSettleScreen
           part={groupPart}
           amount={groupAmount}
           firstName={firstName}
+          isPending={createSettlements.isPending}
           onChangeAmount={setGroupAmount}
+          onSettle={handleSettleGroup}
           onBack={() => setScreen('balance')}
         />
       ) : screen === 'confirm' ? (
@@ -245,11 +325,7 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
               Settle up with {firstName}
             </div>
             <div style={{ fontSize: 13, color: T.inkMuted, marginTop: 6, lineHeight: 1.45 }}>
-              You&apos;re about to settle{' '}
-              <span style={{ fontWeight: 700, color: amtColor, fontFamily: FH }}>
-                {formatAmount(net, { sign: true })}
-              </span>
-              {' '}across {groupLabel}
+              Zeroes {groupLabel} · {formatAmount(grossTotal)} settled
             </div>
           </div>
 
@@ -258,8 +334,27 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
               background: amtBg, borderRadius: 22, padding: '16px 22px',
               border: `1px solid ${owed ? T.mint : T.coral}22`,
             }}>
+              {/* Mixed directions: show the gross each way before the net, so
+                  the number that moves and the balances being cleared are both
+                  visible. Net alone hides that two groups are being zeroed;
+                  gross alone implies $50 changes hands when $10 does. */}
+              {mixed && (
+                <div style={{ marginBottom: 14 }}>
+                  {([
+                    [`You pay ${firstName}`, grossOwe,  T.coralInk],
+                    [`${firstName} pays you`, grossOwed, T.mintInk],
+                  ] as [string, number, string][]).map(([label, value, color]) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingBottom: 6 }}>
+                      <span style={{ fontSize: 13, color: T.inkMuted }}>{label}</span>
+                      <span style={{ fontFamily: FH, fontSize: 15, fontWeight: 700, color }}>{formatAmount(value)}</span>
+                    </div>
+                  ))}
+                  <div style={{ height: 1, background: `${amtColor}22`, margin: '4px 0 0' }} />
+                </div>
+              )}
+
               <SectionLabel color={amtColor} style={{ opacity: 0.85, marginBottom: 8 }}>
-                Total
+                {mixed ? (netTransfer >= 0 ? `${firstName} sends you` : `You send ${firstName}`) : 'Total'}
               </SectionLabel>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 1, lineHeight: 1 }}>
                 <span style={{ fontFamily: FH, fontSize: 22, fontWeight: 500, color: amtColor, opacity: 0.7 }}>$</span>
@@ -277,16 +372,18 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
           )}
 
           <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* One request per payment, not per group — every row shares the
+                batch's status, so the counterparty is asked once, about the
+                net (item 5 (a′)/(e)). */}
             <p style={{ fontSize: 11.5, lineHeight: 1.5, color: T.inkFaint, padding: '0 4px 4px', margin: 0 }}>
-              {owed
-                ? `Each group is recorded separately and stays pending until confirmed.`
-                : `${firstName} gets a separate confirmation request for each group.`}
+              {netTransfer >= 0
+                ? `Recorded straight away — ${firstName} is notified, with nothing to confirm.`
+                : `${firstName} gets one request to confirm ${formatAmount(abs)}.`}
             </p>
             <button
               type="button"
               disabled={!canSettleAll}
-              // UI-only for now — multi-group settlement write comes next
-              onClick={() => {}}
+              onClick={handleSettleAll}
               style={{
                 width: '100%', padding: 16, borderRadius: 18,
                 background: canSettleAll ? T.sun : T.surfaceAlt,

@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
-import { EmojiPickerSheet } from '@/components/EmojiPickerSheet'
+import { EmojiPicker } from '@/components/EmojiPicker'
+import { GROUP_EMOJI } from '@/lib/emoji'
 import { MemberActionSheet } from '@/components/MemberActionSheet'
 import { DeleteGroupSheet } from '@/components/DeleteGroupSheet'
 import { useUpdateGroup, useLeaveGroup, useRemoveMember } from '@/queries/useGroups'
@@ -28,6 +29,7 @@ export default function GroupSettingsPage() {
   const [editingName,  setEditingName]  = useState(false)
   const [draftName,    setDraftName]    = useState('')
   const [emojiOpen,    setEmojiOpen]    = useState(false)
+  const emojiBtnRef = useRef<HTMLButtonElement | null>(null)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [pendingMembers, setPendingMembers] = useState<MemberEntry[]>([])
   const [adding,        setAdding]        = useState(false)
@@ -146,7 +148,8 @@ export default function GroupSettingsPage() {
         <SectionLabel style={{ padding: '14px 0 6px' }}>Group identity</SectionLabel>
         <div style={{ background: T.surface, border: `0.5px solid ${T.line}`, borderRadius: T.r.card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: T.shadowSm }}>
           <button
-            onClick={() => isAdmin && setEmojiOpen(true)}
+            ref={emojiBtnRef}
+            onClick={() => isAdmin && setEmojiOpen(o => !o)}
             disabled={!isAdmin}
             style={{ position: 'relative', width: 54, height: 54, borderRadius: T.r.card, fontSize: 28, border: `1.5px solid ${T.line}`, background: T.surfaceAlt, cursor: isAdmin ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
@@ -320,9 +323,11 @@ export default function GroupSettingsPage() {
 
       </div>
 
-      <EmojiPickerSheet
+      <EmojiPicker
         open={emojiOpen}
-        current={group.emoji}
+        emojis={GROUP_EMOJI}
+        selected={[group.emoji]}
+        anchorRef={emojiBtnRef}
         onClose={() => setEmojiOpen(false)}
         onPick={pickEmoji}
       />

@@ -7,6 +7,7 @@ import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent } from '@/components/modal'
 import { formatAmount, stripNegative } from '@/lib/money'
 import { useCreateSettlements } from '@/queries/useSettlements'
+import { SettleSuccess } from '@/components/settle/SettleSuccess'
 import type { Transfer } from '@/types'
 
 interface Props {
@@ -18,7 +19,14 @@ interface Props {
   preselect?: Transfer | null
 }
 
-type Screen = 'list' | 'record-payment'
+type Screen = 'list' | 'record-payment' | 'success'
+
+// Captured from the inserted rows so the status shown is the database's
+// answer rather than a client re-derivation of the batch rule.
+interface SettledSummary {
+  amount: number
+  status: 'pending' | 'confirmed'
+}
 
 // ── Record payment ──────────────────────────────────────────────────────
 function RecordPaymentDrawer({
@@ -151,9 +159,11 @@ export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, pre
   const createSettlements = useCreateSettlements()
   const [screen, setScreen]                 = useState<Screen>('list')
   const [activeTransfer, setActiveTransfer] = useState<Transfer | null>(null)
+  const [settled, setSettled]               = useState<SettledSummary | null>(null)
 
   useEffect(() => {
     if (!open) return
+    setSettled(null)
     if (preselect) {
       setActiveTransfer(preselect)
       setScreen('record-payment')
@@ -170,6 +180,7 @@ export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, pre
   function handleClose() {
     setScreen('list')
     setActiveTransfer(null)
+    setSettled(null)
     onClose()
   }
 
@@ -183,7 +194,7 @@ export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, pre
     // A batch of one. The from/to swap and the status rule both live in
     // buildSettlementBatch now — this sheet only says which group, whose
     // seats, how much, and which way.
-    await createSettlements.mutateAsync({
+    const rows = await createSettlements.mutateAsync({
       allocations: [{
         groupId,
         mySeatId,
@@ -193,12 +204,24 @@ export function SettleUpSheet({ open, onClose, groupId, mySeatId, transfers, pre
       }],
       note,
     })
-    handleClose()
+    // Always a batch of one here — the group page is group-scoped by design.
+    setSettled({ amount, status: rows[0].status })
+    setScreen('success')
   }
 
   return (
     <ModalOrSheet open={open} onClose={handleClose} title="Settle up" maxWidth={420}>
-      {screen === 'record-payment' && activeTransfer ? (
+      {screen === 'success' && settled && activeTransfer ? (
+        <SettleSuccess
+          name={activeTransfer.name}
+          profile={activeTransfer.avatar}
+          slot={activeTransfer.slot}
+          amount={settled.amount}
+          status={settled.status}
+          groupCount={1}
+          onDone={handleClose}
+        />
+      ) : screen === 'record-payment' && activeTransfer ? (
         <RecordPaymentDrawer
           transfer={activeTransfer}
           isPending={createSettlements.isPending}

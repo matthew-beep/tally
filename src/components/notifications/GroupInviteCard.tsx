@@ -3,12 +3,15 @@
 import { T } from '@/design/tokens'
 import { Card } from '@/components/Card'
 import { useAcceptGroupInvite, useDeclineGroupInvite } from '@/queries/useMembers'
-import type { Notification } from '@/types'
+import type { NotificationBatch } from '@/types'
 
-export function GroupInviteCard({ notification }: { notification: Notification }) {
+// Invites have no payment behind them, so a batch here is always exactly one
+// notification (`batch_id` is NULL, keyed by row id in groupNotifications).
+export function GroupInviteCard({ batch }: { batch: NotificationBatch }) {
   const accept = useAcceptGroupInvite()
   const decline = useDeclineGroupInvite()
-  const g = notification.group
+  const notification = batch.notifications[0]
+  const g = notification?.group
   if (!g || !notification.group_id) return null
 
   return (

@@ -11,6 +11,9 @@ import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
 import { SettleUpSheet } from '@/components/SettleUpSheet'
 import { GroupLeaderboard } from '@/components/GroupLeaderboard'
+import { FeedCard } from '@/components/feed/FeedCard'
+import { ReactionPills } from '@/components/ReactionPills'
+import { toGroupFeedCard } from '@/lib/feedCards'
 import { SettingsIcon } from 'lucide-react'
 import { useGroupDetail } from '@/queries/useGroupDetail'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
@@ -379,107 +382,41 @@ export default function GroupDetailPage() {
               {/* ── Leaderboard — collapsed by default, both breakpoints ── */}
               {false && <GroupLeaderboard entries={leaderboard} members={members} myId={myId} />}
 
-              {/* ── Expense + settlement feed ── */}
+              {/* ── Expense + settlement feed ──
+                   A stack of FeedCards rather than hairline rows in one card:
+                   once a row can grow a trailing reaction line, a hairline is
+                   doing too much work to say those pills belong to the expense
+                   above rather than the one below. Gaps say it unambiguously.
+                   Same component the Activity tab renders, one size up. ── */}
               {dateOrder.map(date => (
                 <div key={date} style={{ marginBottom: 20 }}>
                   <SectionLabel style={{ padding: '0 4px 9px' }}>{date}</SectionLabel>
-                  <div style={{ background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', boxShadow: T.shadowSm }}>
-                    {byDate[date].map((item, i) => {
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {byDate[date].map(item => {
+                      const model = toGroupFeedCard(item, members, myId)
 
                       if (item.type === 'expense') {
-                        const e          = item.data
-                        const payer      = memberById[e.paid_by]
-                        const payerName  = payer ? displayName(payer) : '…'
-                        const youPaid    = e.paid_by === myId
-                        const mySplit    = e.splits?.find((s: { group_member_id: string }) => s.group_member_id === myId)
-                        const myAmt      = youPaid
-                          ? (e.splits ?? []).filter((s: { group_member_id: string }) => s.group_member_id !== e.paid_by).reduce((sum: number, s: { owed_amount: number }) => sum + Number(s.owed_amount), 0)
-                          : (mySplit ? Number(mySplit.owed_amount) : 0)
-                        const myInvolved = youPaid || !!mySplit
-                        const edited     = e.updated_at && e.updated_at !== e.created_at
-                        const inc        = (e.splits ?? []).map((s: { group_member_id: string }) => s.group_member_id)
-
                         return (
-                          <div
-                            key={e.id}
-                            onClick={() => setExpenseSheet(e)}
-                            style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12, borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none', cursor: 'pointer' }}
-                          >
-                            <EmojiTile emoji={e.category ?? '💸'} size={40} fontSize={19} background={T.bg} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 14, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {e.description}{edited && <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 5 }}>(edited)</span>}
+                          <FeedCard
+                            key={model.id}
+                            className="feed-card-row"
+                            model={{ ...model, onClick: () => setExpenseSheet(item.data) }}
+                            footer={
+                              <div style={{ marginTop: 10 }}>
+                                <ReactionPills
+                                  expenseId={item.data.id}
+                                  groupId={groupId}
+                                  mySeatId={myId}
+                                  canPost={myMember?.status === 'active'}
+                                  size="row"
+                                />
                               </div>
-                              <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 7 }}>
-                                <span>{youPaid ? 'You paid' : `${payerName} paid`} · {formatAmount(Number(e.amount))}</span>
-                                {/* Desktop only — who the expense is split among */}
-                                <span className="group-detail-expense-split-info">
-                                  <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }}/>
-                                  <span>split {inc.length} ways</span>
-                                  <span style={{ display: 'inline-flex', marginLeft: 2 }}>
-                                    {inc.slice(0, 4).map((mid: string, k: number) => (
-                                      <span key={mid} style={{ marginLeft: k > 0 ? -6 : 0, borderRadius: '50%', border: `1.5px solid ${T.surface}`, display: 'inline-flex' }}>
-                                        <Avatar profile={memberById[mid] ? avatarProfile(memberById[mid]) : undefined} slot={slotFor(members, mid)} size={16} isYou={mid === myId} />
-                                      </span>
-                                    ))}
-                                  </span>
-                                </span>
-                              </div>
-                            </div>
-                            {myInvolved && myAmt > 0 && (
-                              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                                <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: youPaid ? T.mintInk : T.coralInk }}>
-                                  {formatAmount(youPaid ? myAmt : -myAmt, { sign: true })}
-                                </div>
-                                <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>your share</div>
-                              </div>
-                            )}
-                          </div>
+                            }
+                          />
                         )
                       }
 
-                      // settlement — quiet ledger treatment: same row rhythm as an
-                      // expense (no tinted background), icon tile + a small mono
-                      // "settled"/"pending" tag in the caption line does the signaling.
-                      const s          = item.data
-                      const fromMember = memberById[s.from_member_id]
-                      const toMember   = memberById[s.to_member_id]
-                      const fromName   = fromMember ? displayName(fromMember) : '…'
-                      const toName     = toMember ? displayName(toMember) : '…'
-                      const youFrom    = s.from_member_id === myId
-                      const youTo      = s.to_member_id   === myId
-                      const confirmed  = s.status === 'confirmed'
-
-                      return (
-                        <div key={s.id} style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', gap: 12, borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
-                          <div style={{ width: 40, height: 40, borderRadius: T.r.md, background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: confirmed ? T.mintInk : T.inkMuted, flexShrink: 0 }}>
-                            {confirmed ? (
-                              <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
-                                <path d="M3 8.5l3.2 3.2L13 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            ) : (
-                              <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
-                                <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.8"/>
-                                <path d="M8 5v3.2l2.2 1.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
-                          </div>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>
-                              {youFrom ? 'You' : fromName} paid {youTo ? 'you' : toName}
-                            </div>
-                            <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontFamily: FMONO, fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: confirmed ? T.mintInk : T.inkMuted, background: confirmed ? T.mintSoft : T.surfaceAlt, padding: '1px 6px', borderRadius: 4 }}>
-                                {confirmed ? 'settled' : 'pending'}
-                              </span>
-                              {s.note && <span>{s.note}</span>}
-                            </div>
-                          </div>
-                          <div style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: confirmed ? T.mintInk : T.ink, flexShrink: 0 }}>
-                            {formatAmount(Number(s.amount))}
-                          </div>
-                        </div>
-                      )
+                      return <FeedCard key={model.id} model={model} />
                     })}
                   </div>
                 </div>
@@ -521,6 +458,7 @@ export default function GroupDetailPage() {
         members={members}
         groupId={groupId}
         mySeatId={myId}
+        canPost={myMember?.status === 'active'}
         onClose={() => setExpenseSheet(null)}
       />
 

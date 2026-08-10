@@ -644,35 +644,62 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      is still open, but as **client work in `useNotifications`**, not a
      migration. Tracked in "Batch grouping in the notification list" below;
      nothing further is owed on the DB side.
-   - [ ] **`useCreateSettlements()`** — plural, alongside `useCreateSettlement`
-     in `useSettlements.ts`. Takes an array, does one `.insert([...])`; a
-     multi-row Supabase insert compiles to one atomic SQL `INSERT`, so no
-     transaction-wrapping RPC is needed. Generates one client-side uuid per
-     settle-all action, stamped across the rows. **Status is computed once
-     for the whole batch** from the sign of its net, per (a′) — not per
-     row, and a batch never mixes. Invalidation must cover the activity
-     keys, not just `['settlements', groupId]` — this is the
-     `invalidateMoneyData` extraction under Consolidation.
-     **Must pass `batch_id` explicitly on every row.** The column default is
-     per-row, so relying on it would give each row in a batch a *different*
-     uuid — silently splitting one payment into N batches of one rather than
-     failing loudly. The default exists for the singular path only.
+   - [x] **`useCreateSettlements()`** — done 2026-08-09. Plural and
+     group-unbound; one `.insert([...])` (a multi-row Supabase insert compiles
+     to one atomic SQL `INSERT`, so no transaction-wrapping RPC). Generates one
+     `crypto.randomUUID()` per action and passes it on every row — **not** left
+     to the column default, which is per-row and would silently split one
+     payment into N batches of one.
+     - **Replaced `useCreateSettlement` rather than sitting alongside it**
+       (supersedes "plural, alongside"). The singular is a strict special case:
+       for one row, status-from-batch-net and status-from-direction are
+       byte-identical. Keeping both would put the (a′) rule in two places,
+       which is how they drift. `SettleUpSheet` — the only caller — now passes
+       a one-element array, and the from/to swap moved out of the component.
+     - Pure logic in **`src/lib/settlements.ts`**: `SettlementAllocation`,
+       `batchNet`, `batchStatus`, `buildSettlementBatch`. 22 tests, including
+       the +$50/−$10 case the rejected "any row pending → batch pending" rule
+       inverts.
+     - Two behaviours encoded while writing it: sub-cent allocations are
+       **dropped, not rejected** (`amount > 0` would reject a $0.00 row and
+       abort the whole insert alongside the real allocations), and status is
+       computed from the surviving rows so dropped residue cannot flip the
+       sign. Net-zero → `confirmed`.
+     - **Invalidation:** loops the batch's distinct `group_id`s. The
+       `invalidateMoneyData` extraction noted here is **not needed and the
+       Consolidation entry is stale** — it describes a 5-key block
+       (`global-balances`, `recent-activity`, `all-activity`) whose keys no
+       longer exist; activity and global balances derive from the per-group
+       caches with no keys of their own.
    - [ ] **Wire both CTAs** — 1 row for the drill-down, N for settle-all — and
      fix the settle-all review screen to show gross per direction *and* the
      net transfer, per (b) as refined by (a′). The CTA currently shows
      `Math.abs(net)` alone.
-   - [ ] **Batch grouping in the notification list** per (e) + the fork
-     decision — one card per batch, leading with the net transfer. Now also
-     carries what the dropped trigger migration was for: group by
-     `notifications.batch_id` in `useNotifications`, render one card per batch,
-     and change `useConfirmSettlement`/`useDenySettlement` from
-     `.eq('id', id)` to `.in('id', ids)`. Symmetric with the write path — one
-     statement each way, per-row triggers emit N notifications sharing a
-     batch_id, and the client collapses those on the return trip too.
-     **Until this lands, denying one row of a batch leaves the rest live** —
-     a payee can half-receive a payment, which (d) says is impossible. That's
-     the sharpest reason this is the next piece after the migration, not the
-     notification noise.
+   - [x] **Batch grouping — data layer done 2026-08-09** (item 12 phase A).
+     `useNotifications` now returns `NotificationBatch[]`, grouped by
+     `batch_id`; `useConfirmSettlement`/`useDenySettlement` take id arrays and
+     use `.in('id', ids)`, so both act on the whole payment and invalidate
+     every group it touched. The half-deny hole (d) forbids is closed before
+     anything can create a batch.
+     - Pure logic in **`src/lib/notifications.ts`**: `groupNotifications` plus
+       `batchSettlementIds`/`batchNotificationIds`/`batchGroupIds`. 19 tests.
+     - Direction is resolved by comparing seats' `user_id` to the auth user,
+       not by seat id — notifications are profile-keyed while settlements are
+       seat-keyed, so the recipient holds a different `group_members.id` in
+       every group of a batch.
+     - Batch-less rows key on `single:${id}`, not on `null`; keying on
+       `batch_id` alone would collapse every pending group invite into one
+       card. Tested.
+     - Denied batches group correctly and fall back to `notifications.amount`
+       with `net: null` — the case the originally-planned join through
+       `settlement_id` could not have handled.
+     - [ ] **Still open — the card itself.** `SettlementConfirmCard` acts on
+       the full batch but still renders the single-settlement layout. The batch
+       card (net transfer headline, one line per group, offsetting rows marked)
+       is deliberately deferred to item 12 phase B so it gets written once, in
+       the notification center, rather than reshaped here and immediately
+       relocated. Unreachable until step 3 wires the CTAs, so nothing renders
+       wrongly in the meantime.
    - [ ] **Unread count query** — doesn't exist yet (`useProfile.ts:120-124`
      says so in a comment). Must count **distinct batches**, not rows, so
      write it after `batch_id` lands rather than retrofitting it. Gated on
@@ -700,6 +727,25 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      `review-todo.md` RLS audit flagging only UPDATE was read as "DELETE is
      open" when it meant "DELETE was already fine." No migration needed; this
      is client work only.
+   - [ ] **Batch the settlement rows in the activity feed** *(found 2026-08-09
+     testing the first live settle-all; deferred deliberately)* — a settle-all
+     across N groups writes N settlement rows, and the cross-group feeds render
+     one row each: "Settled $30 with Alex", "Settled $20 with Alex", same
+     timestamp, same person. Should read as one payment.
+     - **Only the cross-group surfaces are affected** — `/activity` and home's
+       recent rail, both via `useAllActivity` → `mergeFeed` (`src/lib/feed.ts`).
+       The **group page feed is already correct** and must not change:
+       settlements are group-scoped, so a batch contributes exactly one row to
+       any single group's ledger.
+     - **Privacy is not a constraint here, unlike the group feed.** The earlier
+       decision rejected annotating group-feed rows with "part of a $45
+       payment" because that feed is visible to every active member and would
+       leak cross-group business to bystanders. `/activity` is the viewer's own
+       feed, so collapsing N rows into "Settled $50 with Alex across 2 groups"
+       exposes nothing new.
+     - Shape: carry `batch_id` onto the settlement variant of `ActivityItem`
+       and collapse in `useAllActivity` — the same client-side grouping as
+       `groupNotifications`, on the same key. `mergeFeed` stays presentational.
    - [ ] **`buildPeopleFlow` — the sub-cent residue and the `AllSquare` copy**
      (see below). Reduced 2026-08-08: the zero-net person, which was the
      reason this sat in phase 3 rather than later, is now a decision rather
@@ -876,16 +922,59 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
       This is that work, picked back up.
     - **Scope:** a third `Screen` state in `SettleUpSheet`
       (`'list' | 'record-payment' | 'success'`), shown after `handleConfirm`'s
-      `mutateAsync` resolves, before the sheet closes. Check the design for
-      auto-dismiss vs. tap-to-close. Copy should read fine for both directions
-      given item 5(a)'s pending/confirmed split — "Settled $X with [Name]" works
-      either way; only diverge if the design itself differentiates paid vs.
-      marked-as-paid.
-    - **Independent of item 5's batch model** — this covers the single-transfer
-      `SettleUpSheet` path and can ship on its own. Settle-all (once item 5
-      phase 2 lands) will eventually want its own summary screen ("Settled $50
-      across 2 groups with Alex") — note it here so it isn't rediscovered as a
-      gap, but don't scope it now.
+      `mutateAsync` resolves, before the sheet closes.
+
+    **Design read 2026-08-09** (`variation-settle-flow.jsx`). Two success
+    states exist and they belong to different flows:
+    - `SFPaymentSent` — after *I* record a payment. 84×84 radius-26 `mintSoft`
+      tile with a 38px `mintInk` checkmark; "Payment recorded" in Bricolage
+      26/700 (`letterSpacing: -0.8`); body at 14px `inkMuted`, `lineHeight
+      1.6`, `maxWidth: 270` — "**Sam** will see your $146 via Venmo and confirm
+      when it arrives."; a receipt card (`surface`, radius 16, `0.5px line`,
+      44px avatar, amount in JetBrains Mono `mintInk`, "⏳ Awaiting
+      confirmation" in `inkFaint`); then a full-width `ink`-on-`bg` **Done**
+      button, `maxWidth: 320`.
+    - `SFSettlementConfirmed` — after the *payee* confirms. Same check tile,
+      "Confirmed!", "$80 from **Sam** is locked in. Balances have been
+      updated.", Done. **This one is not part of this item** — it belongs to
+      the notification-center flow (item 12 phase B), not `SettleUpSheet`.
+
+    **Answers the open question: tap-to-close, not auto-dismiss.** Both states
+    end in an explicit Done button.
+
+    **Decided 2026-08-09 — contain it in the modal, don't port the full-page
+    treatment.** The design renders both as `position: absolute; inset: 0`
+    overlays at `zIndex: 95` covering the whole phone frame. In the app this
+    becomes a third screen *inside* `ModalOrSheet`, swapped the same way
+    `'list'`/`'record-payment'` already are — no overlay, no new portal. Keep
+    the vertical rhythm (check tile → headline → body → receipt → Done) and
+    let it size to the sheet rather than the viewport.
+    - **Ties to item 8's settle-drawer sizing bug.** The settle sheet is
+      content-sized (`.tally-sheet-content` has `max-height` but no fixed
+      `height`, unlike `.add-expense-panel-root`), so it already resizes
+      between its two screens. Adding a third screen of a different height
+      makes that worse — fix the height pinning *with* this, not after.
+
+    **Three outcomes need three copies — the design only covers the first.**
+    `SFPaymentSent`'s entire body is about awaiting confirmation, which is
+    wrong for the other two:
+    | Case | Status | Copy |
+    |---|---|---|
+    | I paid you | `pending` | "…will confirm when it arrives" + ⏳ awaiting badge |
+    | You paid me | `confirmed` | "Marked as settled · [Name] has been notified" — no awaiting badge, nothing is outstanding |
+    | Settle-all batch | either | "Settled $50 across 2 groups with Alex" + one line per group |
+    The earlier note here ("copy should read fine for both directions… only
+    diverge if the design itself differentiates") is superseded: it does
+    differentiate, implicitly, by writing the pending case only.
+    - **Build it with item 5 step 3, not after** *(revised 2026-08-09; the
+      earlier note called it independent and deferred the batch variant).*
+      It can still ship standalone, but step 3 is where its absence starts
+      costing something real: today a silent close after one row in one group
+      is merely unsatisfying, whereas settle-all closing silently swallows
+      "$50 moved across 2 groups" — a multi-group write with no acknowledgment
+      is where people double-settle because they can't tell the first one
+      took. So scope the batch variant now (third row of the copy table
+      above) rather than filing it as a future gap.
 
 11. **Code review** — run `/code-review` (or `/code-review ultra` for the deeper
     multi-agent pass) once 1–10 are done, before calling it shippable.

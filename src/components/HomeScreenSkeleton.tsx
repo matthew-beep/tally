@@ -7,7 +7,7 @@ import { T } from '@/design/tokens'
 //   HeroSkeleton         → HeroCard          (page.tsx)
 //   OpenBalancesSkeleton → OpenBalances      (page.tsx) → BalanceTable (desktop)
 //   AttentionSkeleton    → GroupInviteCard / SettlementConfirmCard
-//   RailActivitySkeleton → ActivityRow
+//   RailActivitySkeleton → FeedCard size="compact"
 //
 // If you change padding/size in one of those, change it here too.
 
@@ -208,7 +208,7 @@ export function AttentionSkeleton({ rows = 2 }: { rows?: number }) {
 }
 
 /**
- * Recent-activity preview rows — ActivityRow (34px tile, 11/14 padding).
+ * Recent-activity preview rows — FeedCard size="compact" (34px tile, 11/14 padding).
  * `rows` should track the limit passed to useAllActivity() on the home page.
  */
 export function RailActivitySkeleton({ rows = 6 }: { rows?: number }) {

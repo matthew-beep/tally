@@ -76,29 +76,39 @@ export function useConfirmSettlement() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, groupId, notificationId }: { id: string; groupId: string; notificationId: string }) => {
+    mutationFn: async ({ settlementIds, groupIds, notificationIds }: {
+      settlementIds: string[]
+      groupIds: string[]
+      notificationIds: string[]
+    }) => {
       // Deny deletes the settlement outright, which cascades into notifications
       // (settlement_id REFERENCES settlements ON DELETE CASCADE) — no explicit
       // read-marking needed there. Confirm only updates status, so the row
       // survives and the original settlement_confirm notification must be
       // marked read explicitly, same pattern as useAcceptGroupInvite.
       //
-      // Sequential, not Promise.all: marking the request read is only correct
-      // if the settlement actually got confirmed. Run in parallel, a rejected
+      // `.in`, not `.eq`: one payment can allocate across several groups, and
+      // confirm/deny act on the whole batch (item 5 (d)) — you cannot
+      // half-receive a transfer. Each is still a single statement.
+      //
+      // Sequential, not Promise.all: marking the requests read is only correct
+      // if the settlements actually got confirmed. Run in parallel, a rejected
       // UPDATE (RLS allows the payee only) still retires the card, leaving the
-      // settlement pending with nothing left in the UI to act on it.
+      // settlements pending with nothing left in the UI to act on them.
       const { error: confirmError } = await supabase
-        .from('settlements').update({ status: 'confirmed' }).eq('id', id)
+        .from('settlements').update({ status: 'confirmed' }).in('id', settlementIds)
       if (confirmError) throw confirmError
 
       const { error: readError } = await supabase
-        .from('notifications').update({ read: true }).eq('id', notificationId)
+        .from('notifications').update({ read: true }).in('id', notificationIds)
       if (readError) throw readError
 
-      return { id, groupId }
+      return { groupIds }
     },
-    onSuccess: ({ groupId }) => {
-      qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+    onSuccess: ({ groupIds }) => {
+      for (const groupId of groupIds) {
+        qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      }
       qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })
@@ -108,17 +118,23 @@ export function useDenySettlement() {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, groupId }: { id: string; groupId: string }) => {
+    mutationFn: async ({ settlementIds, groupIds }: { settlementIds: string[]; groupIds: string[] }) => {
+      // Deletes the whole batch, including any offsetting rows — the offset
+      // only ever existed as part of that netting, so denying the payment
+      // denies all of it (item 5 (a′)).
+      //
       // Checked, not fire-and-forget: this DELETE failed on every attempt from
       // the day it was written until 20260805010000 (the trigger's FK
       // violation), and nothing noticed precisely because the error was
       // dropped here — PostgREST returns it in `error` rather than throwing.
-      const { error } = await supabase.from('settlements').delete().eq('id', id)
+      const { error } = await supabase.from('settlements').delete().in('id', settlementIds)
       if (error) throw error
-      return { id, groupId }
+      return { groupIds }
     },
-    onSuccess: ({ groupId }) => {
-      qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+    onSuccess: ({ groupIds }) => {
+      for (const groupId of groupIds) {
+        qc.invalidateQueries({ queryKey: ['settlements', groupId] })
+      }
       qc.invalidateQueries({ queryKey: ['notifications'] })
     },
   })

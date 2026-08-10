@@ -1,6 +1,8 @@
-import type { Profile } from '@/types'
+import type { AvatarSource } from '@/types'
 
-export type AvatarSource = Pick<Profile, 'name' | 'display_name' | 'avatar_url'>
+// Canonical definition lives in @/types (FeedCardModel needs it too);
+// re-exported here so the existing `from '@/lib/memberDisplay'` imports keep working.
+export type { AvatarSource }
 
 type MemberNameSource = {
   name: string

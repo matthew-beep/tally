@@ -73,12 +73,18 @@ recomputes automatically because it derives from those caches.
 | Event | Keys to invalidate |
 |---|---|
 | Add / edit / delete expense | `['expenses', gid]` (+ `['settlements', gid]` where relevant) |
-| Settle up / confirm / deny | `['settlements', gid]`, `['notifications']` |
+| Settle up / confirm / deny | `['settlements', gid]` **for every group the payment touched**, `['notifications']` |
 | Membership change (create/delete group, accept/decline invite, leave) | `['groups']`, `['group_members', gid]`, `['notifications']` as relevant |
 
 `['groups']` is the root: invalidating it prefix-matches `['groups', id]`
 detail entries too, and a changed ids result re-drives the fan-out. There
 are no aggregate cache keys to remember — that bug class is gone.
+
+One settlement mutation can span groups (a payment allocates across all the
+groups it zeroes — see flows.md), so the settlement hooks loop over the batch's
+distinct `group_id`s rather than invalidating a single `gid`. Activity, the
+home rail and `useGlobalBalances` all derive from those same per-group caches
+with no keys of their own, so that loop covers every surface.
 
 ## Constraints and escape hatches
 

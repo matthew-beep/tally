@@ -9,6 +9,7 @@ import { ModalOrSheet, ModalContent, ModalFooter } from '@/components/modal'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { formatAmount, stripNegative } from '@/lib/money'
 import { calcExpenseNets } from '@/lib/balance'
+import { ReactionPills } from '@/components/ReactionPills'
 import { useDeleteExpense, useUpdateExpense } from '@/queries/useExpenses'
 import type { Expense, GroupMember } from '@/types'
 
@@ -18,6 +19,13 @@ interface Props {
   groupId: string
   /** The viewer's seat in this group — renders their own split row as "You". */
   mySeatId?: string
+  /**
+   * Whether the viewer may write social content. False for guests (no
+   * user_id, so the RLS author check can never pass) and left members
+   * (excluded by the group gate) — without it the UI offers actions the
+   * database will reject in silence.
+   */
+  canPost?: boolean
   onClose: () => void
 }
 
@@ -249,11 +257,13 @@ function DeleteConfirmDrawer({
 // did to each participant. Edit/Delete live in the footer rather than being
 // the point of the sheet. Reactions and comments land here next.
 function ExpenseDetailScreen({
-  expense, members, mySeatId,
+  expense, members, groupId, mySeatId, canPost,
 }: {
   expense: Expense
   members: GroupMember[]
+  groupId: string
   mySeatId?: string
+  canPost: boolean
 }) {
   const memberById: Record<string, GroupMember> = Object.fromEntries(members.map(m => [m.id, m]))
   const payer     = memberById[expense.paid_by]
@@ -310,12 +320,21 @@ function ExpenseDetailScreen({
           })}
         </div>
       </div>
+
+      <ReactionPills
+        expenseId={expense.id}
+        groupId={groupId}
+        mySeatId={mySeatId}
+        canPost={canPost}
+        size="drawer"
+        label="Reactions"
+      />
     </ModalContent>
   )
 }
 
 // ── Root sheet ───────────────────────────────────────────────────────────
-export function ExpenseActionSheet({ expense, members, groupId, mySeatId, onClose }: Props) {
+export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPost = false, onClose }: Props) {
   const deleteExpense = useDeleteExpense(groupId)
   const [screen, setScreen] = useState<Screen>('detail')
 
@@ -361,7 +380,13 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, onClos
 
       {screen === 'detail' && (
         <>
-          <ExpenseDetailScreen expense={expense} members={members} mySeatId={mySeatId} />
+          <ExpenseDetailScreen
+            expense={expense}
+            members={members}
+            groupId={groupId}
+            mySeatId={mySeatId}
+            canPost={canPost}
+          />
 
           {/* Edit/Delete are demoted to a footer — the sheet is about the
               expense, not about acting on it. ModalFooter is flexShrink:0

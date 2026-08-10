@@ -56,6 +56,18 @@ export interface ExpenseSplit {
   owed_amount: number
 }
 
+// Seat-keyed like the money tables, and carrying a denormalized group_id whose
+// agreement with the expense is enforced by a composite FK (see
+// 20260809000000_expense_reactions.sql). Never enters a balance.
+export interface ExpenseReaction {
+  id: string
+  expense_id: string
+  group_id: string
+  group_member_id: string
+  emoji: string
+  created_at: string
+}
+
 export interface ExpenseItem {
   id: string
   expense_id: string
@@ -104,6 +116,29 @@ export interface Notification {
   group?: Pick<Group, 'id' | 'name' | 'emoji'>
 }
 
+/**
+ * One payment's worth of notifications, collapsed into a single card.
+ *
+ * A settle-all across three groups writes three settlement rows sharing a
+ * `batch_id`, and the per-row triggers emit one notification each — so the
+ * payee would otherwise get three confirm requests for one transfer, and could
+ * confirm one while denying another (item 5 (d) says that's impossible: you
+ * can't half-receive $45). Grouping here is what makes confirm/deny act on the
+ * payment rather than on a slice of it.
+ *
+ * Invite notifications have no payment behind them (`batch_id` is NULL) and
+ * pass through as batches of one.
+ */
+export interface NotificationBatch {
+  key: string                   // stable React key — batch_id, or the row id when there is none
+  batchId: string | null
+  type: Notification['type']    // uniform across a batch by construction
+  notifications: Notification[]
+  settlements: Settlement[]     // empty for settlement_denied — the rows are gone
+  amount: number                // gross across the batch
+  net: number | null            // signed, from the recipient's view; null when no settlements survive
+}
+
 // Presentational — a single open balance with one counterparty, scoped to
 // one group. Callers (group page, dashboard) build these from data they've
 // already fetched; SettleUpSheet takes them as props and does no fetching
@@ -128,6 +163,38 @@ export interface PersonPart {
   amount: number          // + they owe me, − I owe them (my perspective)
   groupMemberId: string   // counterparty's seat in this group
   mySeatId: string        // my seat in this group — differs per group
+}
+
+/** Avatar input already resolved for guests and users alike. */
+export type AvatarSource = Pick<Profile, 'name' | 'display_name' | 'avatar_url'>
+
+// Presentational — one entry in any feed, group-scoped or cross-group.
+// Built by the caller from data it already holds (src/lib/feedCards.ts);
+// FeedCard renders it and derives nothing.
+//
+// Every optional field is a presentational primitive on purpose. The moment
+// this carries an `expense: Expense`, it stops being a normalized view model
+// and becomes two components fused with branches — the same discipline
+// Transfer follows by carrying a resolved `avatar` and `slot` rather than a
+// GroupMember.
+export interface FeedCardModel {
+  id: string
+  icon:
+    | { kind: 'emoji'; emoji: string }
+    | { kind: 'settlement'; confirmed: boolean }
+  title: string
+  /** Rendered muted beside the title, e.g. "(edited)". */
+  titleTag?: string
+  subtitle: string
+  /** Mono chip on the subtitle line — settlements only. */
+  statusTag?: 'pending' | 'confirmed'
+  amount: number
+  amountTone?: 'neutral' | 'positive' | 'negative'
+  /** Small caption under the amount, e.g. "your share". */
+  amountCaption?: string
+  /** Split-among avatars. Group feed only, and only rendered on desktop. */
+  participants?: { id: string; avatar: AvatarSource; slot: 0 | 1 | 2 | 3; isYou: boolean }[]
+  onClick?: () => void
 }
 
 export type ActivityItem =

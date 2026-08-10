@@ -138,7 +138,10 @@ export default function MePage() {
   const markRead = useMarkNotificationsRead()
   const markedIds = useRef<Set<string>>(new Set())
 
-  const infoNotifications = notifications.filter(n => INFO_TYPES.includes(n.type))
+  const infoBatches = notifications.filter(b => INFO_TYPES.includes(b.type))
+  // Flattened: info rows are read-only and auto-marked, so they read one per
+  // event. Only the actionable cards above need the batch collapsed.
+  const infoNotifications = infoBatches.flatMap(b => b.notifications)
 
   useEffect(() => {
     const ids = infoNotifications.map(n => n.id).filter(id => !markedIds.current.has(id))
@@ -181,26 +184,26 @@ export default function MePage() {
         <ProfileSettings />
 
         {/* Group invites */}
-        {notifications.filter(n => n.type === 'group_invite').length > 0 && (
+        {notifications.filter(b => b.type === 'group_invite').length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <SectionLabel style={{ marginBottom: 10 }}>Group invites</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {notifications
-                .filter(n => n.type === 'group_invite')
-                .map(n => <GroupInviteCard key={n.id} notification={n} />)
+                .filter(b => b.type === 'group_invite')
+                .map(b => <GroupInviteCard key={b.key} batch={b} />)
               }
             </div>
           </div>
         )}
 
         {/* Settlement confirmations */}
-        {notifications.filter(n => n.type === 'settlement_confirm').length > 0 && (
+        {notifications.filter(b => b.type === 'settlement_confirm').length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <SectionLabel style={{ marginBottom: 10 }}>Confirmation requests</SectionLabel>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {notifications
-                .filter(n => n.type === 'settlement_confirm')
-                .map(n => <SettlementConfirmCard key={n.id} notification={n} />)
+                .filter(b => b.type === 'settlement_confirm')
+                .map(b => <SettlementConfirmCard key={b.key} batch={b} />)
               }
             </div>
           </div>

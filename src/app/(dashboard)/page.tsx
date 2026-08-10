@@ -15,11 +15,12 @@ import { useAllActivity } from '@/queries/useActivity'
 import { PersonProfileSheet } from '@/components/home/PersonProfileSheet'
 import { BalanceSheet } from '@/components/home/BalanceSheet'
 import { BalanceTable, type BalanceRow } from '@/components/dashboard/BalanceTable'
-import { ActivityRow } from '@/components/ActivityRow'
+import { FeedCard } from '@/components/feed/FeedCard'
+import { toActivityCard } from '@/lib/feedCards'
 import { GroupInviteCard } from '@/components/notifications/GroupInviteCard'
 import { SettlementConfirmCard } from '@/components/notifications/SettlementConfirmCard'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
-import type { Profile, Notification, ActivityItem, PersonPart } from '@/types'
+import type { Profile, Notification, NotificationBatch, ActivityItem, PersonPart } from '@/types'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -384,13 +385,13 @@ const ACTIONABLE_TYPES: Notification['type'][] = ['group_invite', 'settlement_co
 const RAIL_ACTIVITY_LIMIT = 6
 
 function NeedsAttentionRail({ notifications, notificationsLoading, activityItems, activityLoading }: {
-  notifications: Notification[]
+  notifications: NotificationBatch[]
   notificationsLoading: boolean
   activityItems: ActivityItem[]
   activityLoading: boolean
 }) {
   const router = useRouter()
-  const actionable = notifications.filter(n => ACTIONABLE_TYPES.includes(n.type))
+  const actionable = notifications.filter(b => ACTIONABLE_TYPES.includes(b.type))
   const recent = activityItems
 
   return (
@@ -404,10 +405,10 @@ function NeedsAttentionRail({ notifications, notificationsLoading, activityItems
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-          {actionable.map(n =>
-            n.type === 'group_invite'
-              ? <GroupInviteCard key={n.id} notification={n} />
-              : <SettlementConfirmCard key={n.id} notification={n} />
+          {actionable.map(b =>
+            b.type === 'group_invite'
+              ? <GroupInviteCard key={b.key} batch={b} />
+              : <SettlementConfirmCard key={b.key} batch={b} />
           )}
         </div>
       )}
@@ -420,9 +421,14 @@ function NeedsAttentionRail({ notifications, notificationsLoading, activityItems
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {recent.map(item => (
-                <div key={item.id} onClick={() => router.push(`/groups/${item.groupId}`)} style={{ cursor: 'pointer' }}>
-                  <ActivityRow item={item} showGroup />
-                </div>
+                <FeedCard
+                  key={item.id}
+                  size="compact"
+                  model={{
+                    ...toActivityCard(item, true),
+                    onClick: () => router.push(`/groups/${item.groupId}`),
+                  }}
+                />
               ))}
             </div>
           )}

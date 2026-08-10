@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { createClient, getAuthUser } from '@/lib/supabase'
+import { groupNotifications } from '@/lib/notifications'
 import type { Profile, Notification } from '@/types'
 
 export function useCurrentProfile() {
@@ -132,7 +133,12 @@ export function useNotifications() {
         .eq('read', false)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return (data ?? []) as Notification[]
+      // Grouped here rather than at each surface: /me, the home rail and the
+      // notification center all need the same collapse, and confirm/deny have
+      // to act on a whole payment (item 5 (d)). recipient_id is a profile id,
+      // and profiles.id === auth.users.id for real users, so user.id is the
+      // right key for working out which side of each settlement is mine.
+      return groupNotifications((data ?? []) as Notification[], user.id)
     },
   })
 }

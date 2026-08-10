@@ -9,7 +9,6 @@
 | `/groups/new` | `(dashboard)/groups/new/page.tsx` | ✓ | Create group |
 | `/groups/[id]` | `(dashboard)/groups/[id]/page.tsx` | ✓ | Group detail — balances, members, expense/settlement feed, action sheets |
 | `/groups/[id]/add` | `(dashboard)/groups/[id]/add/page.tsx` | ✓ | Add expense (full-page variant) |
-| `/groups/[id]/settle` | `(dashboard)/groups/[id]/settle/page.tsx` | ✓ | Settle up |
 | `/activity` | `(dashboard)/activity/page.tsx` | ✓ | Cross-group activity feed |
 | `/me` | `(dashboard)/me/page.tsx` | ✓ | Profile, pending invites, settlement confirmations |
 | `/login` | `login/page.tsx` | public | Google OAuth + dev login |
@@ -38,7 +37,7 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 | `useCurrentProfile`, `useUpdateProfile` | `useProfile.ts` | Own profile read/update (display_name, handle) |
 | `useSearchProfiles` | `useProfile.ts` | 3-mode member search (@handle / add_code / fuzzy) |
 | `useProfileByAddCode` | `useProfile.ts` | QR add-code lookup |
-| `useNotifications` | `useProfile.ts` | Unread notifications with settlement/group joins |
+| `useNotifications` | `useProfile.ts` | Unread notifications with settlement/group joins, grouped by `batch_id` into `NotificationBatch[]` — one entry per payment, not per row |
 | `useGroups`, `useGroup` | `useGroups.ts` | My groups (active memberships only), single group. `groupsQueryOptions` is the root of the cross-group dependency tree |
 | `useMyGroupIds` | `useMyGroupIds.ts` | Ids view over the `['groups']` cache via `select` — not a query of its own |
 | `useAllGroupData` | `useAllGroupData.ts` | `useQueries` fan-out: expenses/settlements/members per group, sharing the single-group hooks' cache keys |
@@ -50,8 +49,9 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 | `useAddExpense` | `useExpenses.ts` | Insert expense + splits |
 | `useUpdateExpense` | `useExpenses.ts` | Edit desc/amount/payer; rescales splits proportionally |
 | `useDeleteExpense` | `useExpenses.ts` | Soft delete (`deleted_at`) |
-| `useSettlements`, `useCreateSettlement` | `useSettlements.ts` | Group settlements; record as pending |
-| `useConfirmSettlement`, `useDenySettlement` | `useSettlements.ts` | Confirm / deny (delete) |
+| `useSettlements` | `useSettlements.ts` | Group settlements |
+| `useCreateSettlements` | `useSettlements.ts` | **Plural, group-unbound.** One payment → N rows sharing a `batch_id` and one status, written in a single atomic insert. A one-group settle is a batch of one; there is no singular variant |
+| `useConfirmSettlement`, `useDenySettlement` | `useSettlements.ts` | Confirm / deny (delete) — act on every row in the batch (`.in('id', ids)`), never a slice of a payment |
 | `useGlobalBalances` | `useGlobalBalances.ts` | **Derivation, no query of its own** — folds the per-group caches into cross-group nets, per-person pairwise, hero grosses |
 | `useAllActivity` | `useActivity.ts` | **Derivation** — `mergeFeed` per group, shaped + bucketed by group |
 
@@ -68,6 +68,8 @@ never cached in the DB — recomputation happens on read.
 | `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold), `calcExpenseNets` (one expense's effect per participant — detail sheet only, not a balance) — all pure, tested incl. pairwise↔net invariant. No min-transfer simplification (`simplifyDebts`, deleted 2026-08-02) — settling up always uses pairwise nets |
 | `leaderboard.ts` | `calcLeaderboard` — gross fronted per member, ranked. Not a balance: settlements never subtract from it |
 | `feed.ts` | `mergeFeed` — expenses + settlements → one `created_at`-sorted tagged timeline |
+| `settlements.ts` | `batchNet` / `batchStatus` / `buildSettlementBatch` — turns allocations into insert-ready rows. Owns the rule that a batch's confirmation status comes from the sign of its net, once per payment rather than per row |
+| `notifications.ts` | `groupNotifications` — collapses a recipient's rows into one `NotificationBatch` per payment, plus the id helpers confirm/deny and cache invalidation read from |
 | `api.ts` | `postJson` — the one way to call internal API routes; always throws the server's `{ error }` |
 | `splits.ts` | `makeEqualSplits` / `makePercentSplits` / `makeExactSplits` / `rescaleSplits` — rounding remainder to first row |
 | `categories.ts` | 7 emoji categories, keyword auto-detect from description |
