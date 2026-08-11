@@ -50,7 +50,10 @@ profiles (
   avatar_url   text,
   add_code     text UNIQUE,        -- permanent 8-char QR/share code
   status       text DEFAULT 'active',  -- 'active' | 'guest'
-  claim_token  text UNIQUE,        -- guests claim via token (flow not built yet)
+  claim_token  text UNIQUE,        -- unused — scaffolding for a superseded guest
+                                   -- model (guest-as-profiles-row). The actual
+                                   -- claim mechanism is group_members.seat_token
+                                   -- (see flows.md § Claim a guest seat)
   created_at   timestamptz
 )
 
@@ -70,7 +73,10 @@ group_members (
   name        text NOT NULL,       -- denormalized display name (works for guests)
   status      text DEFAULT 'pending',  -- 'pending' | 'active' | 'left'
   invited_by  uuid → profiles,
-  joined_at   timestamptz
+  joined_at   timestamptz,
+  seat_token  text UNIQUE             -- claim-link token, DB default, every
+                                      -- row gets one (design finalized, not
+                                      -- yet implemented — see flows.md)
   -- UNIQUE (group_id, user_id) WHERE user_id IS NOT NULL
   --   (partial: many guest rows per group are allowed)
 )

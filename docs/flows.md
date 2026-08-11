@@ -64,15 +64,15 @@ Writes go through `POST /api/groups/members/add`: real users upsert as
 - Accept → `useAcceptGroupInvite`: UPDATE to `active`; DB trigger notifies
   the inviter. Invitee now sees the group.
 - Decline → `useDeclineGroupInvite` POSTs `/api/invite/decline`, which
-  branches on financial history (checked via service role):
-  - **No splits/expenses/settlements** → DELETE the pending row; the DELETE
-    trigger notifies the inviter.
-  - **Already in financial records** → the seat converts to a guest:
-    `UPDATE group_members SET user_id = NULL, status = 'active'`. Splits
-    keep pointing at the same `group_members` row, so history and balances
-    survive. The UPDATE trigger (`20260711000000_decline_to_guest.sql`)
-    sends `group_invite_declined` — and is guarded so the conversion never
-    fires a false `group_invite_accepted`.
+  **always** converts the seat to a guest rather than deleting it:
+  `UPDATE group_members SET user_id = NULL, status = 'active', invited_by = NULL`.
+  Splits keep pointing at the same `group_members` row, so history and
+  balances survive regardless of whether the pending invitee ever had any —
+  branching on financial history was considered and rejected as unnecessary
+  complexity (see the comment at the top of `src/app/api/invite/decline/route.ts`).
+  The `on_group_member_updated` trigger (`20260729000000_wire_group_invite_notifications.sql`)
+  sends `group_invite_declined` to the inviter, guarded so the conversion
+  never also fires a false `group_invite_accepted`.
 
   Never DELETE a member row directly on decline — `expense_splits` cascade
   on member delete, which would silently corrupt balances.
@@ -83,6 +83,56 @@ before they tap Accept. Pending gates their consent/visibility, not the math.
 Because of that, pending members are visibly marked on group detail
 (2026-07-19): "⏳ invited" pill in the members column, dimmed avatars in the
 mobile strip, ⏳ in the empty-state preview.
+
+## Claim a guest seat
+
+**Status: designed, not yet built.** See `docs/group-member-model.md` for the
+schema (`group_members.seat_token`). This section documents the intended
+end-to-end flow so implementation has a spec to build against.
+
+A guest (`group_members` row with `user_id = NULL`) can become a real member
+of that specific group without losing the expense history already attached
+to their seat — `expense_splits`, `expenses.paid_by`, and `settlements`
+already key off `group_members.id`, so claiming is a single `UPDATE`, not a
+data migration.
+
+- **Getting the link** — every `group_members` row carries a `seat_token`
+  (DB column default, same mechanism as `groups.invite_token` — generated
+  unconditionally on insert, not just for guests). Any active member of the
+  group can tap "copy claim link" on a guest row in group settings; the
+  existing `group_members: members only` RLS policy already exposes the full
+  row, token included, to everyone in the group, so no new policy is needed.
+  The link is shared out of band (text, in person, etc.) — Tally never emails
+  or SMSes it.
+- **One link, works for both cases** — whoever opens `/claim/[token]` either
+  already has a Tally account or doesn't; the flow doesn't need to know which
+  in advance. Google OAuth and the existing `handle_new_user` trigger +
+  onboarding-redirect middleware already branch new-vs-returning transparently.
+- **The route**:
+  1. `GET /api/claim/:token` (service role, works unauthenticated) validates
+     the token and returns group/guest names, so a dead link can be rejected
+     before sending anyone through OAuth. States: `invalid`, `already_claimed`,
+     `valid`.
+  2. If valid and there's no session → redirect to `/login?redirect=/claim/:token`,
+     mirroring `/invite/[token]`'s existing immediate-redirect behavior. New
+     accounts land in onboarding first (handle-null middleware redirect,
+     unchanged), then land back on `/claim/:token`.
+  3. If valid and authenticated → confirm screen → `POST /api/claim/:token`:
+     `UPDATE group_members SET user_id = :profileId, name = :displayName
+     WHERE seat_token = :token AND user_id IS NULL`.
+- **Security boundary is the `WHERE user_id IS NULL` clause, not token
+  secrecy after use.** The token is intentionally never nulled out on claim —
+  a row with `user_id` already set can't be claimed again regardless of who
+  holds the token, so keeping it lets a reused link report "already claimed
+  by X" instead of a generic error.
+- **Edge cases**: reused/already-claimed link → `already_claimed` state;
+  claimer already has an active *or* `left` row in that same group → blocked
+  by the existing `UNIQUE (group_id, user_id)` constraint, surfaced as a
+  friendly "you're already connected to this group" error rather than a raw
+  DB error; invalid/unknown token → `invalid` state.
+- **Explicit non-goal**: no cross-group guest identity. The same real person
+  added as a guest in three different groups is three unrelated seats with
+  three independent tokens — claiming one does not touch the others.
 
 ## Add an expense
 

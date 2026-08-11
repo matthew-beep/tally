@@ -36,12 +36,17 @@
   --tally-card-bg:     #FFFFFF;
   --tally-card-border: none;
   --tally-card-shadow: 0 2px 16px rgba(31,26,20,0.10), 0 1px 3px rgba(31,26,20,0.06);
-  /* Page background — mesh gradient blobs */
+  /* Page background — mesh gradient blobs.
+     Temporarily flattened to a solid color to preview against the iOS
+     Safari chrome mismatch — gradient kept below, commented out, not
+     deleted.
   --tally-page-bg:
     radial-gradient(ellipse 320px 260px at 92% 0%,   rgba(245,203,102,0.38) 0%, transparent 100%),
     radial-gradient(ellipse 280px 240px at 0%  96%,  rgba(111,210,176,0.30) 0%, transparent 100%),
     radial-gradient(ellipse 220px 200px at 18% 38%,  rgba(242,164,138,0.18) 0%, transparent 100%),
     #F4EEE3;
+  */
+  --tally-page-bg: #F4EEE3;
 }
 
 [data-theme="dark"] {
@@ -79,11 +84,15 @@
   --tally-card-bg:     #272727;
   --tally-card-border: 0.5px solid rgba(255,255,255,0.10);
   --tally-card-shadow: 0 4px 18px rgba(0,0,0,0.55);
-  /* Page background — mesh gradient blobs on OLED black */
+  /* Page background — mesh gradient blobs on OLED black.
+     Temporarily flattened to a solid color, see :root above — gradient
+     kept below, commented out, not deleted.
   --tally-page-bg:
     radial-gradient(ellipse 300px 240px at 88% 0%,   rgba(111,210,176,0.14) 0%, transparent 100%),
     radial-gradient(ellipse 260px 220px at 8%  94%,  rgba(242,164,138,0.12) 0%, transparent 100%),
     #0C0C0C;
+  */
+  --tally-page-bg: #0C0C0C;
 }
 
 /* ── Tally design tokens wired into Tailwind ── */

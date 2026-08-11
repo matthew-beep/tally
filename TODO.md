@@ -817,8 +817,8 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    uses `useAllActivity(6)`. Group shows as row metadata via `showGroup`.
    Removed `ActivityGroup` bucketing.
 
-7. **Add-expense entry point in the nav bar** 🟡 — **not started, do not
-   implement yet** (logged 2026-08-03). Today add-expense is only reachable
+7. **Add-expense entry point in the nav bar** 🟡 — **plan settled
+   2026-08-10, not yet implemented.** Today add-expense is only reachable
    from inside a group: `groups/[id]/page.tsx`'s triggers and the
    `/groups/[id]/add` route. `TabBar.tsx` has no add button and no FAB, so
    CLAUDE.md's "Tab bar + FAB" navigation model has never actually been
@@ -839,16 +839,46 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      `tally-shared.jsx`, `tweaks-panel.jsx`
 
    **Scope:** implement `Add Expense Full Flow.html`, adding an add-expense
-   button to the nav bar.
+   button to the nav bar. The design's flow is: tap `+` → group picker
+   sheet (list of groups, dashed "New group" row at the bottom) → the
+   already-shipped add-expense sheet for the picked group.
 
-   **Prior art to reuse rather than rebuild** — the form itself already
-   exists and is sheet-ready: `AddExpenseForm.tsx` plus
-   `add-expense/MobilePanel.tsx` / `DesktopPanel.tsx`, already driven by
-   `ModalOrSheet` and local `addExpenseOpen` state on the group page. The
-   open question this design has to answer is group selection: every
-   existing entry point already knows its group, but a nav-level button
-   doesn't — CLAUDE.md's FAB spec says "pick existing group or create new"
-   before the form. Check what the design does here before building.
+   **The group-selection question is answered — no new plumbing needed:**
+   `useUIStore` (`src/store/ui.ts`) already has `fabOpen`/`setFabOpen` and
+   `activeGroupId`/`setActiveGroup`, and `ModeSheet.tsx` (mounted globally
+   in `(dashboard)/layout.tsx`, driven by `fabOpen`) already exists — but
+   nothing calls `setFabOpen(true)` anywhere, so the sheet is dead, and
+   `activeGroupId` is never set, so `ModeSheet`'s "Add to a group" button
+   just falls back to the bare `/groups` list instead of picking one.
+   Concretely:
+   - **`TabBar.tsx`** — add a raised center `+` button, absolutely
+     positioned above the existing 4-tab `FloatingNav` pill (no change to
+     `FloatingNav`/`useSlider` internals — the button sits alongside it in
+     the wrapper, not inside the measured slider container), calling
+     `useUIStore().setFabOpen(true)`. `T.shadowFab` in `design/tokens.ts`
+     already exists for exactly this and is currently unused.
+   - **Replace `ModeSheet`'s body with a group picker** (new
+     `GroupPickerSheet.tsx`, or repurpose `ModeSheet.tsx` in place — same
+     `fabOpen` wiring either way): list the user's groups via `useGroups()`
+     (`{id, name, emoji}` — same row shape `Sidebar.tsx`'s group list
+     already uses; the hook doesn't join member counts/avatars, so the
+     picker skips the mockup's avatar stack rather than adding a fetch),
+     each row navigating to `/groups/${id}?add=1`, plus a dashed
+     "New group" row → `/groups/new`. This is a straight port of the
+     design's `AEFGroupPicker` (group list + dashed "New group" button)
+     minus `AEFExpenseSheet` — that sheet already exists as
+     `AddExpenseSheet`.
+   - **Picking a group needs zero changes to the add-expense form.**
+     `groups/[id]/page.tsx` already seeds `addExpenseOpen` from
+     `searchParams.get('add') === '1'` (comment there calls this out as
+     "the deep-link target for the FAB") and renders `AddExpenseSheet` —
+     the same mechanism the legacy `/groups/[id]/add` redirect stub uses.
+     `AddExpenseForm.tsx` / `AddExpenseSheet` take any `groupId` and are
+     already fully self-contained.
+   - Build the picker on the shared `ModalOrSheet` primitive
+     (`SettleUpSheet.tsx` is the reference — Vaul sheet on mobile, centered
+     modal on desktop), not `ModeSheet`'s current hand-rolled
+     overlay + manual `document.body.style.overflow` toggle.
 
    **Scope note:** `design-canvas.jsx`, `ios-frame.jsx` and
    `tweaks-panel.jsx` are the design project's own harness (canvas chrome,

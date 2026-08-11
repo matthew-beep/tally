@@ -47,8 +47,9 @@ narrower: group detail's 2-column layout and the sidebar nav. Home's
    original spec (the restaurant moment — view a split with no account).
 4. **Edit-history viewer** — data's captured in `expense_history` on every
   edit, zero UI to read it.
-5. **Guest claim flow** — guests work as split placeholders, but can't claim
-  their history into a real account (Phase 2 by design).
+5. **Guest claim flow** — design finalized (`docs/flows.md` § Claim a guest
+  seat, `docs/group-member-model.md` § Claiming), not yet implemented. Guests
+  still can't claim their history into a real account.
 6. **Cross-group "Settle all with [person]"** — home aggregates per-person
   totals across groups, but the one-tap multi-group settle isn't built.
 

@@ -93,15 +93,39 @@ Guest `group_members` rows have `user_id = NULL`. They are inherently group-scop
 
 ## Claiming
 
-When a guest creates a Tally account and claims their history:
+**Status: designed, not yet implemented.** Step-by-step UX is in
+`docs/flows.md` § Claim a guest seat — this section covers the schema and
+why it's shaped this way.
+
+Every `group_members` row carries a `seat_token`, a DB column default
+(`DEFAULT substr(md5(random()::text), 1, 12)`) generated unconditionally on
+insert — same mechanism as `groups.invite_token`. It's not guest-specific at
+generation time; a real member's row gets one too, it's just permanently
+inert there. Generating it unconditionally means none of the three places a
+guest row is created or converted (`/api/groups/create`, `/api/groups/members/add`,
+the decline-to-guest conversion in `/api/invite/decline`) need any special
+handling — the column just exists.
+
+A shareable `/claim/:seat_token` link resolves to one specific seat and
+performs:
 
 ```sql
 UPDATE group_members
 SET user_id = :new_profile_id, name = :profile_name
-WHERE id = :group_member_id;
+WHERE seat_token = :token AND user_id IS NULL;
 ```
 
 All existing `expense_splits`, `expenses.paid_by`, and `settlements` already reference `group_members.id` — nothing else needs to move.
+
+The `WHERE user_id IS NULL` clause is the actual security boundary, not
+token secrecy after the fact — once a seat is claimed, its token can never
+claim anything again regardless of who still holds it. That's why the token
+is deliberately never nulled out on claim: a reused link can report "already
+claimed by X" instead of a generic error, at no cost to security.
+
+No cross-group identity is implied by claiming. The same real person added
+as a guest in three different groups holds three unrelated seats with three
+independent tokens — claiming one has no effect on the others.
 
 ---
 
