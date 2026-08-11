@@ -21,6 +21,8 @@ export function useTheme() {
       document.documentElement.removeAttribute('data-theme')
       localStorage.setItem(KEY, 'light')
     }
+    document.querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', next ? '#0C0C0C' : '#F4EEE3')
   }
 
   return { isDark, toggle }
