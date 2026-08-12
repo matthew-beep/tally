@@ -338,11 +338,18 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
   const deleteExpense = useDeleteExpense(groupId)
   const [screen, setScreen] = useState<Screen>('detail')
 
+  // Sticky copy of the last non-null expense — ModalOrSheet stays mounted
+  // and animates out based on `open`, not on `expense` going null, so
+  // content must keep rendering from something that doesn't disappear on close.
+  const [displayExpense, setDisplayExpense] = useState<Expense | null>(expense)
   useEffect(() => {
-    if (expense) setScreen('detail')
+    if (expense) {
+      setDisplayExpense(expense)
+      setScreen('detail')
+    }
   }, [expense?.id])
 
-  if (!expense) return null
+  if (!displayExpense) return null
 
   function handleClose() {
     setScreen('detail')
@@ -350,17 +357,17 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
   }
 
   async function handleConfirmDelete() {
-    await deleteExpense.mutateAsync(expense!.id)
+    await deleteExpense.mutateAsync(displayExpense!.id)
     handleClose()
   }
 
-  const title = screen === 'edit' ? 'Edit expense' : screen === 'delete-confirm' ? 'Delete this expense?' : expense.description
+  const title = screen === 'edit' ? 'Edit expense' : screen === 'delete-confirm' ? 'Delete this expense?' : displayExpense.description
 
   return (
     <ModalOrSheet open={!!expense} onClose={handleClose} title={title} maxWidth={460}>
       {screen === 'edit' && (
         <ExpenseEditDrawer
-          expense={expense}
+          expense={displayExpense}
           members={members}
           groupId={groupId}
           onCancel={() => setScreen('detail')}
@@ -370,8 +377,8 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
 
       {screen === 'delete-confirm' && (
         <DeleteConfirmDrawer
-          expense={expense}
-          memberCount={expense.splits?.length ?? members.length}
+          expense={displayExpense}
+          memberCount={displayExpense.splits?.length ?? members.length}
           isPending={deleteExpense.isPending}
           onCancel={() => setScreen('detail')}
           onConfirm={handleConfirmDelete}
@@ -381,7 +388,7 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
       {screen === 'detail' && (
         <>
           <ExpenseDetailScreen
-            expense={expense}
+            expense={displayExpense}
             members={members}
             groupId={groupId}
             mySeatId={mySeatId}
