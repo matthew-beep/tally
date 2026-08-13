@@ -1,13 +1,17 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { T, FH, F } from '@/design/tokens'
+import { T, FH, FMONO } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
+import { AppHeader } from '@/components/dashboard/AppHeader'
 import { Card } from '@/components/Card'
-import { BalanceBadge } from '@/components/BalanceBadge'
+import { EmojiTile } from '@/components/EmojiTile'
+import { Btn } from '@/components/Btn'
+import { AvatarStack } from '@/components/Avatar'
+import { avatarProfile, slotFor } from '@/lib/memberDisplay'
 import { useGroups } from '@/queries/useGroups'
 import { useGlobalBalances } from '@/queries/useGlobalBalances'
-import type { Profile } from '@/types'
+import type { GroupMember } from '@/types'
 
 export default function GroupsPage() {
   const router = useRouter()
@@ -15,15 +19,16 @@ export default function GroupsPage() {
   const { data: gb } = useGlobalBalances()
 
   return (
-    <DashboardPage>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div style={{ fontSize: 24, fontWeight: 700, fontFamily: FH, letterSpacing: -0.5 }}>Groups</div>
-          <button
-            onClick={() => router.push('/groups/new')}
-            style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '8px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: F }}
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
+      <AppHeader title="Groups" />
+      <DashboardPage>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
+          <Btn
+            onClick={() => router.push('/groups/new')} variant="dark" size="md"
+            style={{ padding: '8px 16px', fontSize: 13 }}
           >
             + New group
-          </button>
+          </Btn>
         </div>
 
         {isLoading && <div style={{ color: T.inkMuted, fontSize: 14 }}>Loading…</div>}
@@ -33,12 +38,12 @@ export default function GroupsPage() {
             <div style={{ fontSize: 32, marginBottom: 12 }}>👥</div>
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No groups yet</div>
             <div style={{ fontSize: 13, color: T.inkMuted, marginBottom: 20 }}>Create a group and start splitting expenses with friends.</div>
-            <button
-              onClick={() => router.push('/groups/new')}
-              style={{ background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, padding: '11px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: F }}
+            <Btn
+              onClick={() => router.push('/groups/new')} variant="dark" size="md"
+              style={{ padding: '11px 24px', fontSize: 14 }}
             >
               Create your first group
-            </button>
+            </Btn>
           </Card>
         )}
 
@@ -47,7 +52,8 @@ export default function GroupsPage() {
             <GroupCard key={g.id} group={g} myId={gb?.myId} netPerGroup={gb?.netPerGroup} membersPerGroup={gb?.membersPerGroup} />
           ))}
         </div>
-    </DashboardPage>
+      </DashboardPage>
+    </div>
   )
 }
 
@@ -55,28 +61,60 @@ function GroupCard({ group, myId, netPerGroup, membersPerGroup }: {
   group: { id: string; name: string; emoji: string }
   myId?: string
   netPerGroup?: Record<string, Record<string, number>>
-  membersPerGroup?: Record<string, Array<{ user_id: string | null; profile?: Profile }>>
+  membersPerGroup?: Record<string, GroupMember[]>
 }) {
   const router = useRouter()
   const members = membersPerGroup?.[group.id] ?? []
   const myBalance = myId && netPerGroup ? (netPerGroup[group.id]?.[myId] ?? 0) : 0
+  const square = Math.abs(myBalance) < 0.01
+
+  const avatarItems = members.map(m => ({
+    profile: avatarProfile(m),
+    slot: slotFor(members, m.id),
+    isYou: m.user_id === myId,
+  }))
 
   return (
     <Card
       hoverable
       onClick={() => router.push(`/groups/${group.id}`)}
-      style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}
+      style={{ padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}
     >
-      <div style={{ fontSize: 24, width: 44, height: 44, background: T.bg, borderRadius: T.r.md, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        {group.emoji}
-      </div>
+      <EmojiTile emoji={group.emoji} size={46} fontSize={24} radius={15} background={T.bg} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, fontFamily: FH }}>{group.name}</div>
-        <div style={{ fontSize: 12, color: T.inkMuted, marginTop: 2 }}>
-          {members.length} {members.length === 1 ? 'member' : 'members'}
+        <div style={{ fontSize: 16, fontWeight: 700, letterSpacing: -0.3 }}>{group.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5 }}>
+          <AvatarStack members={avatarItems} size={18} max={4} overlap={0.4} />
+          <span style={{ fontSize: 11, color: T.inkMuted }}>
+            {members.length} {members.length === 1 ? 'member' : 'members'}
+          </span>
         </div>
       </div>
-      <BalanceBadge amount={myBalance} />
+      {square ? (
+        <div style={{ fontSize: 11.5, fontWeight: 700, color: T.inkMuted, padding: '4px 11px', background: T.bg, borderRadius: T.r.pill, flexShrink: 0 }}>
+          square ✓
+        </div>
+      ) : (
+        <GroupCardAmount amount={myBalance} />
+      )}
     </Card>
+  )
+}
+
+function GroupCardAmount({ amount }: { amount: number }) {
+  const pos = amount > 0
+  const abs = Math.abs(amount)
+  const whole = Math.floor(abs)
+  const cents = String(Math.round((abs - whole) * 100)).padStart(2, '0')
+
+  return (
+    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+      <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 600, letterSpacing: -0.5, color: pos ? T.mintInk : T.coralInk }}>
+        <span style={{ opacity: 0.5 }}>{pos ? '+' : '−'}$</span>
+        {whole.toLocaleString()}
+        <span style={{ fontFamily: FMONO, fontSize: 13, opacity: 0.6 }}>.{cents}</span>
+      </div>
+      <div style={{ fontSize: 10, color: T.inkMuted, marginTop: 1 }}>{pos ? "you're owed" : 'you owe'}</div>
+    </div>
   )
 }

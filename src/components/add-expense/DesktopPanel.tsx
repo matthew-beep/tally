@@ -8,6 +8,7 @@ import { CATEGORIES } from '@/lib/categories'
 import { avatarProfile } from '@/lib/memberDisplay'
 import { formatAmount, round2, stripNegative, parseNum } from '@/lib/money'
 import { ModalHeader } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import type { GroupMember } from '@/types'
 import type { SplitMode } from './types'
 import { RemainderCounter, shortName } from './parts'
@@ -32,8 +33,8 @@ function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMo
         return (
           <button key={tab.v} type="button" onClick={() => onChange(tab.v)} style={{
             border: 0, cursor: 'pointer', padding: '8px 15px',
-            background: on ? T.ink : 'transparent',
-            color: on ? T.bg : T.inkMuted,
+            background: on ? T.sun : 'transparent',
+            color: on ? T.sunInk : T.inkMuted,
             borderRadius: 10, fontFamily: F, fontSize: 13, fontWeight: 600,
             boxShadow: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none',
             transition: 'all 0.15s',
@@ -226,8 +227,8 @@ function CategoryChips({ category, onSelect }: { category: string; onSelect: (em
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '4px 10px 4px 8px', borderRadius: 999,
-              background: on ? T.ink : 'transparent',
-              color: on ? T.bg : T.ink,
+              background: on ? T.sun : 'transparent',
+              color: on ? T.sunInk : T.ink,
               boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
               border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 600, fontFamily: F,
             }}
@@ -278,17 +279,16 @@ function SaveFooter({ onCancel, onSave, canSave, saveLabel, isPending, statusHin
           type="button" onClick={onCancel}
           style={{ padding: '10px 16px', borderRadius: 10, background: 'transparent', color: T.inkMuted, border: 0, cursor: 'pointer', fontFamily: F, fontSize: 13, fontWeight: 700 }}
         >Cancel</button>
-        <button
-          type="button" onClick={onSave} disabled={!canSave || isPending}
+        <Btn
+          onClick={onSave} disabled={!canSave || isPending} variant="primary" size="md"
           style={{
             padding: '10px 20px', borderRadius: 10,
             background: canSave ? T.sun : T.lineStrong,
             color: canSave ? T.sunInk : T.inkFaint,
-            border: 0, cursor: canSave && !isPending ? 'pointer' : 'default',
-            fontFamily: FH, fontSize: 14, fontWeight: 600, letterSpacing: -0.2,
+            fontSize: 14, letterSpacing: -0.2,
             boxShadow: canSave ? '0 6px 16px rgba(242,192,74,0.32)' : 'none',
           }}
-        >{saveLabel}</button>
+        >{saveLabel}</Btn>
       </div>
     </footer>
   )

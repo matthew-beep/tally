@@ -5,6 +5,7 @@ import { T, FH } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { formatAmount, stripNegative } from '@/lib/money'
 import { useCreateSettlements } from '@/queries/useSettlements'
 import { SettleSuccess } from '@/components/settle/SettleSuccess'
@@ -91,17 +92,10 @@ function RecordPaymentDrawer({
         </div>
       </div>
 
-      <button
-        onClick={() => onConfirm(amt, note.trim())}
-        disabled={!canConfirm}
-        style={{
-          width: '100%', padding: '13px', borderRadius: 14, border: 0,
-          cursor: canConfirm ? 'pointer' : 'default', font: 'inherit', fontFamily: FH,
-          fontSize: 14.5, fontWeight: 700,
-          background: canConfirm ? T.sun : T.lineStrong, color: canConfirm ? T.sunInk : T.inkFaint,
-          transition: 'all 0.18s',
-        }}
-      >{isPending ? 'Saving…' : paying ? `Pay ${formatAmount(amt)}` : 'Mark as paid'}</button>
+      <Btn
+        onClick={() => onConfirm(amt, note.trim())} disabled={!canConfirm} variant="primary" size="lg" fullWidth
+        style={{ transition: 'all 0.18s' }}
+      >{isPending ? 'Saving…' : paying ? `Pay ${formatAmount(amt)}` : 'Mark as paid'}</Btn>
     </ModalContent>
   )
 }

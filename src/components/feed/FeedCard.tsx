@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { T, FMONO } from '@/design/tokens'
-import { Avatar } from '@/components/Avatar'
+import { AvatarStack } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { formatAmount } from '@/lib/money'
 import type { FeedCardModel } from '@/types'
@@ -75,11 +75,14 @@ export function FeedCard({ model, size = 'full', footer, className }: Props) {
                 <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }} />
                 <span>split {model.participants.length} ways</span>
                 <span style={{ display: 'inline-flex', marginLeft: 2 }}>
-                  {model.participants.slice(0, 4).map((p, i) => (
-                    <span key={p.id} style={{ marginLeft: i > 0 ? -6 : 0, borderRadius: '50%', border: `1.5px solid ${T.surface}`, display: 'inline-flex' }}>
-                      <Avatar profile={p.avatar} slot={p.slot} size={16} isYou={p.isYou} />
-                    </span>
-                  ))}
+                  <AvatarStack
+                    members={model.participants.map(p => ({ profile: p.avatar, slot: p.slot, isYou: p.isYou }))}
+                    size={16}
+                    max={4}
+                    overlap={6 / 16}
+                    ringColor={T.surface}
+                    ringWidth={1.5}
+                  />
                 </span>
               </span>
             )}

@@ -1,7 +1,8 @@
 'use client'
 
-import { T, FH } from '@/design/tokens'
+import { T } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
+import { AppHeader } from '@/components/dashboard/AppHeader'
 import { Card } from '@/components/Card'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { toActivityCard } from '@/lib/feedCards'
@@ -33,40 +34,41 @@ export default function ActivityPage() {
   const buckets = bucketByMonth(items)
 
   return (
-    <DashboardPage>
-      <div style={{ fontSize: 24, fontWeight: 700, fontFamily: FH, letterSpacing: -0.5, marginBottom: 24 }}>Activity</div>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
+      <AppHeader title="Activity" />
+      <DashboardPage>
+        {isLoading && (
+          <div style={{ color: T.inkMuted, fontSize: 14 }}>Loading…</div>
+        )}
 
-      {isLoading && (
-        <div style={{ color: T.inkMuted, fontSize: 14 }}>Loading…</div>
-      )}
+        {!isLoading && items.length === 0 && (
+          <Card style={{ padding: '32px', textAlign: 'center' }}>
+            <div style={{ fontSize: 13, color: T.inkMuted }}>No activity yet. Join or create a group to get started.</div>
+          </Card>
+        )}
 
-      {!isLoading && items.length === 0 && (
-        <Card style={{ padding: '32px', textAlign: 'center' }}>
-          <div style={{ fontSize: 13, color: T.inkMuted }}>No activity yet. Join or create a group to get started.</div>
-        </Card>
-      )}
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {buckets.map(({ label, items: monthItems }) => (
-          <div key={label}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.inkMuted, marginBottom: 10 }}>
-              {label}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {buckets.map(({ label, items: monthItems }) => (
+            <div key={label}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.inkMuted, marginBottom: 10 }}>
+                {label}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {monthItems.map(item => (
+                  <FeedCard
+                    key={item.id}
+                    size="compact"
+                    model={{
+                      ...toActivityCard(item, true),
+                      onClick: () => router.push(`/groups/${item.groupId}`),
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {monthItems.map(item => (
-                <FeedCard
-                  key={item.id}
-                  size="compact"
-                  model={{
-                    ...toActivityCard(item, true),
-                    onClick: () => router.push(`/groups/${item.groupId}`),
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </DashboardPage>
+          ))}
+        </div>
+      </DashboardPage>
+    </div>
   )
 }

@@ -25,12 +25,14 @@ export function SettlementReview({ batch, onResolved }: Props) {
   const fromFirst = fromMember ? firstName(fromName) : '…'
   const multi = batch.settlements.length > 1
   const busy = deny.isPending || confirm.isPending
-  const singleGroup = batch.notifications[0]?.group
+  // Settlement notifications carry no group_id of their own — the joined
+  // settlement row is the only reliable source of group name/emoji here.
+  const singleGroup = batch.notifications[0]?.settlement?.group
 
   const groupRows = batch.notifications.map(n => ({
     key: n.id,
-    emoji: n.group?.emoji ?? '💸',
-    name: n.group?.name ?? 'Group',
+    emoji: n.settlement?.group?.emoji ?? '💸',
+    name: n.settlement?.group?.name ?? 'Group',
     note: n.settlement?.note ?? null,
     amount: Number(n.settlement?.amount ?? n.amount ?? 0),
   }))

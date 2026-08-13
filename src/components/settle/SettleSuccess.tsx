@@ -2,6 +2,7 @@
 
 import { Avatar } from '@/components/Avatar'
 import { ModalContent } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { formatAmount } from '@/lib/money'
 import { firstName as getFirstName } from '@/lib/memberDisplay'
 import { T, FH, FMONO } from '@/design/tokens'
@@ -101,17 +102,12 @@ export function SettleSuccess({
         {body}
       </p>
 
-      <button
-        type="button"
-        onClick={onDone}
-        style={{
-          width: '100%', maxWidth: 320, marginTop: 22, padding: 15, borderRadius: 16,
-          background: T.ink, color: T.bg, border: 0, cursor: 'pointer',
-          fontFamily: FH, fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
-        }}
+      <Btn
+        onClick={onDone} variant="dark" size="lg" fullWidth
+        style={{ maxWidth: 320, marginTop: 22, padding: 15, borderRadius: 16, fontSize: 16, letterSpacing: -0.2 }}
       >
         Done
-      </button>
+      </Btn>
     </ModalContent>
   )
 }

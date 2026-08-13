@@ -288,6 +288,15 @@ see #6 above). This list is fully closed out.
    rather than forced into the atom. Typecheck + production build clean.
 8. - [x] ~~**[consolidate] `Btn.tsx` (52) — zero importers**~~ — **confirmed
    deleted.** No `Btn.tsx` file and no importers anywhere in `src/`.
+   **Reopened and closed the other way 2026-08-12:** a new `Btn.tsx` (72) was
+   written from the shapes actually in use rather than restored from git, and
+   adopted across ~19 files — six variants (`primary`/`dark`/`outline`/
+   `danger`/`dangerOutline`/`soft`) × three sizes. The reason it stuck this
+   time is that it was extracted from real call sites instead of built ahead of
+   them, and it does not try to own geometry: callers still pass `style` for
+   one-off padding/radius/shadow, so a CTA that needs to look bespoke can,
+   without opting out of the palette. Icon-only circular buttons and unstyled
+   clickable rows/links deliberately stay outside it.
 
 ## Phase 1 — Schema & domain foundation
 

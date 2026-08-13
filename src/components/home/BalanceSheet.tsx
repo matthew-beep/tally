@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { ModalOrSheet } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
@@ -175,22 +176,19 @@ function GroupSettleScreen({
       </div>
 
       <div style={{ padding: '10px 20px 0' }}>
-        <button
-          type="button"
-          disabled={!canSettle}
-          onClick={onSettle}
+        <Btn
+          disabled={!canSettle} onClick={onSettle} variant="primary" size="lg" fullWidth
           style={{
-            width: '100%', padding: 16, borderRadius: 18,
+            padding: 16, borderRadius: 18,
             background: canSettle ? T.sun : T.surfaceAlt,
             color: canSettle ? T.sunOn : T.inkFaint,
-            border: 0, cursor: canSettle ? 'pointer' : 'default', fontFamily: 'inherit',
-            fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+            fontFamily: 'inherit', fontSize: 16, letterSpacing: -0.2,
             boxShadow: canSettle ? '0 8px 24px rgba(242,192,74,0.35)' : 'none',
             transition: 'all 0.18s',
           }}
         >
           {canSettle ? `Settle ${formatAmount(amount)} in ${part.groupName}` : 'Enter an amount'}
-        </button>
+        </Btn>
       </div>
     </div>
   )
@@ -380,22 +378,19 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
                 ? `Recorded straight away — ${firstName} is notified, with nothing to confirm.`
                 : `${firstName} gets one request to confirm ${formatAmount(abs)}.`}
             </p>
-            <button
-              type="button"
-              disabled={!canSettleAll}
-              onClick={handleSettleAll}
+            <Btn
+              disabled={!canSettleAll} onClick={handleSettleAll} variant="primary" size="lg" fullWidth
               style={{
-                width: '100%', padding: 16, borderRadius: 18,
+                padding: 16, borderRadius: 18,
                 background: canSettleAll ? T.sun : T.surfaceAlt,
                 color: canSettleAll ? T.sunOn : T.inkFaint,
-                border: 0, cursor: canSettleAll ? 'pointer' : 'default', fontFamily: 'inherit',
-                fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+                fontFamily: 'inherit', fontSize: 16, letterSpacing: -0.2,
                 boxShadow: canSettleAll ? '0 8px 24px rgba(242,192,74,0.35)' : 'none',
                 transition: 'all 0.18s',
               }}
             >
               {confirmLabel} · {formatAmount(abs)}
-            </button>
+            </Btn>
             <button
               type="button"
               onClick={() => setScreen('balance')}
@@ -460,19 +455,16 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
 
           {/* CTA — settle everything at once (no write yet) */}
           <div style={{ padding: '0 16px' }}>
-            <button
-              type="button"
-              onClick={openConfirmAll}
+            <Btn
+              onClick={openConfirmAll} variant="primary" size="lg" fullWidth
               style={{
-                width: '100%', padding: 16, borderRadius: 18,
-                background: T.sun, color: T.sunOn,
-                border: 0, cursor: 'pointer', fontFamily: 'inherit',
-                fontSize: 16, fontWeight: 700, letterSpacing: -0.2,
+                padding: 16, borderRadius: 18, background: T.sun, color: T.sunOn,
+                fontFamily: 'inherit', fontSize: 16, letterSpacing: -0.2,
                 boxShadow: '0 8px 24px rgba(242,192,74,0.35)',
               }}
             >
               Settle up with {firstName}
-            </button>
+            </Btn>
           </div>
         </div>
       )}

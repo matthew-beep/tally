@@ -56,3 +56,59 @@ export function Avatar({ profile, slot = 0, size = 36, isYou = false }: AvatarPr
     </div>
   )
 }
+
+export interface AvatarStackItem {
+  profile?: Pick<Profile, 'name' | 'display_name' | 'avatar_url'>
+  slot: 0 | 1 | 2 | 3
+  isYou?: boolean
+  /** Dims the avatar — e.g. a pending group invite. */
+  dimmed?: boolean
+}
+
+interface AvatarStackProps {
+  members: AvatarStackItem[]
+  size?: number
+  max?: number
+  overlap?: number
+  /** Ring color around each avatar so overlaps read as separate circles. Match the surface the stack sits on. */
+  ringColor?: string
+  ringWidth?: number
+}
+
+/** Overlapping row of member avatars — group cards, member lists. Each avatar gets a ring so overlaps read as separate circles. */
+export function AvatarStack({ members, size = 22, max = 4, overlap = 0.4, ringColor = T.cardBg, ringWidth = 2 }: AvatarStackProps) {
+  const shown = members.slice(0, max)
+  const extra = members.length - max
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      {shown.map((m, i) => (
+        <div key={i} style={{ marginLeft: i === 0 ? 0 : -size * overlap, zIndex: max - i, borderRadius: '50%', boxShadow: `0 0 0 ${ringWidth}px ${ringColor}`, opacity: m.dimmed ? 0.45 : 1 }}>
+          <Avatar profile={m.profile} slot={m.slot} size={size} isYou={m.isYou} />
+        </div>
+      ))}
+      {extra > 0 && (
+        <div
+          style={{
+            marginLeft: -size * overlap,
+            zIndex: 0,
+            width: size,
+            height: size,
+            borderRadius: '50%',
+            background: T.line,
+            color: T.inkMuted,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: Math.round(size * 0.36),
+            fontWeight: 700,
+            fontFamily: FH,
+            boxShadow: `0 0 0 ${ringWidth}px ${ringColor}`,
+          }}
+        >
+          +{extra}
+        </div>
+      )}
+    </div>
+  )
+}

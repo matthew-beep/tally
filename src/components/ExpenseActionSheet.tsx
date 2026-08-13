@@ -6,6 +6,7 @@ import { Avatar } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent, ModalFooter } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { formatAmount, stripNegative } from '@/lib/money'
 import { calcExpenseNets } from '@/lib/balance'
@@ -97,17 +98,10 @@ function ExpenseEditDrawer({
     <ModalContent style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.4, color: T.ink }}>Edit expense</span>
-        <button
-          onClick={handleSave}
-          disabled={!canSave}
-          style={{
-            border: 0, cursor: canSave ? 'pointer' : 'default', font: 'inherit',
-            padding: '7px 16px', borderRadius: 999,
-            background: canSave ? T.sun : T.lineStrong,
-            color: canSave ? T.sunInk : T.inkFaint,
-            fontFamily: F, fontSize: 13, fontWeight: 700, transition: 'all 0.18s',
-          }}
-        >{updateExpense.isPending ? 'Saving…' : 'Save'}</button>
+        <Btn
+          onClick={handleSave} disabled={!canSave} variant="primary" size="sm"
+          style={{ fontWeight: 700, transition: 'all 0.18s' }}
+        >{updateExpense.isPending ? 'Saving…' : 'Save'}</Btn>
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', background: T.sunSoft, borderRadius: 12, fontSize: 12, lineHeight: 1.5, color: T.sunInk }}>
@@ -185,15 +179,14 @@ function ExpenseEditDrawer({
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-        <button
-          onClick={onCancel}
-          style={{ flex: 1, padding: '12px', borderRadius: 12, border: `1.5px solid ${T.lineStrong}`, background: 'transparent', cursor: 'pointer', font: 'inherit', fontSize: 14, fontWeight: 700, color: T.inkMuted }}
-        >Cancel</button>
-        <button
-          onClick={handleSave}
-          disabled={!canSave}
-          style={{ flex: 2, padding: '12px', borderRadius: 12, border: 0, cursor: canSave ? 'pointer' : 'default', font: 'inherit', fontFamily: FH, fontSize: 14.5, fontWeight: 700, background: canSave ? T.sun : T.lineStrong, color: canSave ? T.sunInk : T.inkFaint, transition: 'all 0.18s' }}
-        >{updateExpense.isPending ? 'Saving…' : 'Save changes'}</button>
+        <Btn
+          onClick={onCancel} variant="outline" size="md"
+          style={{ flex: 1, fontFamily: F }}
+        >Cancel</Btn>
+        <Btn
+          onClick={handleSave} disabled={!canSave} variant="primary" size="md"
+          style={{ flex: 2, fontSize: 14.5, transition: 'all 0.18s' }}
+        >{updateExpense.isPending ? 'Saving…' : 'Save changes'}</Btn>
       </div>
     </ModalContent>
   )
@@ -233,20 +226,14 @@ function DeleteConfirmDrawer({
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={onCancel}
-          style={{ flex: 1, padding: '13px', borderRadius: 14, border: `1.5px solid ${T.lineStrong}`, background: 'transparent', cursor: 'pointer', font: 'inherit', fontSize: 14, fontWeight: 700, color: T.inkMuted }}
-        >Cancel</button>
-        <button
-          onClick={onConfirm}
-          disabled={isPending}
-          style={{
-            flex: 1, padding: '13px', borderRadius: 14,
-            background: T.coral, color: '#fff', border: 0, cursor: isPending ? 'default' : 'pointer',
-            font: 'inherit', fontSize: 14, fontWeight: 700, opacity: isPending ? 0.6 : 1,
-            boxShadow: `0 4px 16px ${T.coral}55`,
-          }}
-        >{isPending ? 'Deleting…' : 'Delete expense'}</button>
+        <Btn
+          onClick={onCancel} variant="outline" size="lg"
+          style={{ flex: 1, fontFamily: F, fontSize: 14 }}
+        >Cancel</Btn>
+        <Btn
+          onClick={onConfirm} disabled={isPending} variant="danger" size="lg"
+          style={{ flex: 1, fontFamily: F, fontSize: 14 }}
+        >{isPending ? 'Deleting…' : 'Delete expense'}</Btn>
       </div>
     </ModalContent>
   )
@@ -400,24 +387,28 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
               inside the flex column both Sheet and ModalPanel provide, so it
               pins to the bottom while the detail above it scrolls. */}
           <ModalFooter style={{ justifyContent: 'stretch', gap: 9 }}>
-            <button
-              onClick={() => setScreen('edit')}
-              style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px 0', borderRadius: 13, border: 0, cursor: 'pointer', font: 'inherit', fontSize: 14.5, fontWeight: 700, background: T.ink, color: T.bg }}
+            <Btn
+              onClick={() => setScreen('edit')} variant="dark" size="lg"
+              icon={
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
+                </svg>
+              }
+              style={{ flex: 1, padding: '13px 0', borderRadius: 13, fontFamily: F, fontSize: 14.5 }}
             >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>
-              </svg>
               Edit
-            </button>
-            <button
-              onClick={() => setScreen('delete-confirm')}
-              style={{ flex: 0.6, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '13px 0', borderRadius: 13, border: 0, boxShadow: `inset 0 0 0 1px ${T.coral}`, cursor: 'pointer', font: 'inherit', fontSize: 14.5, fontWeight: 700, background: 'transparent', color: T.coralInk }}
+            </Btn>
+            <Btn
+              onClick={() => setScreen('delete-confirm')} variant="dangerOutline" size="lg"
+              icon={
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 4.5h10M6 4.5V3h4v1.5M5 4.5l.6 8h4.8l.6-8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              }
+              style={{ flex: 0.6, padding: '13px 0', borderRadius: 13, fontFamily: F, fontSize: 14.5 }}
             >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                <path d="M3 4.5h10M6 4.5V3h4v1.5M5 4.5l.6 8h4.8l.6-8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
               Delete
-            </button>
+            </Btn>
           </ModalFooter>
         </>
       )}

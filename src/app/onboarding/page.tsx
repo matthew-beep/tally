@@ -8,6 +8,7 @@ import { HandleInput } from '@/components/HandleInput'
 import type { HandleState } from '@/components/HandleInput'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Btn } from '@/components/Btn'
 import type { Profile } from '@/types'
 
 function suggestFromName(name: string): string {
@@ -122,22 +123,17 @@ function OnboardingInner() {
 
         {/* sticky CTA */}
         <div style={{ padding: '0 20px 40px', flexShrink: 0, background: `linear-gradient(to top, ${T.bg} 70%, transparent)` }}>
-          <button
-            onClick={claimHandle}
-            disabled={!ctaEnabled}
+          <Btn
+            onClick={claimHandle} disabled={!ctaEnabled} variant="primary" size="lg" fullWidth
             style={{
-              width: '100%', height: 56, borderRadius: 18,
-              background: ctaEnabled ? T.sun : T.lineStrong,
-              color: ctaEnabled ? T.sunInk : T.inkFaint,
-              border: 'none',
-              cursor: ctaEnabled ? 'pointer' : 'default',
+              height: 56, borderRadius: 18,
               fontFamily: FH, fontSize: 17, fontWeight: 600, letterSpacing: -0.2,
               boxShadow: ctaEnabled ? '0 8px 20px rgba(242,192,74,0.35)' : 'none',
               transition: 'background 0.2s, box-shadow 0.2s, color 0.2s',
             }}
           >
             {saving ? 'Saving…' : ctaEnabled ? `Claim @${handle}` : 'Continue'}
-          </button>
+          </Btn>
         </div>
       </div>
     </div>

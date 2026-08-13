@@ -63,12 +63,19 @@ notification.
   settlements.id`. Otherwise a notification row is permanent — marked
   read, invisible to `useNotifications()`'s `.eq('read', false)` filter,
   but never actually gone. No retention policy exists anywhere.
-- **Where notifications are visible today:** only `/me`. The mobile tab
-  bar has a badge *slot* (`WebNavBadge`) wired to the Me tab, but the
-  data feeding it is a hardcoded empty object (`NAV_BADGES = {}` in
-  `TabBar.tsx`) — plumbing exists, nothing populates it. Desktop sidebar
-  has no notification indicator at all. Group page and home page have
-  none either.
+- **Where notifications are visible today** (revised 2026-08-12; this
+  bullet previously read "only `/me`"): `NotificationBell` — icon plus a
+  count of `selectActionable(...)` — ships in `AppHeader`, so it is on
+  Home, Groups, Activity and Me, and the group-detail header mounts its
+  own. Home additionally pins actionable batches in its needs-attention
+  rail. Tapping any of them opens `NotificationsSheet` (list → review);
+  each mount holds its own sheet instance and its own
+  `useNotificationReviewSheet` state, sharing only the `useNotifications`
+  query cache. Still missing: the spec's 30s `refetchInterval` (the count
+  refreshes on the standard mount/focus lifecycle), the mobile tab-bar
+  badge — `WebNavBadge` is wired to the Me tab but fed a hardcoded empty
+  `NAV_BADGES = {}` in `TabBar.tsx` — and any indicator in the desktop
+  sidebar.
 - **Notification lifespan on `/me` itself:**
   - Actionable (`group_invite`, `settlement_confirm`) — indefinite,
     until the user taps a button.

@@ -140,7 +140,13 @@ notifications (
                   'settlement_confirmed', 'settlement_recorded',
                   'settlement_denied'),
   settlement_id uuid → settlements ON DELETE CASCADE,  -- settlement types
-  group_id      uuid → groups ON DELETE CASCADE,       -- invite types
+  group_id      uuid → groups ON DELETE CASCADE,       -- invite types ONLY.
+                                 -- notify_settlement_created() never stamps it,
+                                 -- so it is always NULL on settlement rows —
+                                 -- their group comes from the settlement's own
+                                 -- group_id (NOT NULL), which is why
+                                 -- useNotifications joins groups under the
+                                 -- settlement as well as on the row itself.
   amount        numeric(10,2),   -- added 20260805010000. Denormalized off the
                                  -- settlement so it survives deletion —
                                  -- settlement_denied has no settlement to read.

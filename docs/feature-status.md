@@ -20,7 +20,7 @@ actionable next steps and priority order.
 | Balances + debt simplification                 | ✅       | ✅      | ⚠️      | Home is single-column on desktop — 3-col dashboard not built; balance-card expand modal      |
 | Settle up + confirm / deny                     | ✅       |        |         | Cross-group "settle all with person"                                                         |
 | Activity feed (global tab)                     | ✅       |        |         | Works, but it's a bare 48-line list — no desktop enrichment                                  |
-| Notifications (Me page)                        | ✅       | ✅      | ✅       | Bell badge (30s poll) not built — nav has the badge component, nothing feeds it              |
+| Notifications (bell in app header + Me page)   | ✅       | ✅      | ✅       | Bell + count badge shipped 2026-08-12 in `AppHeader`; still no 30s poll, and `TabBar`'s `NAV_BADGES` is unfed |
 | Profile / Me (display name, handle, QR, theme) | ✅       | ✅      |         | —                                                                                            |
 | Group settings (rename, members, leave, delete)| ✅       | ✅      | ⚠️      | Pending invites render read-only with no cancel action; desktop is the mobile 520px-centered card layout, not a designed 2-col treatment |
 | Guest claim (self-serve link + assisted invite)| ✅       |        |         | —                                                                                            |
@@ -40,9 +40,12 @@ narrower: group detail's 2-column layout and the sidebar nav. Home's
 1. **Itemized splits** — no `expense_items` tables, non-saving mobile
   preview in the add-expense form, no desktop concept at all. Gateway to
    Phase 3 receipt scanning.
-2. **Bell badge** — plumbing half-exists: `WebNavBadge` component and a
-  `NAV_BADGES` slot already render in `TabBar.tsx`, just fed from a
-   hardcoded empty object. Desktop `Sidebar.tsx` has no badge slot at all yet.
+2. **Bell badge polling** — the badge itself is no longer missing:
+  `NotificationBell` renders the actionable count from `useNotifications`, and
+   as of 2026-08-12 it sits in `AppHeader` on all four tabs plus the
+   group-detail header. What's still open is the 30s `refetchInterval` from the
+   spec, and the *nav* badges: `TabBar.tsx`'s `WebNavBadge`/`NAV_BADGES` slot is
+   still fed a hardcoded empty object, and `Sidebar.tsx` has no badge slot.
 3. **Public expense share page** (`/expense/[share_token]`) — 60-line
   skeleton, no service-role fetch. This is a core differentiator per the
    original spec (the restaurant moment — view a split with no account).
@@ -50,6 +53,20 @@ narrower: group detail's 2-column layout and the sidebar nav. Home's
   edit, zero UI to read it.
 5. **Cross-group "Settle all with [person]"** — home aggregates per-person
   totals across groups, but the one-tap multi-group settle isn't built.
+
+**App shell + button system shipped 2026-08-12** (`docs/features.md`
+§ Key components): the four tab pages now share `AppHeader` (title/greeting,
+optional action, notification bell, avatar), so the bell is reachable from
+every tab rather than only from inside a group, and `.home-topbar*` CSS became
+`.app-header*`.
+`Btn` was reintroduced and adopted by every page- and sheet-level CTA (~19
+files), `AvatarStack` was extracted from the hand-rolled overlapping avatar
+rows (group-detail strip, `FeedCard`'s "split N ways" — which gains a `+N`
+chip it never had, having previously just sliced to four and dropped the
+rest), and the groups list was rebuilt on emoji tile + avatar stack + a signed
+amount (or `square ✓`) in place of `BalanceBadge`. UI only — no schema, query,
+or balance-math change, except the `useNotifications` group-join fix noted in
+`features.md`.
 
 **Guest claim flow shipped 2026-08-11** (`docs/flows.md` § Claim a guest
 seat, `docs/group-member-model.md` § Claiming): self-serve claim link

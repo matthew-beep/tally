@@ -133,7 +133,13 @@ export function useNotifications() {
         // FK hints required: notifications has both settlement_id and group_id FKs,
         // settlements has two FKs to group_members, and group_members has two FKs
         // to profiles (user_id + invited_by).
-        .select('*, settlement:settlements(*, from_member:group_members!from_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(*)), to_member:group_members!to_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(*))), group:groups(id, name, emoji)')
+        //
+        // group:groups(...) is nested under settlement, not just on the
+        // notification row — notify_settlement_created() never stamps
+        // notifications.group_id (only group_invite rows get one), so that
+        // top-level join always resolves null for settlement types. The
+        // settlement's own group_id (NOT NULL) is the only real source.
+        .select('*, settlement:settlements(*, group:groups(id, name, emoji), from_member:group_members!from_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(*)), to_member:group_members!to_member_id(id, name, user_id, profile:profiles!group_members_user_id_fkey(*))), group:groups(id, name, emoji)')
         .eq('recipient_id', user.id)
         .eq('read', false)
         .order('created_at', { ascending: false })

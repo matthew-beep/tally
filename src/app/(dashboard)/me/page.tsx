@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { T, FH, F, FMONO } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
+import { AppHeader } from '@/components/dashboard/AppHeader'
 import { Card } from '@/components/Card'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Btn } from '@/components/Btn'
 import { formatAmount } from '@/lib/money'
 import { Avatar } from '@/components/Avatar'
 import { HandleInput } from '@/components/HandleInput'
@@ -81,21 +83,18 @@ function ProfileSettings() {
         />
       </div>
 
-      <button
-        onClick={handleSave}
-        disabled={!canSave}
+      <Btn
+        onClick={handleSave} disabled={!canSave} variant="dark" size="lg" fullWidth
         style={{
-          width: '100%', padding: '13px',
-          borderRadius: T.r.md, border: 'none',
+          padding: '13px',
           background: canSave ? T.ink : T.surfaceAlt,
           color: canSave ? T.bg : T.inkMuted,
-          fontFamily: FH, fontSize: 15, fontWeight: 600,
-          cursor: canSave ? 'pointer' : 'default',
+          fontFamily: FH, fontSize: 15,
           transition: 'background 0.15s',
         }}
       >
         {updateProfile.isPending ? 'Saving…' : 'Save changes'}
-      </button>
+      </Btn>
 
       {updateProfile.isSuccess && (
         <div style={{ fontSize: 12, color: T.mintInk, fontWeight: 600, textAlign: 'center', marginTop: -8 }}>
@@ -161,9 +160,9 @@ export default function MePage() {
   }
 
   return (
-    <DashboardPage>
-        <div style={{ fontSize: 24, fontWeight: 700, fontFamily: FH, letterSpacing: -0.5, marginBottom: 24 }}>Me</div>
-
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
+      <AppHeader title="Me" />
+      <DashboardPage>
         {/* Profile card */}
         {profile && (
           <Card style={{ padding: 20, display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
@@ -240,13 +239,14 @@ export default function MePage() {
         </Card>
 
         {/* Sign out */}
-        <button
-          onClick={signOut}
-          style={{ marginTop: 8, background: 'none', border: `1.5px solid ${T.lineStrong}`, borderRadius: T.r.md, padding: '11px 20px', fontSize: 14, fontWeight: 600, color: T.inkMuted, cursor: 'pointer', fontFamily: F, width: '100%' }}
+        <Btn
+          onClick={signOut} variant="outline" size="lg" fullWidth
+          style={{ marginTop: 8, padding: '11px 20px', fontSize: 14, fontFamily: F }}
         >
           Sign out
-        </button>
-    </DashboardPage>
+        </Btn>
+      </DashboardPage>
+    </div>
   )
 }
 

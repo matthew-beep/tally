@@ -100,27 +100,8 @@ export function Sidebar() {
           padding: '2px 10px 18px',
         }}
       >
-        <div
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 10,
-            background: T.sun,
-            color: T.sunInk,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: 15,
-            fontFamily: FH,
-            letterSpacing: -0.5,
-            flexShrink: 0,
-          }}
-        >
-          T
-        </div>
-        <span style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.6, fontFamily: FH, color: T.ink }}>
-          tally
+        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.7, fontFamily: FH, color: T.ink }}>
+          tally<span style={{ color: T.sun }}>.</span>
         </span>
       </Link>
 

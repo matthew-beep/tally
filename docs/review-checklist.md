@@ -167,9 +167,13 @@ display.
 - [ ] `src/components/modal/*` (11 files, ~610) — one system or three?
   `ActionSheet` (235) vs `Modal` vs `Sheet` vs `ModalOrSheet`; which
   components bypass the system entirely (known: several)
-- [ ] `src/components/Avatar.tsx` (58), `BalanceBadge.tsx` (51),
-  `Btn.tsx` (52), `Card.tsx` (30) — design-system atoms; amount anatomy
-  (always-signed, U+2212 minus) is currently inline `toFixed(2)` everywhere
+- [ ] `src/components/Avatar.tsx` (114, incl. `AvatarStack`),
+  `BalanceBadge.tsx` (51), `Btn.tsx` (72), `Card.tsx` (30) — design-system
+  atoms; amount anatomy (always-signed, U+2212 minus) is currently inline
+  `toFixed(2)` everywhere, including the groups-list card's own copy
+- [ ] `src/components/dashboard/AppHeader.tsx` (76) — shared tab-page header;
+  check that mounting a `NotificationsSheet` per header (plus Home's own, from
+  its attention rail) is genuinely independent and not two sheets one tap apart
 - [ ] `src/app/globals.css` (471) + `src/styles/dashboard.css` (285) —
   breakpoint consistency (1024 vs 767), dark-mode variable coverage
 

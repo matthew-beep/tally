@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { T, F, FH, FMONO } from '@/design/tokens'
+import { T, FH, FMONO } from '@/design/tokens'
 import { ModalOrSheet } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { copyToClipboard } from '@/lib/clipboard'
 import { useUIStore } from '@/store/ui'
 
@@ -59,18 +60,18 @@ export function InviteGroupSheet({ open, onClose, groupName, groupEmoji, inviteT
           <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 10, lineHeight: 1.45 }}>Anyone with this link can join and see this group&rsquo;s expenses.</div>
         </div>
 
-        <button
-          onClick={handleShare}
-          style={{ width: '100%', padding: '15px', borderRadius: T.r.lg, background: T.sun, color: T.sunInk, border: 0, cursor: 'pointer', font: 'inherit', fontFamily: FH, fontSize: 15, fontWeight: 600 }}
+        <Btn
+          onClick={handleShare} variant="primary" size="lg" fullWidth
+          style={{ padding: '15px', borderRadius: T.r.lg, fontFamily: FH, fontSize: 15, fontWeight: 600 }}
         >
           Share invite link
-        </button>
-        <button
-          onClick={onClose}
-          style={{ width: '100%', padding: '15px', borderRadius: T.r.lg, background: T.surfaceAlt, color: T.inkMuted, border: 0, cursor: 'pointer', font: 'inherit', fontFamily: FH, fontSize: 15, fontWeight: 600 }}
+        </Btn>
+        <Btn
+          onClick={onClose} variant="soft" size="lg" fullWidth
+          style={{ padding: '15px', borderRadius: T.r.lg, fontFamily: FH, fontSize: 15, fontWeight: 600 }}
         >
           Done
-        </button>
+        </Btn>
       </div>
     </ModalOrSheet>
   )

@@ -3,9 +3,10 @@
 import { useState, type CSSProperties } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
-import { Avatar } from '@/components/Avatar'
+import { Avatar, AvatarStack } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Btn } from '@/components/Btn'
 import { formatAmount } from '@/lib/money'
 import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
@@ -126,9 +127,9 @@ export default function GroupDetailPage() {
       <div style={{ padding: 28, fontFamily: F, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 }}>
         <div style={{ fontSize: 40 }}>💸</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: T.ink }}>Group not found</div>
-        <button onClick={() => router.push('/groups')} style={{ marginTop: 4, padding: '10px 20px', background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>
+        <Btn onClick={() => router.push('/groups')} variant="dark" size="md" style={{ marginTop: 4, padding: '10px 20px', fontSize: 14 }}>
           Back to groups
-        </button>
+        </Btn>
       </div>
     )
   }
@@ -182,12 +183,13 @@ export default function GroupDetailPage() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
-            <button
-              onClick={() => setAddExpenseOpen(true)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: T.r.md, background: T.ink, color: T.bg, border: 0, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
+            <Btn
+              onClick={() => setAddExpenseOpen(true)} variant="dark" size="md"
+              icon={<span style={{ fontSize: 16, lineHeight: 1 }}>+</span>}
+              style={{ padding: '9px 16px', fontSize: 13 }}
             >
-              <span style={{ fontSize: 16, lineHeight: 1 }}>+</span> Add expense
-            </button>
+              Add expense
+            </Btn>
             <button
               onClick={() => router.push(`/groups/${groupId}/settings`)}
               style={{ width: 36, height: 36, borderRadius: T.r.md, background: T.surface, border: `0.5px solid ${T.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: T.shadowSm }}
@@ -230,14 +232,18 @@ export default function GroupDetailPage() {
 
       {/* ── Mobile: avatar strip ── */}
       <div className="group-detail-mobile-strip" style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <div style={{ display: 'flex' }}>
-          {members.map((m, i) => (
-            /* Pending members render dimmed — no room for a chip at 22px */
-            <div key={m.id} style={{ marginLeft: i > 0 ? -8 : 0, zIndex: members.length - i, width: 26, height: 26, borderRadius: '50%', border: `2px solid ${T.bg}`, flexShrink: 0, overflow: 'hidden', opacity: m.status === 'pending' ? 0.45 : 1 }}>
-              <Avatar profile={avatarProfile(m)} slot={i % 4 as 0 | 1 | 2 | 3} size={22} isYou={m.user_id === profile?.id} />
-            </div>
-          ))}
-        </div>
+        <AvatarStack
+          members={members.map((m, i) => ({
+            profile: avatarProfile(m),
+            slot: i % 4 as 0 | 1 | 2 | 3,
+            isYou: m.user_id === profile?.id,
+            dimmed: m.status === 'pending',
+          }))}
+          size={22}
+          max={8}
+          overlap={8 / 22}
+          ringColor={T.bg}
+        />
       </div>
 
 
@@ -414,12 +420,13 @@ export default function GroupDetailPage() {
 
       {/* ── Floating Add expense CTA — mobile only ── */}
       <div className="group-detail-fab" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 16px 28px', pointerEvents: 'none' }}>
-        <button
-          onClick={() => setAddExpenseOpen(true)}
-          style={{ pointerEvents: 'auto', width: '100%', height: 54, borderRadius: T.r.lg, border: 0, cursor: 'pointer', background: T.sun, color: T.sunInk, fontFamily: FH, fontSize: 16.5, fontWeight: 600, letterSpacing: -0.2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: T.shadowFab }}
+        <Btn
+          onClick={() => setAddExpenseOpen(true)} variant="primary" size="lg" fullWidth
+          icon={<span style={{ fontSize: 22, lineHeight: 1 }}>+</span>}
+          style={{ pointerEvents: 'auto', height: 54, borderRadius: T.r.lg, fontFamily: FH, fontSize: 16.5, letterSpacing: -0.2, boxShadow: T.shadowFab }}
         >
-          <span style={{ fontSize: 22, lineHeight: 1 }}>+</span> Add expense
-        </button>
+          Add expense
+        </Btn>
       </div>
 
       <AddExpenseSheet

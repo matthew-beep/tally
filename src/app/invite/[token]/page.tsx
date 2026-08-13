@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { postJson } from '@/lib/api'
 import { T, F, FH } from '@/design/tokens'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Btn } from '@/components/Btn'
 
 type MemberStatus = 'pending' | 'none'
 type PageState   = 'loading' | 'invalid' | 'ready' | 'declined'
@@ -205,21 +206,15 @@ export default function InvitePage() {
           >
             {submitting ? 'Joining…' : memberStatus === 'pending' ? '✓ Accept invite' : '✓ Join group'}
           </button>
-          <button
-            onClick={handleDecline}
-            disabled={submitting}
+          <Btn
+            onClick={handleDecline} disabled={submitting} variant="outline" size="lg" fullWidth
             style={{
-              width: '100%', padding: '16px', borderRadius: 16,
-              border: `1.5px solid ${T.lineStrong}`, background: 'transparent',
-              color: T.inkMuted,
-              fontFamily: F, fontSize: 14, fontWeight: 600,
-              cursor: submitting ? 'default' : 'pointer',
-              opacity: submitting ? 0.7 : 1,
-              transition: 'opacity 0.15s',
+              padding: '16px', borderRadius: 16, fontFamily: F, fontSize: 14, fontWeight: 600,
+              opacity: submitting ? 0.7 : 1, transition: 'opacity 0.15s',
             }}
           >
             {memberStatus === 'pending' ? 'Decline' : 'Not now'}
-          </button>
+          </Btn>
         </div>
       </div>
     </div>

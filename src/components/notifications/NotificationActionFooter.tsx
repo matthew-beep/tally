@@ -1,6 +1,7 @@
 'use client'
 
-import { T } from '@/design/tokens'
+import { T, F } from '@/design/tokens'
+import { Btn } from '@/components/Btn'
 
 type Action = {
   label: string
@@ -19,18 +20,12 @@ export function NotificationActionFooter({ secondary, primary, hint }: Props) {
   return (
     <div style={{ flexShrink: 0, padding: '18px 26px 24px' }}>
       <div style={{ display: 'flex', gap: 10 }}>
-        <button
-          type="button"
-          onClick={secondary.onClick}
-          disabled={secondary.disabled}
-          style={{
-            flex: 0.8, padding: '13px 0', borderRadius: 13, border: 0, cursor: 'pointer',
-            font: 'inherit', fontSize: 14, fontWeight: 700, background: 'transparent',
-            color: T.inkMuted, boxShadow: `inset 0 0 0 1px ${T.lineStrong}`,
-          }}
+        <Btn
+          onClick={secondary.onClick} disabled={secondary.disabled} variant="outline" size="lg"
+          style={{ flex: 0.8, padding: '13px 0', borderRadius: 13, border: 0, fontFamily: F, fontSize: 14, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
         >
           {secondary.label}
-        </button>
+        </Btn>
         <button
           type="button"
           onClick={primary.onClick}

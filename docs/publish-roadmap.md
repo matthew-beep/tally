@@ -166,30 +166,34 @@ group settings' desktop layout (`TODO.md` item 4). Those are a design project,
 not a responsiveness fix, and stay cut from v1. This item is only "nothing is
 broken or embarrassing at any width."
 
-### 8. Notification surface 🟡 · **1h or 4–6h — decision pending**
+### 8. Notification surface ✅ · **shipped 2026-08-12 — option B**
 
-Notifications already surface on home via `NeedsAttentionRail`, so this is *not*
-the blocker it's sometimes described as. But the settle→confirm loop only
-completes when the payee notices, and today nothing signals them ambiently.
+~~1h or 4–6h — decision pending~~. The write-up below described two options: A,
+badge the Me tab; B, a global notification icon in a shared header. **B
+shipped.** `AppHeader` (`src/components/dashboard/AppHeader.tsx`) was extracted
+and mounted by all four tab pages, carrying `NotificationBell` — icon plus a
+count of actionable batches from `useNotifications` — and its own
+`NotificationsSheet`. Group detail mounts the same bell in its bespoke header.
+The payee is now signalled ambiently from wherever they are in the app, which
+was the point.
 
-**There is no bell icon** — both navs are Home · Groups · Activity · Me, and
-notifications live inside `/me`. Two options, written up in `TODO.md` "Now" §4:
+Two threads from the original item stay open, both smaller than the item was:
 
-- **A — badge the Me tab, ~1h.** `TabBar.tsx` already has the whole render path;
-  it's fed from a hardcoded empty object. Cheap, semantically muddy.
-- **B — global notification icon in a shared mobile header, 4–6h.** Preferred,
-  but requires extracting a shared header that doesn't exist today (five routes,
-  three different patterns, two with no header at all). Absorbs part of item 6.
+- **The 30s poll** from `CLAUDE.md` — the count refreshes on mount/window-focus
+  like every other query, not on an interval. Cheap to add
+  (`refetchInterval: 30_000`, active tab only) whenever it's wanted.
+- **Option A's tab badge** — `TabBar.tsx`'s `NAV_BADGES` is still a hardcoded
+  empty object, and `Sidebar.tsx` has no badge slot. Not redundant with the
+  bell: the badge is what you see with a sheet or another page's chrome in
+  front of the header.
 
-Both need the same unread-count query, so A can be upgraded to B later without
-rework. **B is the largest P1 item** — if launch timing tightens, ship A.
+Still gated on P0 item 1 in the sense that mattered — a count is only useful
+once notifications reach the right person.
 
-Also gated on P0 item 1: a count is only useful once notifications reach the
-right person.
-
-**P1 total: 9–15h — 2–4 sessions.** The responsive pass is over half of it, and
-it's the item most likely to grow: a QA sweep that finds nothing is fast, and one
-that finds six layout bugs is not.
+**P1 total: 9–15h — 2–4 sessions**, less this item's 1–6h. The responsive pass
+is now the clear majority of what's left, and it's the item most likely to
+grow: a QA sweep that finds nothing is fast, and one that finds six layout bugs
+is not.
 
 ---
 
@@ -247,15 +251,16 @@ point rediscovering them on fourteen screens.
 **Recommended: 18–27h** (adds CI, the guard, mobile fixes, the full responsive
 sweep, and the badge).
 
-Roughly **4–7 focused sessions.** ~~Four~~ **three** 🟡 decisions gate the work
-and are worth making before the next session starts:
+Roughly **4–7 focused sessions.** ~~Four~~ ~~three~~ **two** 🟡 decisions gate
+the work and are worth making before the next session starts:
 
 1. ~~Do payee-recorded settlements skip the pending state?~~ **Decided
    2026-08-05: yes.** Shipped as far as the database — see item 1.
 2. Does Share ship or get cut? (above)
 3. Does the JS sheet breakpoint move to 1023px to match the layout CSS? (item 7)
-4. Notification surface — badge the Me tab (1h) or global icon in a shared
-   header (4–6h)? (item 8; full write-up in `TODO.md` "Now" §4)
+4. ~~Notification surface — badge the Me tab (1h) or global icon in a shared
+   header (4–6h)?~~ **Decided by shipping, 2026-08-12: the shared header.**
+   See item 8; the tab badge survives as an optional extra, not an alternative.
 
 ---
 

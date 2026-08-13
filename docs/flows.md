@@ -328,7 +328,20 @@ Two separate systems:
 - **Notifications** (stored; action-required): written *only* by DB triggers.
   Read via `useNotifications` (unread only). Invite accept/decline and
   settlement confirm/deny actions live on the Me page
-  (`src/app/(dashboard)/me/page.tsx`) and home's `NeedsAttentionRail`.
+  (`src/app/(dashboard)/me/page.tsx`), home's `NeedsAttentionRail`, and — since
+  2026-08-12 — `NotificationsSheet`, opened from the `NotificationBell` that
+  `AppHeader` puts on every tab page and the group-detail header mounts for
+  itself.
+
+  The group name/emoji a settlement card shows comes from
+  `settlement.group`, not `notification.group`: `notify_settlement_created()`
+  leaves `notifications.group_id` NULL (only invite rows get one), so the
+  top-level join resolves null for every settlement type and the settlement's
+  own `group_id` is the only source. `useNotifications` embeds both;
+  `SettlementReview` reads the nested one and falls back to `💸`/"Group" —
+  which is what `settlement_denied` gets, since it carries no `settlement_id`
+  to join through at all (see below). Fixed 2026-08-12; before that, every
+  settlement card rendered the fallback.
 
   **Grouped client-side into one card per payment.** The triggers are
   `FOR EACH ROW`, so an N-group batch emits N notifications; `groupNotifications`

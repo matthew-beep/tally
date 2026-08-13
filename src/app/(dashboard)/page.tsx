@@ -8,7 +8,7 @@ import { BalanceBadge } from '@/components/BalanceBadge'
 import { Card } from '@/components/Card'
 import { SectionLabel } from '@/components/SectionLabel'
 import { HomeMainSkeleton, AttentionSkeleton, RailActivitySkeleton } from '@/components/HomeScreenSkeleton'
-import { useCurrentProfile, useNotifications } from '@/queries/useProfile'
+import { useNotifications } from '@/queries/useProfile'
 import { useGlobalBalances, resolveSeatId } from '@/queries/useGlobalBalances'
 import { useGroups } from '@/queries/useGroups'
 import { useAllActivity } from '@/queries/useActivity'
@@ -20,6 +20,7 @@ import { toActivityCard } from '@/lib/feedCards'
 import { AttentionList } from '@/components/notifications/AttentionList'
 import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
 import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
+import { AppHeader } from '@/components/dashboard/AppHeader'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
 import { selectActionable } from '@/lib/notifications'
 import type { Profile, NotificationBatch, ActivityItem, PersonPart } from '@/types'
@@ -98,39 +99,6 @@ function buildPeopleFlow(gb: NonNullable<ReturnType<typeof useGlobalBalances>['d
   }
 
   return people.sort((a, b) => Math.abs(b.net) - Math.abs(a.net))
-}
-
-// ── TopBar ─────────────────────────────────────────────────────────────────
-
-function TopBar() {
-  const router = useRouter()
-  const { data: profile } = useCurrentProfile()
-  const hour = new Date().getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
-
-  return (
-    <div className="home-topbar" style={{ borderBottom: `1px solid ${T.line}`, position: 'sticky', top: 0, zIndex: 10 }}>
-      <div>
-        <SectionLabel>Home</SectionLabel>
-        <div className="home-topbar-greeting" style={{ fontWeight: 700, fontFamily: FH, letterSpacing: -0.5, color: T.ink, marginTop: 1 }}>
-          {greeting}{profile ? ` ${firstName(profile.display_name ?? profile.name)}` : ''}
-        </div>
-      </div>
-      <div className="home-topbar-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button
-          onClick={() => router.push('/groups/new')}
-          className="home-topbar-add"
-          style={{ background: T.ink, border: 'none', borderRadius: T.r.md, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: T.bg, fontFamily: F, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          <span className="home-topbar-add-label">New group</span>
-          <span className="home-topbar-add-icon">+</span>
-        </button>
-        <div onClick={() => router.push('/me')} style={{ cursor: 'pointer' }}>
-          <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ── Hero ────────────────────────────────────────────────────────────────────
@@ -468,6 +436,7 @@ function NeedsAttentionRail({ notifications, notificationsLoading, activityItems
 // ── Page ────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const router = useRouter()
   const { data: gb, isLoading } = useGlobalBalances()
   const { data: notifications = [], isLoading: notificationsLoading } = useNotifications()
   const { data: activityItems = [], isLoading: activityLoading } = useAllActivity(RAIL_ACTIVITY_LIMIT)
@@ -478,7 +447,7 @@ export default function HomePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-      <TopBar />
+      <AppHeader title="Home" greeting action={{ label: 'New group', onClick: () => router.push('/groups/new'), hideOnMobile: true }} />
 
       <div className="home-scroll">
         <div className="home-main">

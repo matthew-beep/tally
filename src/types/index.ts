@@ -94,6 +94,10 @@ export interface Settlement {
   batch_id: string  // the payment these rows allocate; a lone settlement is a batch of one
   from_member?: GroupMember
   to_member?: GroupMember
+  // Settlement notifications carry no group_id of their own (see
+  // notify_settlement_created) — this is the only reliable source of a
+  // settlement notification's group name/emoji.
+  group?: Pick<Group, 'id' | 'name' | 'emoji'>
 }
 
 export interface Notification {

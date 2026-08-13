@@ -9,6 +9,7 @@ import { useGroups, useProfileGroups } from '@/queries/useGroups'
 import { postJson } from '@/lib/api'
 import { firstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Btn } from '@/components/Btn'
 
 export default function AddByCodePage() {
   const params = useParams()
@@ -204,19 +205,18 @@ export default function AddByCodePage() {
               Not now
             </button>
             {eligible.length > 0 && selectedGroup && (
-              <button
-                onClick={handleAdd}
-                disabled={adding}
+              <Btn
+                onClick={handleAdd} disabled={adding} variant="primary" size="lg"
                 style={{
                   flex: 1, padding: '14px 18px', borderRadius: 14,
-                  background: T.sun, color: T.sunInk, border: 0, cursor: 'pointer',
-                  font: 'inherit', fontFamily: FH, fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
+                  background: T.sun, color: T.sunInk,
+                  fontFamily: FH, fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
                   boxShadow: '0 8px 20px rgba(242,192,74,0.30)',
                   opacity: adding ? 0.7 : 1,
                 }}
               >
                 {adding ? 'Adding…' : `Add ${firstName(targetName)} to ${selectedGroup.name}`}
-              </button>
+              </Btn>
             )}
           </div>
         </div>

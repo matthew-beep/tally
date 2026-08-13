@@ -1,0 +1,76 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import { T, F, FH } from '@/design/tokens'
+import { Avatar } from '@/components/Avatar'
+import { SectionLabel } from '@/components/SectionLabel'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
+import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
+import { useCurrentProfile } from '@/queries/useProfile'
+import { firstName } from '@/lib/memberDisplay'
+
+interface AppHeaderAction {
+  label: string
+  onClick: () => void
+  /** Hide below 1024px — for actions a page already surfaces in its own mobile content (e.g. Home's "New group", which Groups covers with its own in-content button). */
+  hideOnMobile?: boolean
+}
+
+interface AppHeaderProps {
+  title: string
+  /** Home only: hour-based greeting + first name under the title instead of a plain heading. */
+  greeting?: boolean
+  action?: AppHeaderAction
+}
+
+/**
+ * Persistent header shared by Home/Groups/Activity/Me. Owns its own bell +
+ * notification sheet — each mount is independent, no wiring needed by callers.
+ */
+export function AppHeader({ title, greeting = false, action }: AppHeaderProps) {
+  const router = useRouter()
+  const { data: profile } = useCurrentProfile()
+  const notificationSheet = useNotificationReviewSheet()
+
+  const hour = new Date().getHours()
+  const greetingWord = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+
+  return (
+    <div className="app-header">
+      <div>
+        {greeting ? (
+          <>
+            <SectionLabel>{title}</SectionLabel>
+            <div className="app-header-greeting" style={{ fontWeight: 700, fontFamily: FH, letterSpacing: -0.5, color: T.ink, marginTop: 1 }}>
+              {greetingWord}{profile ? ` ${firstName(profile.display_name ?? profile.name)}` : ''}
+            </div>
+          </>
+        ) : (
+          <div className="app-header-title" style={{ fontFamily: FH, fontWeight: 700, letterSpacing: -0.5, color: T.ink }}>
+            {title}
+          </div>
+        )}
+      </div>
+
+      <div className="app-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {action && (
+          <button
+            onClick={action.onClick}
+            className={action.hideOnMobile ? 'app-header-action app-header-action--hide-mobile' : 'app-header-action'}
+            style={{ background: T.sun, border: 'none', borderRadius: T.r.md, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: T.sunInk, fontFamily: F, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <span className="app-header-action-label">{action.label}</span>
+            <span className="app-header-action-icon">+</span>
+          </button>
+        )}
+        <NotificationBell size={34} onClick={notificationSheet.openList} />
+        <div onClick={() => router.push('/me')} style={{ cursor: 'pointer' }}>
+          <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
+        </div>
+      </div>
+
+      <NotificationsSheet open={notificationSheet.open} onClose={notificationSheet.close} initialReview={notificationSheet.initialReview} />
+    </div>
+  )
+}

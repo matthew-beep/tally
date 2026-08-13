@@ -5,7 +5,7 @@
 | Route | File | Auth | Purpose |
 |---|---|---|---|
 | `/` | `(dashboard)/page.tsx` | ✓ | Home — balance hero + per-person balances (tap for per-group breakdown) |
-| `/groups` | `(dashboard)/groups/page.tsx` | ✓ | Groups list |
+| `/groups` | `(dashboard)/groups/page.tsx` | ✓ | Groups list — emoji tile, member `AvatarStack`, and my net in that group (`square ✓` chip when it rounds to zero) |
 | `/groups/new` | `(dashboard)/groups/new/page.tsx` | ✓ | Create group |
 | `/groups/[id]` | `(dashboard)/groups/[id]/page.tsx` | ✓ | Group detail — balances, members, expense/settlement feed, action sheets |
 | `/groups/[id]/add` | `(dashboard)/groups/[id]/add/page.tsx` | ✓ | Add expense (full-page variant) |
@@ -21,6 +21,14 @@
 
 The `(dashboard)` route group shares `(dashboard)/layout.tsx`: sidebar ≥1024px,
 tab bar below (breakpoint in `src/styles/dashboard.css`).
+
+The four tab pages (`/`, `/groups`, `/activity`, `/me`) additionally share
+`AppHeader` — title (or Home's hour-based greeting), optional action button,
+notification bell, avatar → `/me`. Each page mounts it itself above its own
+`DashboardPage` scroll area rather than the layout owning it, so pages outside
+the tab set (group detail, group settings, create group) keep their bespoke
+back-button headers. Header CSS is `.app-header*` in `dashboard.css` (renamed
+from `.home-topbar*` when the header stopped being Home-only).
 
 ## API routes (`src/app/api/`)
 
@@ -39,7 +47,7 @@ tab bar below (breakpoint in `src/styles/dashboard.css`).
 | `useCurrentProfile`, `useUpdateProfile` | `useProfile.ts` | Own profile read/update (display_name, handle) |
 | `useSearchProfiles` | `useProfile.ts` | 3-mode member search (@handle / add_code / fuzzy) |
 | `useProfileByAddCode` | `useProfile.ts` | QR add-code lookup |
-| `useNotifications` | `useProfile.ts` | Unread notifications with settlement/group joins, grouped by `batch_id` into `NotificationBatch[]` — one entry per payment, not per row |
+| `useNotifications` | `useProfile.ts` | Unread notifications with settlement/group joins, grouped by `batch_id` into `NotificationBatch[]` — one entry per payment, not per row. The group join is nested **under the settlement** as well as on the notification row: `notify_settlement_created()` never stamps `notifications.group_id` (only invite rows get one), so for settlement types the settlement's own `group_id` is the only source of a group name/emoji |
 | `useGroups`, `useGroup` | `useGroups.ts` | My groups (active memberships only), single group. `groupsQueryOptions` is the root of the cross-group dependency tree |
 | `useMyGroupIds` | `useMyGroupIds.ts` | Ids view over the `['groups']` cache via `select` — not a query of its own |
 | `useAllGroupData` | `useAllGroupData.ts` | `useQueries` fan-out: expenses/settlements/members per group, sharing the single-group hooks' cache keys |
@@ -92,9 +100,12 @@ never cached in the DB — recomputation happens on read.
 | `MemberActionSheet` | Member tap → remove (real members) or, for a guest row, a two-path claim flow: search + confirmation-required invite (Path B), or a self-serve claim-link screen (Path A) |
 | `InviteGroupSheet` | Group settings "Invite to group" — link card, copy, `navigator.share` |
 | `DeleteGroupSheet` | Delete-group confirmation (opened from group settings' danger zone) |
-| `Avatar`, `BalanceBadge` | Design-system atoms (slot-colored avatars, balance chips) |
+| `Avatar`, `AvatarStack`, `BalanceBadge` | Design-system atoms — slot-colored avatars, overlapping avatar row (ring per circle, `+N` overflow, `dimmed` for pending members), balance chips |
+| `Btn` | Shared CTA button — `primary`/`dark`/`outline`/`danger`/`dangerOutline`/`soft` × `sm`/`md`/`lg`, optional `icon` + `fullWidth`. Every page- and sheet-level CTA goes through it; icon-only circular buttons and unstyled clickable rows/links stay bespoke. Callers still pass `style` for one-off sizing, so variants set the palette, not the exact geometry |
 | `modal/*` | Modal/sheet primitives — `ModalOrSheet` picks by viewport |
 | `home/BalanceSheet`, `home/PersonProfileSheet` | Home balance breakdowns |
+| `notifications/NotificationBell` | Icon + actionable-count badge, fed by `useNotifications` + `selectActionable`. Deliberately dumb — the caller owns the sheet (`useNotificationReviewSheet` + `NotificationsSheet`) |
+| `dashboard/AppHeader` | Persistent header for the four tab pages. Owns its own bell + `NotificationsSheet` instance, so each mount is independent and callers wire nothing. `action.hideOnMobile` drops an action below 1024px when the page already surfaces it in its own content (Home's "New group", which `/groups` repeats in-panel) |
 | `dashboard/Sidebar`, `TabBar` | Desktop / mobile navigation |
 
 ## Not built yet (referenced but pending)
@@ -102,4 +113,7 @@ never cached in the DB — recomputation happens on read.
 - Itemized splits (`expense_items` tables + UI) — placeholder in the form
 - Expense history viewer (snapshots captured in `expense_history`, no UI)
 - Public expense share page (`/expense/[share_token]` skeleton)
-- Notifications bell 30s poll (list exists on Me page; no polling badge)
+- Notifications bell 30s poll — the bell and its count badge now ship in
+  `AppHeader` (all four tabs) and the group-detail header, but the count
+  refreshes on the standard query lifecycle only; no `refetchInterval` yet, and
+  `TabBar`'s `NAV_BADGES` is still a hardcoded empty object

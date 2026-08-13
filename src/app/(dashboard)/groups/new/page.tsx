@@ -8,6 +8,7 @@ import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
 import { SuggestedMembers } from '@/components/SuggestedMembers'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Btn } from '@/components/Btn'
 import { useCreateGroup } from '@/queries/useGroups'
 import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { useRecentCollaborators } from '@/queries/useMembers'
@@ -463,22 +464,19 @@ export default function NewGroupPage() {
               {createError}
             </div>
           )}
-          <button
-            onClick={handleCreate}
-            disabled={!name.trim() || creating}
+          <Btn
+            onClick={handleCreate} disabled={!name.trim() || creating} variant="primary" size="lg" fullWidth
             style={{
-              pointerEvents: 'auto',
-              width: '100%', padding: '16px', borderRadius: 18, border: 0,
+              pointerEvents: 'auto', padding: '16px', borderRadius: 18,
               background: name.trim() ? T.sun : T.surfaceAlt,
               color: name.trim() ? T.sunInk : T.inkMuted,
-              cursor: name.trim() && !creating ? 'pointer' : 'default',
               fontFamily: FH, fontSize: 16, fontWeight: 700, letterSpacing: -0.3,
               boxShadow: name.trim() ? T.shadowFab : 'none',
               transition: 'background 0.15s, box-shadow 0.15s',
             }}
           >
             {creating ? 'Creating…' : `Create group · ${totalMembers} ${totalMembers === 1 ? 'member' : 'members'}`}
-          </button>
+          </Btn>
         </div>
 
       </div>
@@ -783,17 +781,14 @@ export default function NewGroupPage() {
             >
               Cancel
             </button>
-            <button
-              onClick={handleCreate}
-              disabled={!name.trim() || creating}
+            <Btn
+              onClick={handleCreate} disabled={!name.trim() || creating} variant="primary" size="md"
               style={{
-                padding: '12px 22px', borderRadius: 12, border: 0,
+                padding: '12px 22px',
                 background: name.trim() ? T.sun : T.surfaceAlt,
                 color: name.trim() ? T.sunInk : T.inkMuted,
-                cursor: name.trim() && !creating ? 'pointer' : 'default',
-                font: 'inherit', fontFamily: FH, fontSize: 15, fontWeight: 600, letterSpacing: -0.2,
+                fontFamily: FH, fontSize: 15, letterSpacing: -0.2,
                 boxShadow: name.trim() ? '0 6px 16px rgba(242,192,74,0.32)' : 'none',
-                display: 'inline-flex', alignItems: 'center', gap: 8,
                 transition: 'background 0.15s, box-shadow 0.15s',
               }}
             >
@@ -807,7 +802,7 @@ export default function NewGroupPage() {
                   {totalMembers}
                 </span>
               )}
-            </button>
+            </Btn>
           </div>
         </footer>
       </div>

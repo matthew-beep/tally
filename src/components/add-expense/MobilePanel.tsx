@@ -9,6 +9,7 @@ import { formatAmount, round2, stripNegative, parseNum } from '@/lib/money'
 import type { GroupMember } from '@/types'
 import { ALGORITHMS, algoLabel, type SplitMode, type LineItem } from './types'
 import { RemainderCounter, Hairline, Chevron, Checkbox, shortName, fmtPct } from './parts'
+import { Btn } from '@/components/Btn'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 function CollapsibleRow({ label, value, open, onClick }: {
@@ -415,17 +416,16 @@ export function MobilePanel({ s, onCancel }: { s: AddExpenseFormState; onCancel:
       </div>
 
       <div style={{ flexShrink: 0, padding: '12px 18px 28px', background: T.surface }}>
-        <button
-          type="button" onClick={s.handleSave} disabled={!s.canSave || s.isPending}
+        <Btn
+          onClick={s.handleSave} disabled={!s.canSave || s.isPending} variant="primary" size="lg" fullWidth
           style={{
-            width: '100%', background: s.canSave ? T.sun : T.lineStrong, border: 'none', borderRadius: 14,
-            padding: '17px', fontSize: 16, fontWeight: 700,
+            background: s.canSave ? T.sun : T.lineStrong, borderRadius: 14,
+            padding: '17px', fontSize: 16,
             color: s.canSave ? T.sunInk : T.inkFaint,
             boxShadow: s.canSave ? '0 4px 16px rgba(242,192,74,0.28)' : 'none',
-            cursor: s.canSave && !s.isPending ? 'pointer' : 'default',
             fontFamily: FH, letterSpacing: -0.2,
           }}
-        >{saveLabel}</button>
+        >{saveLabel}</Btn>
       </div>
     </div>
   )

@@ -18,6 +18,7 @@ import { calcNetBalances } from '@/lib/balance'
 import { postJson } from '@/lib/api'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Btn } from '@/components/Btn'
 import { formatAmount } from '@/lib/money'
 import { PlusIcon } from 'lucide-react'
 
@@ -119,9 +120,9 @@ export default function GroupSettingsPage() {
       <div style={{ padding: 28, fontFamily: F, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 }}>
         <div style={{ fontSize: 40 }}>💸</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: T.ink }}>Group not found</div>
-        <button onClick={() => router.push('/groups')} style={{ marginTop: 4, padding: '10px 20px', background: T.ink, color: T.bg, border: 'none', borderRadius: T.r.md, fontSize: 14, fontWeight: 600, fontFamily: F, cursor: 'pointer' }}>
+        <Btn onClick={() => router.push('/groups')} variant="dark" size="md" style={{ marginTop: 4, padding: '10px 20px', fontSize: 14 }}>
           Back to groups
-        </button>
+        </Btn>
       </div>
     )
   }
@@ -223,13 +224,18 @@ export default function GroupSettingsPage() {
               >
                 Cancel
               </button>
-              <button
+              <Btn
                 onClick={handleAddMembers}
                 disabled={!pendingMembers.length || adding}
-                style={{ padding: '8px 16px', borderRadius: T.r.md, border: 0, cursor: pendingMembers.length ? 'pointer' : 'default', background: pendingMembers.length ? T.ink : T.surfaceAlt, color: pendingMembers.length ? T.bg : T.inkMuted, fontSize: 13, fontWeight: 700, fontFamily: F }}
+                variant="dark" size="md"
+                style={{
+                  padding: '8px 16px', fontSize: 13,
+                  background: pendingMembers.length ? T.ink : T.surfaceAlt,
+                  color: pendingMembers.length ? T.bg : T.inkMuted,
+                }}
               >
                 {adding ? 'Adding…' : pendingMembers.length ? `Add ${pendingMembers.length} to group` : 'Add to group'}
-              </button>
+              </Btn>
             </div>
           </div>
         )}
@@ -298,12 +304,12 @@ export default function GroupSettingsPage() {
             <div style={{ fontSize: 11.5, color: T.coralInk, opacity: 0.75, marginTop: 2, marginBottom: 12 }}>
               Permanently removes the group, its expenses, and settlements for everyone.
             </div>
-            <button
-              onClick={() => setDeleteOpen(true)}
-              style={{ width: '100%', height: 44, borderRadius: T.r.md, border: `1.5px solid ${T.coral}`, cursor: 'pointer', background: 'transparent', color: T.coralInk, fontFamily: FH, fontSize: 15, fontWeight: 600 }}
+            <Btn
+              onClick={() => setDeleteOpen(true)} variant="dangerOutline" size="lg" fullWidth
+              style={{ height: 44, borderRadius: T.r.md, fontFamily: FH, fontSize: 15, fontWeight: 600 }}
             >
               Delete group
-            </button>
+            </Btn>
           </div>
         ) : (
           <div style={{ background: T.coralSoft, border: `1px solid ${T.coral}`, borderRadius: T.r.card, padding: '13px 14px' }}>
@@ -313,20 +319,22 @@ export default function GroupSettingsPage() {
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               {leaveConfirm && (
-                <button
-                  onClick={() => setLeaveConfirm(false)}
-                  style={{ flex: 1, height: 44, borderRadius: T.r.md, border: `1.5px solid ${T.lineStrong}`, cursor: 'pointer', background: 'transparent', color: T.inkMuted, fontFamily: FH, fontSize: 15, fontWeight: 600 }}
+                <Btn
+                  onClick={() => setLeaveConfirm(false)} variant="outline" size="lg"
+                  style={{ flex: 1, height: 44, borderRadius: T.r.md, fontFamily: FH, fontSize: 15, fontWeight: 600 }}
                 >
                   Cancel
-                </button>
+                </Btn>
               )}
-              <button
+              <Btn
                 onClick={handleLeave}
                 disabled={leaveGroup.isPending}
-                style={{ flex: 1, height: 44, borderRadius: T.r.md, border: `1.5px solid ${T.coral}`, cursor: 'pointer', background: leaveConfirm ? T.coral : 'transparent', color: leaveConfirm ? '#fff' : T.coralInk, fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: leaveGroup.isPending ? 0.6 : 1 }}
+                variant={leaveConfirm ? 'danger' : 'dangerOutline'}
+                size="lg"
+                style={{ flex: 1, height: 44, borderRadius: T.r.md, fontFamily: FH, fontSize: 15, fontWeight: 600, boxShadow: 'none', opacity: leaveGroup.isPending ? 0.6 : 1 }}
               >
                 {leaveGroup.isPending ? 'Leaving…' : leaveConfirm ? 'Confirm leave' : 'Leave group'}
-              </button>
+              </Btn>
             </div>
           </div>
         )}

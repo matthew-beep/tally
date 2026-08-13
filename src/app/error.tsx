@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { T, F, FH } from '@/design/tokens'
+import { Btn } from '@/components/Btn'
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -34,16 +35,12 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         </p>
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
-        <button
-          onClick={reset}
-          style={{
-            padding: '11px 20px', borderRadius: T.r.lg, border: 0, cursor: 'pointer',
-            background: T.ink, color: T.surface, font: 'inherit', fontFamily: F,
-            fontSize: 14, fontWeight: 700,
-          }}
+        <Btn
+          onClick={reset} variant="dark" size="lg"
+          style={{ padding: '11px 20px', borderRadius: T.r.lg, color: T.surface, fontFamily: F, fontSize: 14 }}
         >
           Try again
-        </button>
+        </Btn>
         <Link
           href="/"
           style={{

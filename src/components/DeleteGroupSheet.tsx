@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { ModalOrSheet } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { useDeleteGroup } from '@/queries/useGroups'
 import { calcNetBalances } from '@/lib/balance'
 import type { Group, GroupMember, Expense, Settlement } from '@/types'
@@ -49,12 +50,12 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, settlements, 
               All expenses and settlements have been removed for all {members.length} members.
             </div>
           </div>
-          <button
-            onClick={() => router.push('/groups')}
-            style={{ width: '100%', padding: '15px', borderRadius: T.r.lg, background: T.surfaceAlt, border: 0, cursor: 'pointer', font: 'inherit', fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginTop: 8, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
+          <Btn
+            onClick={() => router.push('/groups')} variant="soft" size="lg" fullWidth
+            style={{ padding: '15px', borderRadius: T.r.lg, fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginTop: 8, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
           >
             Back to groups
-          </button>
+          </Btn>
         </div>
       </ModalOrSheet>
     )
@@ -122,22 +123,30 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, settlements, 
 
         {/* CTAs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <button
+          <Btn
             onClick={async () => {
               if (!confirmed || deleteGroup.isPending) return
               await deleteGroup.mutateAsync(groupId)
               setDeleted(true)
             }}
-            style={{ width: '100%', padding: '15px', borderRadius: T.r.lg, background: confirmed ? T.coral : T.lineStrong, color: confirmed ? '#fff' : T.inkFaint, border: 0, cursor: confirmed ? 'pointer' : 'default', font: 'inherit', fontFamily: FH, fontSize: 16, fontWeight: 700, letterSpacing: -0.2, boxShadow: confirmed ? `0 8px 24px rgba(239,97,68,0.36)` : 'none', transition: 'background 0.2s, box-shadow 0.2s', opacity: deleteGroup.isPending ? 0.6 : 1 }}
+            variant="danger" size="lg" fullWidth
+            style={{
+              padding: '15px', borderRadius: T.r.lg,
+              background: confirmed ? T.coral : T.lineStrong, color: confirmed ? '#fff' : T.inkFaint,
+              cursor: confirmed ? 'pointer' : 'default',
+              fontFamily: FH, fontSize: 16, letterSpacing: -0.2,
+              boxShadow: confirmed ? `0 8px 24px rgba(239,97,68,0.36)` : 'none',
+              transition: 'background 0.2s, box-shadow 0.2s', opacity: deleteGroup.isPending ? 0.6 : 1,
+            }}
           >
             {deleteGroup.isPending ? 'Deleting…' : 'Delete group forever'}
-          </button>
-          <button
-            onClick={onClose}
-            style={{ width: '100%', padding: '13px', borderRadius: T.r.lg, background: 'transparent', border: 0, cursor: 'pointer', font: 'inherit', fontFamily: F, fontSize: 15, fontWeight: 600, color: T.inkMuted, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
+          </Btn>
+          <Btn
+            onClick={onClose} variant="outline" size="lg" fullWidth
+            style={{ padding: '13px', borderRadius: T.r.lg, border: 0, fontFamily: F, fontSize: 15, color: T.inkMuted, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
           >
             Cancel
-          </button>
+          </Btn>
         </div>
       </div>
     </ModalOrSheet>

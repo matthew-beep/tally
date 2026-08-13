@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { ModalOrSheet } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { Avatar } from '@/components/Avatar'
 import { firstName as getFirstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
@@ -101,18 +102,16 @@ export function PersonProfileSheet({ open, onClose, profile, slot, parts }: Pers
 
         {/* View history */}
         <div style={{ padding: '0 16px' }}>
-          <button
-            onClick={onClose}
+          <Btn
+            onClick={onClose} variant="outline" size="lg" fullWidth
             style={{
-              width: '100%', padding: '14px 16px', borderRadius: 16,
-              background: T.surface, color: T.inkMuted,
-              border: `1px solid ${T.lineStrong}`,
-              cursor: 'pointer', fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
-              textAlign: 'center',
+              padding: '14px 16px', borderRadius: 16,
+              background: T.surface, color: T.inkMuted, border: `1px solid ${T.lineStrong}`,
+              fontFamily: 'inherit', fontSize: 14, textAlign: 'center',
             }}
           >
             View expense history with {firstName}
-          </button>
+          </Btn>
         </div>
       </div>
     </ModalOrSheet>

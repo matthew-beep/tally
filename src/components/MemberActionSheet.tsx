@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { ModalOrSheet } from '@/components/modal'
+import { Btn } from '@/components/Btn'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
 import { formatAmount } from '@/lib/money'
@@ -215,13 +216,12 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
                 </div>
               ))}
             </div>
-            <button
-              onClick={handleSendInvite}
-              disabled={inviteToSeat.isPending}
-              style={{ width: '100%', padding: '15px', borderRadius: T.r.lg, background: T.sun, color: T.sunInk, border: 0, cursor: inviteToSeat.isPending ? 'default' : 'pointer', font: 'inherit', fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: inviteToSeat.isPending ? 0.7 : 1 }}
+            <Btn
+              onClick={handleSendInvite} disabled={inviteToSeat.isPending} variant="primary" size="lg" fullWidth
+              style={{ padding: '15px', borderRadius: T.r.lg, background: T.sun, color: T.sunInk, fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: inviteToSeat.isPending ? 0.7 : 1 }}
             >
               {inviteToSeat.isPending ? 'Sending…' : 'Send invite'}
-            </button>
+            </Btn>
           </>
         )}
 
@@ -277,12 +277,12 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
           </div>
         )}
 
-        <button
-          onClick={onClose}
-          style={{ width: '100%', padding: '15px', borderRadius: T.r.lg, background: T.surfaceAlt, color: T.inkMuted, border: 0, cursor: 'pointer', font: 'inherit', fontFamily: FH, fontSize: 15, fontWeight: 600 }}
+        <Btn
+          onClick={onClose} variant="soft" size="lg" fullWidth
+          style={{ padding: '15px', borderRadius: T.r.lg, fontFamily: FH, fontSize: 15, fontWeight: 600 }}
         >
           {guestView === 'sent' || guestView === 'claim' ? 'Done' : 'Cancel'}
-        </button>
+        </Btn>
       </div>
     </ModalOrSheet>
   )

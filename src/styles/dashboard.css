@@ -30,19 +30,33 @@
   }
 }
 
-/* ── Home page ── */
+/* ── App header — persistent header shared by Home/Groups/Activity/Me ── */
 
-.home-topbar {
+.app-header {
   padding: 18px 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  border-bottom: 1px solid var(--tally-line);
+  flex-shrink: 0;
 }
 
-.home-topbar-greeting {
+.app-header-greeting {
   font-size: 22px;
 }
+
+.app-header-title {
+  font-size: 24px;
+}
+
+.app-header-action-icon {
+  display: none;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* ── Home page ── */
 
 .home-scroll {
   flex: 1;
@@ -197,21 +211,35 @@
     padding-bottom: 32px;
   }
 
-  .home-topbar {
+  .app-header {
     padding: 14px 16px;
   }
 
-  .home-topbar-greeting {
+  .app-header-greeting {
     font-size: 18px;
   }
 
-  .home-topbar-search {
+  .app-header-title {
+    font-size: 20px;
+  }
+
+  /* Groups panel has its own New group button — hide the header duplicate on mobile */
+  .app-header-action--hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 399px) {
+  .app-header-action-label {
     display: none;
   }
 
-  /* Groups panel has its own New group button — hide the topbar duplicate on mobile */
-  .home-topbar-add {
-    display: none !important;
+  .app-header-action-icon {
+    display: inline;
+  }
+
+  .app-header-action {
+    padding: 7px 12px !important;
   }
 }
 
@@ -321,28 +349,10 @@
 
 /* Small phones */
 @media (max-width: 399px) {
-  .home-topbar-actions .home-topbar-add-label {
-    display: none;
-  }
-
-  .home-topbar-add-icon {
-    display: inline;
-  }
-
-  .home-topbar-add {
-    padding: 7px 12px !important;
-  }
-
   .home-groups-header button {
     font-size: 12px !important;
     padding: 6px 12px !important;
   }
-}
-
-.home-topbar-add-icon {
-  display: none;
-  font-size: 18px;
-  line-height: 1;
 }
 
 /* ── Group detail page ── */

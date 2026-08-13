@@ -36,8 +36,13 @@ chrome, or commit to the mixed state and design for it. The one-line breakpoint
 change is the cheap option and probably correct — the sheet/tab-bar pairing is
 what users expect on a tablet.
 
-Other breakpoints: `640px` and `680px` (minor), `399px` (home top bar collapses
-"New group" to an icon — check the narrow phone case).
+Other breakpoints: `640px` and `680px` (minor), `399px` (the shared `AppHeader`
+collapses an action button's label to a `+` icon — check the narrow phone case).
+
+Since 2026-08-12 the header is shared by all four tab pages (`.app-header*`,
+formerly `.home-topbar*`), so header checks below apply to Home, Groups,
+Activity and Me alike — the `≤1023px` "hide the duplicate action" rule
+(`.app-header-action--hide-mobile`) is Home's "New group" only.
 
 ---
 
@@ -73,6 +78,9 @@ Run these on each route before the per-feature list:
 - [ ] Tap targets ≥ 44px on mobile.
 - [ ] Keyboard doesn't cover the focused input or the primary action button.
 - [ ] Loading and empty states render at both sizes, not just populated ones.
+- [ ] Tab pages: `AppHeader` stays put while the body scrolls under it (it is
+      `flex-shrink: 0` above a `DashboardPage` scroll area, not `sticky`), bell
+      and avatar stay tappable, title doesn't collide with the action button.
 
 ---
 
@@ -92,13 +100,15 @@ Legend: **M** = ≤767px, **T** = 768–1023px (mixed), **D** = ≥1024px.
 |---|---|---|---|
 | Hero amount doesn't wrap or clip at 375px and at `$10,000+` | ☐ | ☐ | ☐ |
 | Person rows: mobile flat card list vs desktop 2-column `BalanceTable` | ☐ | ☐ | ☐ |
-| "New group" label collapses to icon below 399px | ☐ | — | — |
+| "New group" label collapses to icon below 399px, and the button hides entirely below 1024px (Groups has its own) | ☐ | — | — |
 | Needs-attention rail: present on desktop, reachable on mobile | ☐ | ☐ | ☐ |
 | All-square empty state | ☐ | ☐ | ☐ |
 
 ### Groups list / create group
 | Check | M | T | D |
 |---|---|---|---|
+| Group card: avatar stack + `+N` overflow, long name truncates before the amount | ☐ | ☐ | ☐ |
+| `square ✓` chip vs signed amount — both fit the row at `$12,345.67` | ☐ | ☐ | ☐ |
 | Emoji picker sheet opens and is dismissible | ☐ | ☐ | ☐ |
 | `MemberCombobox`: results list scrolls, doesn't cover the input | ☐ | ☐ | ☐ |
 | Guest add path | ☐ | ☐ | ☐ |

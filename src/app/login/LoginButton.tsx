@@ -1,6 +1,7 @@
 'use client'
 
 import { T, F, FH } from '@/design/tokens'
+import { Btn } from '@/components/Btn'
 import { createClient } from '@/lib/supabase'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
@@ -140,18 +141,12 @@ function LoginButtonInner() {
               >
                 ⚡ {devEmail}
               </button>
-              <button
-                onClick={signIn}
-                disabled={loading || !email || !password}
-                style={{
-                  padding: '9px', background: T.ink, color: T.bg,
-                  border: 'none', borderRadius: T.r.md,
-                  fontSize: 13, fontWeight: 600, fontFamily: F, cursor: 'pointer',
-                  opacity: loading || !email || !password ? 0.4 : 1,
-                }}
+              <Btn
+                onClick={signIn} disabled={loading || !email || !password} variant="dark" size="md"
+                style={{ padding: '9px', fontSize: 13, background: T.ink, color: T.bg, opacity: loading || !email || !password ? 0.4 : 1 }}
               >
                 {loading ? 'Signing in…' : 'Sign in with email'}
-              </button>
+              </Btn>
             </div>
           )}
         </div>

@@ -1229,9 +1229,26 @@ Notification count **depends on step 2** — ship it first or the count is
 permanently wrong. Also depends on the settlement-notification fix (punch list
 item 9): a count is only useful once notifications reach the right person.
 
-- [ ] **Where notifications live — decide before building** 🟡 *(discussed
-  2026-08-03; supersedes the old "unread count badge on nav bell" line, which
-  described a nav that was never built)*
+- [x] ~~**Where notifications live — decide before building**~~ 🟡 →
+  **Resolved by shipping Option B, 2026-08-12.** `AppHeader`
+  (`src/components/dashboard/AppHeader.tsx`, 76 lines) now carries the title
+  slot, a per-page action slot, `NotificationBell` and the avatar; Home,
+  Groups, Activity and Me all mount it, and group detail mounts the same bell
+  in its bespoke header. The sheet (`NotificationsSheet`, list → review) opens
+  from any of them.
+
+  Two deviations from the plan below, both deliberate. **Each page mounts the
+  header itself rather than `(dashboard)/layout.tsx` owning it** — the tab
+  pages share a shape the group-detail/settings/create routes don't, and
+  forcing all five onto one header would have meant redesigning three of them
+  to fit a slot they don't want. **The three-places problem is not resolved** —
+  home's `NeedsAttentionRail` and `/me`'s list both still render the same
+  batches; the sheet joined them rather than replacing them. Deciding which
+  surface owns the inbox is still open, just no longer blocking.
+
+  Original write-up kept below for the reasoning. *(Discussed 2026-08-03;
+  superseded the older "unread count badge on nav bell" line, which described a
+  nav that was never built.)*
 
   **There is no bell icon in the app.** `TabBar.tsx` and `Sidebar.tsx` both
   render the same four items — Home · Groups · Activity · Me — and notifications
@@ -1288,10 +1305,17 @@ item 9): a count is only useful once notifications reach the right person.
   an hour and can be upgraded to B later — the count query is the same either
   way.
 
-- [ ] **Unread count query** (needed by both options) — single int,
-  `refetchInterval: 30_000`, `refetchIntervalInBackground: false` (per
-  CLAUDE.md sync rules). Note punch-list item 9: if cross-group settlements
-  get batched, this must count **distinct batches**, not rows.
+- [ ] **Unread count query** (needed by both options) — **half done.** The
+  count itself ships: `NotificationBell` renders
+  `selectActionable(useNotifications()).length`, and because
+  `useNotifications` returns `NotificationBatch[]`, it already counts
+  **distinct batches, not rows** (punch-list item 9's requirement). It is not
+  the "single int" query described here — it reuses the full notifications
+  query rather than adding a second one, which is why no separate cache to
+  keep in sync exists. Still missing: `refetchInterval: 30_000` +
+  `refetchIntervalInBackground: false` per CLAUDE.md's sync rules — today the
+  count refreshes on mount and window focus only, so a payee sitting on an
+  open tab won't see a new request arrive.
 - [ ] **App-level data prefetch** — `useGlobalBalances` only runs on the home
   page, so deep-linked pages lack cross-group balance data (avatar taps on
   the group detail balance card have nothing to show):
