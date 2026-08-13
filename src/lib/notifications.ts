@@ -1,6 +1,18 @@
 import { round2 } from './money'
 import type { Notification, NotificationBatch, Settlement } from '@/types'
 
+/** Types that require a decision from the recipient — surfaced on the home
+ * rail, the notification bell's badge count, and the notification center.
+ * Everything else (accepted/declined/confirmed/denied) is informational and
+ * stays on /me. */
+export const ACTIONABLE_TYPES: Notification['type'][] = ['group_invite', 'settlement_confirm']
+
+/** Shared by every surface that shows the actionable subset — home rail,
+ * group-detail bell, notification center — so they can't drift on the filter. */
+export function selectActionable(batches: NotificationBatch[]): NotificationBatch[] {
+  return batches.filter(b => ACTIONABLE_TYPES.includes(b.type))
+}
+
 /**
  * Signed amount of one settlement from the recipient's point of view:
  * positive = money came to me, negative = money went out.

@@ -30,11 +30,13 @@ export default function InvitePage() {
         return
       }
 
-      const { data: groupData } = await supabase
-        .from('groups')
-        .select('id, name, emoji')
-        .eq('invite_token', token)
-        .single()
+      // A brand-new invitee has no group_members row yet, so the ordinary
+      // "members or creator" / "pending invitee" RLS policies on groups
+      // can't authorize this lookup — that's the exact case this link
+      // exists for. get_group_by_invite_token is a SECURITY DEFINER RPC
+      // that bakes the token match into the function body instead.
+      const { data: rpcData } = await supabase.rpc('get_group_by_invite_token', { token })
+      const groupData = rpcData?.[0] ?? null
 
       if (!groupData) { setPageState('invalid'); return }
       setGroup(groupData)

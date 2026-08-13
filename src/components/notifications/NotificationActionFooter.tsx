@@ -1,0 +1,54 @@
+'use client'
+
+import { T } from '@/design/tokens'
+
+type Action = {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}
+
+type Props = {
+  secondary: Action
+  primary: Action & { background: string; color: string }
+  hint?: string
+}
+
+/** Ghost + filled button pair for the notification review footer. */
+export function NotificationActionFooter({ secondary, primary, hint }: Props) {
+  return (
+    <div style={{ flexShrink: 0, padding: '18px 26px 24px' }}>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button
+          type="button"
+          onClick={secondary.onClick}
+          disabled={secondary.disabled}
+          style={{
+            flex: 0.8, padding: '13px 0', borderRadius: 13, border: 0, cursor: 'pointer',
+            font: 'inherit', fontSize: 14, fontWeight: 700, background: 'transparent',
+            color: T.inkMuted, boxShadow: `inset 0 0 0 1px ${T.lineStrong}`,
+          }}
+        >
+          {secondary.label}
+        </button>
+        <button
+          type="button"
+          onClick={primary.onClick}
+          disabled={primary.disabled}
+          style={{
+            flex: 1.4, padding: '13px 0', borderRadius: 13, border: 0, cursor: 'pointer',
+            font: 'inherit', fontSize: 15, fontWeight: 700,
+            background: primary.background, color: primary.color,
+          }}
+        >
+          {primary.label}
+        </button>
+      </div>
+      {hint && (
+        <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 12, lineHeight: 1.5, textAlign: 'center' }}>
+          {hint}
+        </div>
+      )}
+    </div>
+  )
+}

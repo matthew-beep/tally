@@ -93,9 +93,8 @@ Guest `group_members` rows have `user_id = NULL`. They are inherently group-scop
 
 ## Claiming
 
-**Status: designed, not yet implemented.** Step-by-step UX is in
-`docs/flows.md` § Claim a guest seat — this section covers the schema and
-why it's shaped this way.
+**Status: built.** Step-by-step UX (both paths) is in `docs/flows.md` §
+Claim a guest seat — this section covers the schema and RLS rationale.
 
 Every `group_members` row carries a `seat_token`, a DB column default
 (`DEFAULT substr(md5(random()::text), 1, 12)`) generated unconditionally on
@@ -106,22 +105,65 @@ guest row is created or converted (`/api/groups/create`, `/api/groups/members/ad
 the decline-to-guest conversion in `/api/invite/decline`) need any special
 handling — the column just exists.
 
-A shareable `/claim/:seat_token` link resolves to one specific seat and
-performs:
+There are two independent ways a seat gets claimed:
+
+**Path A — self-serve, via `claim_seat(token)`.** A guest's own claim link
+(`/claim/:seat_token`) is opened by the guest themselves; clicking through
+and confirming is their own consent, same logic as accepting an invite link.
+The write is a `SECURITY DEFINER` SQL function, **not** a plain client
+`UPDATE` under an RLS policy — this was tried first and doesn't work: RLS
+requires SELECT visibility on a row before an UPDATE policy is even
+consulted, and nothing grants a fresh claimer visibility into a seat whose
+`user_id` is still `NULL` (they're not a member, and no "own row" policy
+applies to a row that isn't theirs yet). A same-shaped `USING (user_id IS
+NULL) WITH CHECK (user_id = auth.uid())` policy was verified against local
+Postgres to silently match zero rows — no error, just a no-op that reads as
+"already claimed" to the user. `claim_seat` runs with elevated privilege
+internally instead:
+
+```sql
+CREATE FUNCTION claim_seat(token text) RETURNS TABLE(id uuid, group_id uuid)
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+  UPDATE group_members
+  SET user_id = auth.uid(), name = <claimer's display_name ?? name>
+  WHERE seat_token = token AND user_id IS NULL AND status = 'active'
+  RETURNING id, group_id;
+$$;
+```
+
+Granted to `authenticated` only (claiming requires a session), unlike the
+preview RPC (`get_seat_by_claim_token`, granted to `anon` too) which must
+work pre-login so a dead link can be rejected before OAuth.
+
+**Path B — assisted, via `POST /api/groups/members/claim-invite`.** An active
+member searches for and attaches a *specific* known Tally user to a guest
+seat. Because the member doing the attaching isn't the one whose identity
+and financial history are being reassigned, this does **not** merge
+immediately — it requires the target's confirmation, the same rule CLAUDE.md
+already applies to search-based member adds. The route (service-role,
+after checking the caller is an active member) does:
 
 ```sql
 UPDATE group_members
-SET user_id = :new_profile_id, name = :profile_name
-WHERE seat_token = :token AND user_id IS NULL;
+SET user_id = :profileId, status = 'pending', invited_by = :caller, name = :targetDisplayName
+WHERE id = :memberId AND group_id = :groupId AND user_id IS NULL;
 ```
 
-All existing `expense_splits`, `expenses.paid_by`, and `settlements` already reference `group_members.id` — nothing else needs to move.
+— an `UPDATE` on the existing seat, not an `INSERT`, so `group_members.id`
+(and everything keyed to it) is unchanged. A trigger,
+`on_group_member_seat_invited`, fires on this transition (`OLD.user_id IS
+NULL AND NEW.user_id IS NOT NULL AND NEW.status = 'pending'`) and reuses
+`notify_group_invite()` unchanged to notify the target. They accept/decline
+through the ordinary pending-invite flow from there.
 
-The `WHERE user_id IS NULL` clause is the actual security boundary, not
-token secrecy after the fact — once a seat is claimed, its token can never
-claim anything again regardless of who still holds it. That's why the token
-is deliberately never nulled out on claim: a reused link can report "already
-claimed by X" instead of a generic error, at no cost to security.
+All existing `expense_splits`, `expenses.paid_by`, and `settlements` already reference `group_members.id` — nothing else needs to move, on either path.
+
+**The `WHERE user_id IS NULL` clause is the actual security boundary for
+both paths, not token secrecy after the fact** — once a seat is claimed (or
+has a pending Path B invite attached), its token can't claim or be
+re-invited by either path regardless of who still holds it. That's why the
+token is deliberately never nulled out on claim: a reused link can report
+"already claimed" instead of a generic error, at no cost to security.
 
 No cross-group identity is implied by claiming. The same real person added
 as a guest in three different groups holds three unrelated seats with three

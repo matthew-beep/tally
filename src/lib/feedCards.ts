@@ -13,7 +13,7 @@ import type { ActivityItem, FeedCardModel, GroupMember } from '@/types'
  * `FeedCardModel` and one component renders it.
  */
 
-function shortDate(dateStr: string): string {
+export function shortDate(dateStr: string): string {
   // Midnight-qualified so a bare YYYY-MM-DD isn't read as UTC and shown a day early.
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }

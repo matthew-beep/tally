@@ -1,57 +1,43 @@
 'use client'
 
-import { useState } from 'react'
-import { T, F, FH } from '@/design/tokens'
+import { T, FH } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
+import { ModalOrSheet, ModalContent } from '@/components/modal'
 import { formatAmount } from '@/lib/money'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import type { LeaderboardEntry } from '@/lib/leaderboard'
 import type { GroupMember } from '@/types'
 
 interface Props {
+  open: boolean
+  onClose: () => void
   entries: LeaderboardEntry[]
   members: GroupMember[]
   myId?: string
-  defaultOpen?: boolean
 }
 
 /**
  * "Who fronted the most" — ranked bars scaled to the top spender.
- *
  * Gross fronted, not net standing: this is not a balance and must never be
  * captioned like one. The members ledger covers who owes what.
- *
- * Collapsed by default — it's a curiosity, not the reason you opened the group.
  */
-export function GroupLeaderboard({ entries, members, myId, defaultOpen = false }: Props) {
-  const [open, setOpen] = useState(defaultOpen)
-
+export function LeaderboardSheet({ open, onClose, entries, members, myId }: Props) {
   const total = entries.reduce((s, e) => s + e.paid, 0)
-  // Nobody has fronted anything — there's no ranking to show.
-  if (total < 0.01) return null
-
-  const max = entries[0]?.paid ?? 0
+  const max   = entries[0]?.paid ?? 0
   const memberById: Record<string, GroupMember> = Object.fromEntries(members.map(m => [m.id, m]))
 
   return (
-    <div style={{ marginBottom: 20, background: T.surface, border: `0.5px solid ${T.line}`, boxShadow: T.shadowSm, borderRadius: T.r.lg, overflow: 'hidden' }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'none', border: 0, cursor: 'pointer', font: 'inherit', fontFamily: F, textAlign: 'left' }}
-      >
-        <span style={{ fontSize: 17, lineHeight: 1 }}>🏆</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 700, color: T.ink }}>Leaderboard</div>
-          <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 1 }}>Who fronted the most</div>
+    <ModalOrSheet open={open} onClose={onClose} title="Who's ahead?" maxWidth={420}>
+      <ModalContent style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 14 }}>
+          <span style={{ width: 44, height: 44, borderRadius: T.r.md, background: T.sunSoft, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏆</span>
+          <div>
+            <div style={{ fontFamily: FH, fontSize: 18, fontWeight: 700, letterSpacing: -0.4, color: T.ink }}>Who&rsquo;s ahead?</div>
+            <div style={{ fontSize: 12.5, color: T.inkMuted, marginTop: 1 }}>Who&rsquo;s fronted the most so far</div>
+          </div>
         </div>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s ease', flexShrink: 0 }}>
-          <path d="M5 3l4 4-4 4" stroke={T.inkMuted} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
 
-      {open && (
-        <div style={{ padding: '2px 16px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {entries.map((entry, i) => {
             const m     = memberById[entry.memberId]
             const isYou = entry.memberId === myId
@@ -86,7 +72,7 @@ export function GroupLeaderboard({ entries, members, myId, defaultOpen = false }
             {formatAmount(total)} spent across the group
           </div>
         </div>
-      )}
-    </div>
+      </ModalContent>
+    </ModalOrSheet>
   )
 }

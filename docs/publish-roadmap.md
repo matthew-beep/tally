@@ -79,32 +79,41 @@ so settle-all can leave a fraction of a cent behind and not strictly zero the
 person out. Invisible in dollars, but decide whether to derive `net` from the
 filtered parts before shipping the write.
 
-### 3. Invite path — the real blocker 🟡 · **4–6h**
+### 3. Invite path — the real blocker ✅ **done 2026-08-11**
 
-**You currently cannot get anyone into a group unless they already have a Tally
-account.** For a group expense app that is close to fatal.
+**Fixed.** The failure mode described below was real; the fix taken differs
+from what this section originally proposed — worth noting for anyone
+following the estimate.
 
-- `invite_token` appears in exactly two places in `src/`: the route that reads
-  it, and the type. No screen generates or shows a link.
-- The route is broken for the people it exists for. The `groups` SELECT policy
-  (baseline `:762`, `:766`) allows members, the creator, or *pending invitees*.
-  A stranger holding a link matches none of those, so the lookup returns nothing
-  and they see "invalid".
-- Member search only finds existing users. Guests can be added, but
-  `claim_token` has no route or UI, so a guest can never become a real user.
+- `invite_token` appeared in exactly two places in `src/`: the route that
+  read it, and the type. No screen generated or showed a link — fixed by
+  `InviteGroupSheet.tsx`, opened from a new "Invite to group" row in group
+  settings (link card, copy, `navigator.share`).
+- The route was broken for the people it exists for. The `groups` SELECT
+  policy (baseline `:762`, `:766`) allows members, the creator, or *pending
+  invitees* — a stranger holding a link matched none of those, so the lookup
+  returned nothing and they saw "invalid".
+- Member search only found existing users. Guests could be added, but
+  claiming had no route or UI — now built, both a self-serve claim link and
+  an assisted, confirmation-required invite path. See `docs/flows.md` §
+  Claim a guest seat.
 
-Work:
-- `POST /api/invite/resolve` — service-role, returns only `(id, name, emoji)`.
-  Model on `src/app/api/invite/decline/route.ts` (40 lines). A permissive
-  `groups` read policy is **not** an option — it would leak `invite_token`
-  columns and let anyone join anything. ~1h
-- Point `/invite/[token]` at the route instead of querying `groups` directly. ~30m
-- Invite-link UI: a row in the group settings Members section (next to the
-  existing `MemberCombobox`) that shows the link with copy / native share. ~2h
-- End-to-end test with a genuinely new account — the failure mode only appears
-  for someone with no membership row. ~1h
+**What actually shipped, vs. the `POST /api/invite/resolve` service-role
+route this section originally proposed:** the lookup went through
+`get_group_by_invite_token()`, a `SECURITY DEFINER` SQL function
+(`20260811000000_get_group_by_invite_token.sql`), not a Next.js API route.
+Same non-negotiable — a permissive `groups` read policy was never an option,
+it would leak `invite_token` and let anyone join anything — but the RPC
+approach mirrors the existing `get_my_group_ids()` precedent already in the
+schema, needs no server-only secret, and is callable directly from the
+already-client-side `/invite/[token]` page via `supabase.rpc(...)`. The
+claim flow's preview (`get_seat_by_claim_token`) and self-serve claim write
+(`claim_seat`) both follow the same RPC pattern; only the assisted claim
+path (Path B, privileged write on someone else's row) uses a service-role
+API route, matching `/api/groups/members/add`'s existing shape.
 
-**P0 total: 8–12h — 2–3 sessions.**
+**P0 total:** this item is done; re-total against the remaining P0 items
+before treating the original 8–12h estimate as current.
 
 ---
 
@@ -198,8 +207,10 @@ that finds six layout bugs is not.
 - **Itemized splits**, **emoji reactions**, **spending leaderboard**, **desktop
   3-column home**, **nav FAB** (`TODO.md` item 7), **cross-group settlement
   batching**. All either hidden or degrade gracefully.
-- **Guest claim flow.** Guests work as placeholders; the organiser settles on
-  their behalf. `CLAUDE.md` already scopes claiming to Phase 2.
+- ~~**Guest claim flow.**~~ Shipped 2026-08-11 alongside the invite-path fix
+  above (P0 §3) — see `docs/flows.md` § Claim a guest seat. `CLAUDE.md` still
+  describes this as Phase 2 / not-in-MVP scope; `docs/` and the actual code
+  have moved past that.
 - **Generated Supabase types** (17 `as any` waiting), **optimistic updates**,
   **`groups/new` decomposition** (816 lines, now the largest file), **batched
   dashboard fan-out** (3N queries on home). All real, none user-facing.

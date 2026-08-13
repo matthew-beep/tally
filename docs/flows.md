@@ -51,7 +51,18 @@ Three entry paths, one write path:
   mode: `@…` → handle fuzzy; 8-char alphanumeric → exact `add_code`; else
   name/display_name/handle fuzzy. Submit POSTs `/api/groups/members/add`.
 - **Invite link** — `/invite/[token]` (`src/app/invite/[token]/page.tsx`).
-  Clicking is consent, so joining is immediate (`status: 'active'`).
+  Clicking is consent, so joining is immediate (`status: 'active'`). The
+  group-by-token lookup goes through `get_group_by_invite_token(token)`, a
+  `SECURITY DEFINER` RPC (`20260811000000_get_group_by_invite_token.sql`) —
+  not a direct `groups` table query. A direct query only works for visitors
+  the existing RLS policies already recognize (members, creator, pending
+  invitees), which excludes the exact case an invite link exists for: a
+  stranger with zero prior relationship to the group. The RPC bakes the
+  token match into the function body and returns only `(id, name, emoji)`,
+  working identically whether or not the caller has a session yet. Getting
+  the link: "Invite to group" in group settings (`InviteGroupSheet.tsx`)
+  reads `groups.invite_token` off a group the member is already in — an
+  ordinary read, no RPC needed — and offers copy + `navigator.share`.
 - **QR / add code** — `/add/[add_code]` resolves a profile by `add_code`
   (`useProfileByAddCode`) and offers "add to group".
 
@@ -86,50 +97,102 @@ mobile strip, ⏳ in the empty-state preview.
 
 ## Claim a guest seat
 
-**Status: designed, not yet built.** See `docs/group-member-model.md` for the
-schema (`group_members.seat_token`). This section documents the intended
-end-to-end flow so implementation has a spec to build against.
+**Status: built.** Two independent paths — self-serve and assisted — both
+starting from a guest row in group settings (`MemberActionSheet.tsx`, guest
+branch). See `docs/group-member-model.md` § Claiming for the schema and RLS
+rationale; this section covers the UX.
 
 A guest (`group_members` row with `user_id = NULL`) can become a real member
 of that specific group without losing the expense history already attached
 to their seat — `expense_splits`, `expenses.paid_by`, and `settlements`
-already key off `group_members.id`, so claiming is a single `UPDATE`, not a
+already key off `group_members.id`, so claiming is a single write, not a
 data migration.
 
-- **Getting the link** — every `group_members` row carries a `seat_token`
-  (DB column default, same mechanism as `groups.invite_token` — generated
-  unconditionally on insert, not just for guests). Any active member of the
-  group can tap "copy claim link" on a guest row in group settings; the
-  existing `group_members: members only` RLS policy already exposes the full
-  row, token included, to everyone in the group, so no new policy is needed.
-  The link is shared out of band (text, in person, etc.) — Tally never emails
-  or SMSes it.
-- **One link, works for both cases** — whoever opens `/claim/[token]` either
-  already has a Tally account or doesn't; the flow doesn't need to know which
-  in advance. Google OAuth and the existing `handle_new_user` trigger +
-  onboarding-redirect middleware already branch new-vs-returning transparently.
-- **The route**:
-  1. `GET /api/claim/:token` (service role, works unauthenticated) validates
-     the token and returns group/guest names, so a dead link can be rejected
-     before sending anyone through OAuth. States: `invalid`, `already_claimed`,
-     `valid`.
-  2. If valid and there's no session → redirect to `/login?redirect=/claim/:token`,
-     mirroring `/invite/[token]`'s existing immediate-redirect behavior. New
-     accounts land in onboarding first (handle-null middleware redirect,
-     unchanged), then land back on `/claim/:token`.
-  3. If valid and authenticated → confirm screen → `POST /api/claim/:token`:
-     `UPDATE group_members SET user_id = :profileId, name = :displayName
-     WHERE seat_token = :token AND user_id IS NULL`.
-- **Security boundary is the `WHERE user_id IS NULL` clause, not token
-  secrecy after use.** The token is intentionally never nulled out on claim —
-  a row with `user_id` already set can't be claimed again regardless of who
-  holds the token, so keeping it lets a reused link report "already claimed
-  by X" instead of a generic error.
+### Path A — self-serve claim link
+
+Tap a guest row → "Invite {name} to claim this spot" → the sheet shows
+`/claim/:seat_token` with copy. `seat_token` is a DB column default on every
+`group_members` row (same mechanism as `groups.invite_token`), and any active
+member can read a fellow member's row (existing `group_members: members
+only` policy), so no new read policy was needed to *get* the link.
+
+`/claim/[token]` (`src/app/claim/[token]/page.tsx`):
+1. `get_seat_by_claim_token(token)` — a `SECURITY DEFINER` RPC mirroring the
+   invite-link fix above — resolves the token to `{group_id, group_name,
+   group_emoji, seat_name, status}` where `status` is `'valid'` or
+   `'already_claimed'`. Works pre-login; no row → `invalid` state client-side.
+2. If valid and no session → `/login?redirect=/claim/:token`, same handoff
+   `/invite/[token]` uses. New accounts land in onboarding first, then back
+   here.
+3. If valid and authenticated → confirm screen → `supabase.rpc('claim_seat',
+   { token })`.
+
+**Why the claim write is itself an RPC, not a plain client `UPDATE` under an
+RLS policy** (unlike the invite-accept `UPDATE` in `/invite/[token]`, which
+*is* a plain client write): Postgres RLS requires read access to a row before
+an `UPDATE` policy is even consulted. An invite acceptee already has a
+`group_members` row (inserted `pending` before they act), so the existing
+"own row" policy grants visibility. A guest claimer has no row of their own —
+the seat's `user_id` is still `NULL` — so no SELECT policy (members-only,
+own-row) grants them visibility into it, and a same-shaped "self can claim"
+RLS policy was verified against local Postgres to silently match zero rows:
+not a security hole, but a dead flow indistinguishable from success (no
+error, `.maybeSingle()` returns null, page reads "already claimed"). The
+`claim_seat(token)` function (`SECURITY DEFINER`, `20260811010000_claim_flow.sql`)
+does the `UPDATE ... WHERE seat_token = token AND user_id IS NULL AND status
+= 'active'` internally, sets `user_id = auth.uid()` and the claimer's own
+display name, and returns the seat's `id, group_id` on success (empty result
+= already claimed or bad token). Granted to `authenticated` only, not `anon`
+— unlike the preview RPC, claiming requires a session.
+
+### Path B — assisted invite
+
+Tap a guest row → "Link to a Tally account" → search (`useSearchProfiles`,
+already-seated profiles filtered out) → pick → confirm screen → "Send
+invite". This does **not** merge immediately. The member initiating it isn't
+the one whose identity is being attached to the seat's financial history, so
+it follows the same confirmation-required rule as any other search-based add
+(CLAUDE.md's invite flow principle). `POST /api/groups/members/claim-invite`
+(service-role, mirrors `/api/groups/members/add`'s privileged-write shape):
+checks the caller is an active member, checks the target isn't already
+seated in the group (friendly 409 instead of a raw `23505`), resolves the
+target's own display name server-side (never trusts a client-supplied name
+for someone else's row), then:
+
+```sql
+UPDATE group_members
+SET user_id = :profileId, status = 'pending', invited_by = :caller, name = :targetName
+WHERE id = :memberId AND group_id = :groupId AND user_id IS NULL;
+```
+
+This preserves the seat's `group_members.id` — expense/settlement history
+stays attached — unlike a fresh `INSERT`. A new trigger,
+`on_group_member_seat_invited` (`AFTER UPDATE`, `WHEN OLD.user_id IS NULL AND
+NEW.user_id IS NOT NULL AND NEW.status = 'pending'`), reuses
+`notify_group_invite()` unchanged to send the target a `group_invite`
+notification. They accept/decline through the existing pending-invite flow —
+`useAcceptGroupInvite`/`useDeclineGroupInvite` need no changes, since the
+resulting row is shape-identical to a normal search-invite row.
+
+### Shared
+
+- **One guest, one outstanding claim at a time.** Once either path sets
+  `user_id` on a seat, both paths' preconditions (`user_id IS NULL`) fail —
+  Path A's RPC returns no row, Path B's route returns 404. The UI enforces
+  this too: `settings/page.tsx` buckets members by status, and a
+  `status: 'pending'` seat (set by Path B) moves out of the tappable `others`
+  list into the read-only `pendingInvites` section, so there's no way to even
+  open the guest-action sheet on it.
+- **Security boundary is `WHERE user_id IS NULL`, not token secrecy after
+  use.** `seat_token` is deliberately never nulled out on claim — a reused
+  link reports "already claimed" instead of a generic error, at no cost to
+  security, since a row with `user_id` already set can't match either path's
+  precondition regardless of who holds the token.
 - **Edge cases**: reused/already-claimed link → `already_claimed` state;
   claimer already has an active *or* `left` row in that same group → blocked
-  by the existing `UNIQUE (group_id, user_id)` constraint, surfaced as a
-  friendly "you're already connected to this group" error rather than a raw
-  DB error; invalid/unknown token → `invalid` state.
+  by the `UNIQUE (group_id, user_id)` constraint, surfaced as "you're already
+  connected to this group" rather than a raw DB error; invalid/unknown token
+  → `invalid` state.
 - **Explicit non-goal**: no cross-group guest identity. The same real person
   added as a guest in three different groups is three unrelated seats with
   three independent tokens — claiming one does not touch the others.

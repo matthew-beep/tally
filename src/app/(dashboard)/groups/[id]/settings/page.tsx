@@ -10,6 +10,7 @@ import type { MemberEntry } from '@/components/MemberCombobox'
 import { EmojiPicker } from '@/components/EmojiPicker'
 import { GROUP_EMOJI } from '@/lib/emoji'
 import { MemberActionSheet } from '@/components/MemberActionSheet'
+import { InviteGroupSheet } from '@/components/InviteGroupSheet'
 import { DeleteGroupSheet } from '@/components/DeleteGroupSheet'
 import { useUpdateGroup, useLeaveGroup, useRemoveMember } from '@/queries/useGroups'
 import { useGroupDetail } from '@/queries/useGroupDetail'
@@ -37,6 +38,7 @@ export default function GroupSettingsPage() {
   const [memberSheetId, setMemberSheetId] = useState<string | null>(null)
   const [deleteOpen,    setDeleteOpen]    = useState(false)
   const [leaveConfirm,  setLeaveConfirm]  = useState(false)
+  const [inviteOpen,    setInviteOpen]    = useState(false)
 
   const { group, loadingGroup, members, loadingMembers, expenses, settlements, profile } = useGroupDetail(groupId)
 
@@ -186,6 +188,14 @@ export default function GroupSettingsPage() {
           </div>
         </div>
 
+        <button
+          onClick={() => setInviteOpen(true)}
+          style={{ width: '100%', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: T.r.card, border: `0.5px solid ${T.line}`, background: T.surface, boxShadow: T.shadowSm, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
+        >
+          <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M7.5 10.5a3 3 0 004.24 0l2.5-2.5a3 3 0 00-4.24-4.24l-.9.9M10.5 7.5a3 3 0 00-4.24 0l-2.5 2.5a3 3 0 004.24 4.24l.9-.9" stroke={T.inkMuted} strokeWidth="1.5" strokeLinecap="round"/></svg>
+          <span style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>Invite to group</span>
+        </button>
+
         {/* ── Members ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 0 6px' }}>
           <SectionLabel>Members · {members.length}</SectionLabel>
@@ -334,12 +344,22 @@ export default function GroupSettingsPage() {
 
       <MemberActionSheet
         member={sheetMember}
+        groupId={groupId}
+        members={members}
         balance={sheetMember ? (net[sheetMember.id] ?? 0) : 0}
         slot={sheetMember ? slotFor(members, sheetMember.id) : 0}
         canRemove={isAdmin}
         removing={removeMember.isPending && removeMember.variables?.memberId === memberSheetId}
         onRemove={memberId => removeMember.mutate({ groupId, memberId }, { onSuccess: () => setMemberSheetId(null) })}
         onClose={() => setMemberSheetId(null)}
+      />
+
+      <InviteGroupSheet
+        open={inviteOpen}
+        onClose={() => setInviteOpen(false)}
+        groupName={group.name}
+        groupEmoji={group.emoji}
+        inviteToken={group.invite_token}
       />
 
       <DeleteGroupSheet

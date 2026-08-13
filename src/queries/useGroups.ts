@@ -157,6 +157,17 @@ export function useRemoveMember() {
   })
 }
 
+export function useInviteGuestToSeat() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { groupId: string; memberId: string; profileId: string }) =>
+      postJson('/api/groups/members/claim-invite', vars),
+    onSuccess: (_, { groupId }) => {
+      qc.invalidateQueries({ queryKey: ['group_members', groupId] })
+    },
+  })
+}
+
 export function useCreateGroup() {
   const qc = useQueryClient()
   return useMutation({

@@ -116,13 +116,18 @@ export function useNotifications() {
   const supabase = createClient()
   return useQuery({
     queryKey: ['notifications'],
+    // Unread only — the bell badge and notification list both show unread items.
+    // Polls per CLAUDE.md's bell exception so the badge updates without
+    // requiring navigation. Deliberately reused (not split into a separate
+    // lightweight count query) for one source of truth between the badge and
+    // the notification center's list — cheap either way: idx_notifications_recip
+    // is a partial index on unread rows only, and every join hop below (settlement_id,
+    // from_member_id/to_member_id, group_members.user_id) lands on a primary key on
+    // the other side, so cost scales with one user's unread count, not table size.
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const user = await getAuthUser(supabase)
-      // Unread only — the bell badge and notification list both show unread items.
-      // This query uses refetchOnMount (standard default). Per CLAUDE.md's sync
-      // rules the unread *count* badge will get its own query with
-      // refetchInterval: 30_000 — that query does not exist yet (see TODO.md
-      // "Unread count badge on nav bell"), so nothing polls today.
       const { data, error } = await supabase
         .from('notifications')
         // FK hints required: notifications has both settlement_id and group_id FKs,

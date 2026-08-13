@@ -17,10 +17,12 @@ import { BalanceSheet } from '@/components/home/BalanceSheet'
 import { BalanceTable, type BalanceRow } from '@/components/dashboard/BalanceTable'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { toActivityCard } from '@/lib/feedCards'
-import { GroupInviteCard } from '@/components/notifications/GroupInviteCard'
-import { SettlementConfirmCard } from '@/components/notifications/SettlementConfirmCard'
+import { AttentionList } from '@/components/notifications/AttentionList'
+import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
+import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
-import type { Profile, Notification, NotificationBatch, ActivityItem, PersonPart } from '@/types'
+import { selectActionable } from '@/lib/notifications'
+import type { Profile, NotificationBatch, ActivityItem, PersonPart } from '@/types'
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -379,10 +381,12 @@ function RecentGroups({ gb }: { gb: NonNullable<ReturnType<typeof useGlobalBalan
 // Info-only types (accepted/declined/confirmed/denied) stay on /me. Recent
 // activity (across all groups) rides along in the same right rail.
 
-const ACTIONABLE_TYPES: Notification['type'][] = ['group_invite', 'settlement_confirm']
-
 /** Row count for the rail's activity preview — skeleton mirrors it. */
 const RAIL_ACTIVITY_LIMIT = 6
+
+/** Cap on the rail's "Needs attention" preview — overflow goes through
+ * "+N more" / "View all" into NotificationsSheet (list → review). */
+const ATTN_CAP = 2
 
 function NeedsAttentionRail({ notifications, notificationsLoading, activityItems, activityLoading }: {
   notifications: NotificationBatch[]
@@ -391,27 +395,50 @@ function NeedsAttentionRail({ notifications, notificationsLoading, activityItems
   activityLoading: boolean
 }) {
   const router = useRouter()
-  const actionable = notifications.filter(b => ACTIONABLE_TYPES.includes(b.type))
+  const sheet = useNotificationReviewSheet()
+  const actionable = selectActionable(notifications)
+  const shown = actionable.slice(0, ATTN_CAP)
+  const overflow = actionable.length - shown.length
   const recent = activityItems
 
   return (
     <div className="home-rail">
-      <SectionHeader label="Needs attention" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px 10px' }}>
+        <SectionLabel>Needs attention</SectionLabel>
+        {actionable.length > 0 && (
+          <span style={{ fontFamily: FMONO, fontSize: 10, fontWeight: 700, background: T.sunSoft, color: T.sunInk, padding: '1px 7px', borderRadius: T.r.pill }}>
+            {actionable.length}
+          </span>
+        )}
+      </div>
       {notificationsLoading ? (
         <AttentionSkeleton />
       ) : actionable.length === 0 ? (
-        <div style={{ fontSize: 12, color: T.inkFaint, lineHeight: 1.55, marginBottom: 20 }}>
-          Nothing waiting on you. Payments to confirm and group invites will land here.
+        <div style={{ fontSize: 12, color: T.inkFaint, lineHeight: 1.55, marginBottom: 20, textAlign: 'center', padding: '20px 16px', borderRadius: T.r.lg, background: T.surface, boxShadow: `inset 0 0 0 0.5px ${T.line}` }}>
+          You’re all caught up ✦
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-          {actionable.map(b =>
-            b.type === 'group_invite'
-              ? <GroupInviteCard key={b.key} batch={b} />
-              : <SettlementConfirmCard key={b.key} batch={b} />
+        <div style={{ marginBottom: 20 }}>
+          <AttentionList batches={shown} onSelect={sheet.openReview} />
+          {overflow > 0 && (
+            <button
+              type="button"
+              onClick={sheet.openList}
+              style={{
+                width: '100%', marginTop: 8, padding: '9px 4px', border: 0, background: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', font: 'inherit',
+              }}
+            >
+              <span style={{ fontFamily: FMONO, fontSize: 11, fontWeight: 700, color: T.inkMuted }}>
+                {shown.length} of {actionable.length}
+              </span>
+              <span style={{ fontSize: 12.5, fontWeight: 700, color: T.sunInk }}>View all →</span>
+            </button>
           )}
         </div>
       )}
+
+      <NotificationsSheet open={sheet.open} onClose={sheet.close} initialReview={sheet.initialReview} />
 
       {(activityLoading || recent.length > 0) && (
         <>

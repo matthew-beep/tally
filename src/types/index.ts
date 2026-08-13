@@ -27,6 +27,7 @@ export interface GroupMember {
   status: 'pending' | 'active' | 'left'
   invited_by: string | null
   joined_at: string
+  seat_token: string
   profile?: Profile
 }
 

@@ -27,6 +27,7 @@ function settlement(
     status: 'active' as const,
     invited_by: null,
     joined_at: '2026-08-09',
+    seat_token: `${groupId}-${userId}-token`,
   })
   return {
     id,

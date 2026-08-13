@@ -23,7 +23,7 @@ function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMo
   ]
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 4,
+      display: 'inline-flex', alignSelf: 'flex-start', gap: 4,
       padding: 4, borderRadius: 14, background: T.surfaceAlt,
       boxShadow: `inset 0 0 0 0.5px ${T.line}`,
     }}>
@@ -31,7 +31,7 @@ function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMo
         const on = value === tab.v
         return (
           <button key={tab.v} type="button" onClick={() => onChange(tab.v)} style={{
-            border: 0, cursor: 'pointer', padding: '8px 6px',
+            border: 0, cursor: 'pointer', padding: '8px 15px',
             background: on ? T.ink : 'transparent',
             color: on ? T.bg : T.inkMuted,
             borderRadius: 10, fontFamily: F, fontSize: 13, fontWeight: 600,
@@ -200,8 +200,8 @@ function PaidByChips({ members, paidById, onSelect, youMemberId }: {
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '4px 11px 4px 4px', borderRadius: 999,
-              background: on ? T.ink : 'transparent',
-              color: on ? T.bg : T.ink,
+              background: on ? T.sunSoft : 'transparent',
+              color: on ? T.sunInk : T.ink,
               boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
               border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: F,
             }}
@@ -296,8 +296,6 @@ function SaveFooter({ onCancel, onSave, canSave, saveLabel, isPending, statusHin
 
 // ── Desktop layout: two-column modal — tiles left, split list right ──────────
 export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel: () => void }) {
-  const tile = { background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}` }
-
   return (
     <div className="add-expense-panel add-expense-panel--desktop">
       <ModalHeader onClose={onCancel}>
@@ -306,14 +304,14 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
           <input
             value={s.description} onChange={e => s.setDescription(e.target.value)}
             placeholder="What was this for?"
-            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: FH, fontSize: 20, fontWeight: 600, letterSpacing: -0.6, color: T.ink }}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: FH, fontSize: 30, fontWeight: 600, letterSpacing: -0.8, color: T.ink }}
           />
         </div>
       </ModalHeader>
 
       <div className="add-expense-desktop-body">
         <div className="add-expense-desktop-left">
-          <div style={{ ...tile, padding: '14px 16px' }}>
+          <div>
             <SectionLabel size="sm">Amount</SectionLabel>
             <div style={{ marginTop: 4, lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 2 }}>
               <span style={{ fontFamily: FH, fontSize: 20, color: T.inkMuted, fontWeight: 500 }}>$</span>
@@ -326,17 +324,17 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
             </div>
           </div>
 
-          <div style={{ ...tile, padding: '12px 14px' }}>
+          <div>
             <SectionLabel size="sm" style={{ marginBottom: 8 }}>Paid by</SectionLabel>
             <PaidByChips members={s.members} paidById={s.paidById} onSelect={s.setPaidById} youMemberId={s.youMemberId} />
           </div>
 
-          <div style={{ ...tile, padding: '12px 14px' }}>
+          <div>
             <SectionLabel size="sm" style={{ marginBottom: 8 }}>Category</SectionLabel>
             <CategoryChips category={s.category} onSelect={s.selectCategory} />
           </div>
 
-          <div style={{ ...tile, padding: '12px 14px' }}>
+          <div>
             <SectionLabel size="sm" style={{ marginBottom: 8 }}>Date</SectionLabel>
             <input
               type="date" value={s.expenseDate} onChange={e => s.setExpenseDate(e.target.value)}

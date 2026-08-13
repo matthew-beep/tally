@@ -286,7 +286,7 @@
   .home-rail {
     display: flex;
     flex-direction: column;
-    width: 296px;
+    width: 340px;
     flex-shrink: 0;
     overflow-y: auto;
     padding: 26px 20px;
@@ -364,6 +364,10 @@
   overflow: hidden;
 }
 
+.group-detail-whos-ahead--desktop {
+  display: none;
+}
+
 .group-detail-left {
   display: none;
   flex-direction: column;
@@ -435,6 +439,14 @@
 
   .group-detail-balance-card {
     display: none !important;
+  }
+
+  .group-detail-whos-ahead--mobile {
+    display: none !important;
+  }
+
+  .group-detail-whos-ahead--desktop {
+    display: block;
   }
 
   .group-detail-empty-members {

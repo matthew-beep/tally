@@ -14,8 +14,6 @@ import { useCurrentProfile, useMarkNotificationsRead, useNotifications, useUpdat
 import { useTheme } from '@/lib/theme'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { GroupInviteCard } from '@/components/notifications/GroupInviteCard'
-import { SettlementConfirmCard } from '@/components/notifications/SettlementConfirmCard'
 import type { Notification } from '@/types'
 
 function ProfileSettings() {
@@ -109,7 +107,8 @@ function ProfileSettings() {
 }
 
 // Read-only rows: rendered once, auto-marked read. Actionable types
-// (group_invite, settlement_confirm) keep their own card sections above.
+// (group_invite, settlement_confirm) are reviewed from the home rail or the
+// group-detail bell, not from /me.
 const INFO_TYPES: Notification['type'][] = [
   'group_invite_accepted',
   'group_invite_declined',
@@ -140,7 +139,8 @@ export default function MePage() {
 
   const infoBatches = notifications.filter(b => INFO_TYPES.includes(b.type))
   // Flattened: info rows are read-only and auto-marked, so they read one per
-  // event. Only the actionable cards above need the batch collapsed.
+  // event. Actionable items (group_invite, settlement_confirm) live only on
+  // the home rail and the group-detail bell — not duplicated here.
   const infoNotifications = infoBatches.flatMap(b => b.notifications)
 
   useEffect(() => {
@@ -182,32 +182,6 @@ export default function MePage() {
 
         {/* Profile editing */}
         <ProfileSettings />
-
-        {/* Group invites */}
-        {notifications.filter(b => b.type === 'group_invite').length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <SectionLabel style={{ marginBottom: 10 }}>Group invites</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {notifications
-                .filter(b => b.type === 'group_invite')
-                .map(b => <GroupInviteCard key={b.key} batch={b} />)
-              }
-            </div>
-          </div>
-        )}
-
-        {/* Settlement confirmations */}
-        {notifications.filter(b => b.type === 'settlement_confirm').length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <SectionLabel style={{ marginBottom: 10 }}>Confirmation requests</SectionLabel>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {notifications
-                .filter(b => b.type === 'settlement_confirm')
-                .map(b => <SettlementConfirmCard key={b.key} batch={b} />)
-              }
-            </div>
-          </div>
-        )}
 
         {/* Info notifications — no action required, auto-marked read on view */}
         {infoNotifications.length > 0 && (

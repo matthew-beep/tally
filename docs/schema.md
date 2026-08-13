@@ -75,8 +75,8 @@ group_members (
   invited_by  uuid → profiles,
   joined_at   timestamptz,
   seat_token  text UNIQUE             -- claim-link token, DB default, every
-                                      -- row gets one (design finalized, not
-                                      -- yet implemented — see flows.md)
+                                      -- row gets one — see flows.md § Claim
+                                      -- a guest seat (built)
   -- UNIQUE (group_id, user_id) WHERE user_id IS NOT NULL
   --   (partial: many guest rows per group are allowed)
 )

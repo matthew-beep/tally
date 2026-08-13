@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
@@ -10,7 +10,12 @@ import { formatAmount } from '@/lib/money'
 import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
 import { SettleUpSheet } from '@/components/SettleUpSheet'
-import { GroupLeaderboard } from '@/components/GroupLeaderboard'
+import { MemberBalancesModal } from '@/components/settle/MemberBalancesModal'
+import { WhosAheadRow } from '@/components/leaderboard/WhosAheadRow'
+import { LeaderboardSheet } from '@/components/leaderboard/LeaderboardSheet'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
+import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
+import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReactionPills } from '@/components/ReactionPills'
 import { toGroupFeedCard } from '@/lib/feedCards'
@@ -38,9 +43,11 @@ export default function GroupDetailPage() {
   // state so closing the sheet doesn't fight the param still being in the URL.
   const [addExpenseOpen,  setAddExpenseOpen]  = useState(() => searchParams.get('add') === '1')
   const [settleOpen,      setSettleOpen]      = useState(false)
-  const [balanceExpanded, setBalanceExpanded] = useState(false)
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false)
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
   const [settleUser, setSettleUser] = useState<string | null>(null)
+  const [viewingMemberId, setViewingMemberId] = useState<string | null>(null)
+  const notificationSheet = useNotificationReviewSheet()
 
   const { group, loadingGroup, members, loadingMembers, expenses, settlements, profile } = useGroupDetail(groupId)
 
@@ -88,6 +95,16 @@ export default function GroupDetailPage() {
     ...IOweEntries.map(([id, amt]) => toTransfer(id, Math.abs(amt), 'owe')),
   ]
   const preselectTransfer = settleUser ? transfers.find(t => t.groupMemberId === settleUser) ?? null : null
+
+  // Read-only view of another member's standing — Members column, desktop.
+  // calcPairwiseNets is subject-agnostic, so this reuses the exact math and
+  // toTransfer shaping that already power "my" balances above.
+  const viewingMember = viewingMemberId ? memberById[viewingMemberId] : undefined
+  const viewingNets   = viewingMemberId ? calcPairwiseNets(viewingMemberId, expenses, settlements) : {}
+  const viewingTransfers: Transfer[] = viewingMemberId ? [
+    ...Object.entries(viewingNets).filter(([, v]) => v > 0.01).map(([id, amt]) => toTransfer(id, amt, 'owed')),
+    ...Object.entries(viewingNets).filter(([, v]) => v < -0.01).map(([id, amt]) => toTransfer(id, Math.abs(amt), 'owe')),
+  ] : []
 
   // Feed — sorted by created_at (mergeFeed), month-bucketed by expense/settled date
   const feed = mergeFeed(expenses, settlements)
@@ -139,12 +156,7 @@ export default function GroupDetailPage() {
             </svg>
             Search this group
           </div>
-          <button style={{ width: 34, height: 34, borderRadius: '50%', background: T.surfaceAlt, border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-              <path d="M10 3.5c-2.5 0-4.2 1.9-4.2 4.5v2.6L4.5 13h11l-1.3-2.4V8c0-2.6-1.7-4.5-4.2-4.5z" stroke={T.inkMuted} strokeWidth="1.4" strokeLinejoin="round"/>
-              <path d="M8.3 15.5a1.7 1.7 0 003.4 0" stroke={T.inkMuted} strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
-          </button>
+          <NotificationBell size={34} onClick={notificationSheet.openList} />
           <Avatar profile={profile ?? undefined} slot={0} size={30} isYou />
         </div>
       </div>
@@ -170,14 +182,6 @@ export default function GroupDetailPage() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
-            {Math.abs(myBal) >= 0.01 && (
-              <button
-                onClick={() => { setSettleUser(null); setSettleOpen(true) }}
-                style={{ padding: '9px 16px', borderRadius: T.r.md, background: 'transparent', color: T.ink, border: 0, boxShadow: `inset 0 0 0 1px ${T.lineStrong}`, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
-              >
-                Settle up
-              </button>
-            )}
             <button
               onClick={() => setAddExpenseOpen(true)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: T.r.md, background: T.ink, color: T.bg, border: 0, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 700 }}
@@ -257,8 +261,9 @@ export default function GroupDetailPage() {
                 const balColor = Math.abs(bal) < 0.01 ? T.inkFaint : bal > 0 ? T.mintInk : T.coralInk
                 const balStr   = formatAmount(bal, { sign: true })
                 const caption  = isYou ? 'your net' : Math.abs(bal) < 0.01 ? 'settled' : bal > 0 ? 'is owed' : 'owes the group'
-                return (
-                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', borderRadius: T.r.md }}>
+                const rowStyle: CSSProperties = { width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '9px 8px', borderRadius: T.r.md, border: 0, background: 'transparent', font: 'inherit', textAlign: 'left' }
+                const rowContent = (
+                  <>
                     <Avatar profile={avatarProfile(m)} slot={slotFor(members, m.id)} size={32} isYou={isYou} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13.5, fontWeight: 700, color: pending ? T.inkMuted : T.ink, lineHeight: 1.2 }}>{isYou ? 'You' : firstName(name)}</div>
@@ -269,10 +274,27 @@ export default function GroupDetailPage() {
                         {balStr}
                       </div>
                     )}
-                  </div>
+                  </>
+                )
+                if (pending) {
+                  return <div key={m.id} style={rowStyle}>{rowContent}</div>
+                }
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => { if (isYou) { setSettleUser(null); setSettleOpen(true) } else { setViewingMemberId(m.id) } }}
+                    style={{ ...rowStyle, cursor: 'pointer' }}
+                  >
+                    {rowContent}
+                  </button>
                 )
               })}
             </div>
+          </div>
+
+          {/* ── Who's ahead? — desktop placement, bottom of the Members column ── */}
+          <div className="group-detail-whos-ahead--desktop" style={{ marginTop: 16 }}>
+            <WhosAheadRow entries={leaderboard} members={members} myId={myId} onOpen={() => setLeaderboardOpen(true)} />
           </div>
         </div>
 
@@ -312,75 +334,38 @@ export default function GroupDetailPage() {
             /* ══ POPULATED STATE ══ */
             <>
 
-              {/* ── Collapsible balance card — mobile only ── */}
-              <div className="group-detail-balance-card" style={{ marginBottom: 20, background: T.surface, border: `0.5px solid ${T.line}`, boxShadow: T.shadowSm, borderRadius: T.r.lg, overflow: 'hidden' }}>
-                <button
-                  onClick={() => hasBalance && setBalanceExpanded(o => !o)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: hasBalance ? 'pointer' : 'default', font: 'inherit', textAlign: 'left', padding: '16px', borderBottom: balanceExpanded ? `0.5px solid ${T.line}` : 'none' }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <SectionLabel size="sm" style={{ marginBottom: 7 }}>
-                      {Math.abs(myBal) < 0.01 ? 'All square' : netPositive ? 'Owed to you' : 'You owe'}
-                    </SectionLabel>
-                    <div style={{ fontFamily: FH, fontSize: 30, fontWeight: 600, letterSpacing: -0.9, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk }}>
-                      {Math.abs(myBal) < 0.01 ? '—' : formatAmount(myBal)}
-                    </div>
-                    {hasBalance && (
-                      <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 5, fontWeight: 500 }}>
-                        {netPositive
-                          ? `from ${oweMeEntries.length} ${oweMeEntries.length === 1 ? 'person' : 'people'}`
-                          : `to ${IOweEntries.length} ${IOweEntries.length === 1 ? 'person' : 'people'}`}
-                      </div>
-                    )}
+              {/* ── Balance hero — fixed height regardless of balance count; tap
+                   always opens SettleUpSheet (which has its own "All settled
+                   up." state, so this works even when myBal is zero) ── */}
+              <button
+                onClick={() => { setSettleUser(null); setSettleOpen(true) }}
+                className="group-detail-balance-card"
+                style={{ width: '100%', marginBottom: 20, display: 'flex', alignItems: 'center', background: T.surface, border: `0.5px solid ${T.line}`, boxShadow: T.shadowSm, borderRadius: T.r.lg, cursor: 'pointer', font: 'inherit', textAlign: 'left', padding: '16px' }}
+              >
+                <div style={{ flex: 1 }}>
+                  <SectionLabel size="sm" style={{ marginBottom: 7 }}>
+                    {Math.abs(myBal) < 0.01 ? 'All square' : netPositive ? 'Owed to you' : 'You owe'}
+                  </SectionLabel>
+                  <div style={{ fontFamily: FH, fontSize: 30, fontWeight: 600, letterSpacing: -0.9, fontVariantNumeric: 'tabular-nums', lineHeight: 1, color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk }}>
+                    {Math.abs(myBal) < 0.01 ? '—' : formatAmount(myBal)}
                   </div>
                   {hasBalance && (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: balanceExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.22s ease', opacity: 0.35, flexShrink: 0 }}>
-                      <path d="M3.5 6l4.5 4.5 4.5-4.5" stroke={T.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <div style={{ fontSize: 11, color: T.inkMuted, marginTop: 5, fontWeight: 500 }}>
+                      {netPositive
+                        ? `from ${oweMeEntries.length} ${oweMeEntries.length === 1 ? 'person' : 'people'}`
+                        : `to ${IOweEntries.length} ${IOweEntries.length === 1 ? 'person' : 'people'}`}
+                    </div>
                   )}
-                </button>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.35, flexShrink: 0 }}>
+                  <path d="M3.5 6l4.5 4.5 4.5-4.5" stroke={T.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
 
-                {balanceExpanded && (
-                  <div>
-                    {oweMeEntries.map(([memberId, amount]) => {
-                      const m    = memberById[memberId]
-                      const name = m ? displayName(m) : '…'
-                      return (
-                        <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
-                          <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, memberId)} size={30} />
-                          <div style={{ flex: 1 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{firstName(name)}</span>
-                            <span style={{ fontSize: 13, color: T.inkMuted }}> owes you </span>
-                            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.mintInk, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount)}</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                    {IOweEntries.map(([memberId, amount]) => {
-                      const m    = memberById[memberId]
-                      const name = m ? displayName(m) : '…'
-                      return (
-                        <div key={memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '11px 16px', borderTop: `0.5px solid ${T.line}` }}>
-                          <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, memberId)} size={30} />
-                          <div style={{ flex: 1 }}>
-                            <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>You owe {firstName(name)} </span>
-                            <span style={{ fontSize: 13.5, fontWeight: 700, color: T.coralInk, fontVariantNumeric: 'tabular-nums' }}>{formatAmount(amount)}</span>
-                          </div>
-                          <button
-                            onClick={e => { e.stopPropagation(); setSettleUser(memberId); setSettleOpen(true) }}
-                            style={{ flexShrink: 0, border: `1.5px solid ${T.coralInk}`, cursor: 'pointer', font: 'inherit', padding: '6px 13px', borderRadius: 9, background: 'transparent', color: T.coralInk, fontSize: 12, fontWeight: 700, letterSpacing: -0.1 }}
-                          >
-                            Settle up
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
+              {/* ── Who's ahead? — mobile placement, below the hero ── */}
+              <div className="group-detail-whos-ahead--mobile" style={{ marginBottom: 20 }}>
+                <WhosAheadRow entries={leaderboard} members={members} myId={myId} onOpen={() => setLeaderboardOpen(true)} />
               </div>
-
-              {/* ── Leaderboard — collapsed by default, both breakpoints ── */}
-              {false && <GroupLeaderboard entries={leaderboard} members={members} myId={myId} />}
 
               {/* ── Expense + settlement feed ──
                    A stack of FeedCards rather than hairline rows in one card:
@@ -450,6 +435,27 @@ export default function GroupDetailPage() {
         mySeatId={myId ?? ''}
         transfers={transfers}
         preselect={preselectTransfer}
+      />
+
+      <NotificationsSheet
+        open={notificationSheet.open}
+        onClose={notificationSheet.close}
+        initialReview={notificationSheet.initialReview}
+      />
+
+      <LeaderboardSheet
+        open={leaderboardOpen}
+        onClose={() => setLeaderboardOpen(false)}
+        entries={leaderboard}
+        members={members}
+        myId={myId}
+      />
+
+      <MemberBalancesModal
+        open={!!viewingMemberId}
+        onClose={() => setViewingMemberId(null)}
+        subjectName={viewingMember ? firstName(displayName(viewingMember)) : ''}
+        transfers={viewingTransfers}
       />
 
       {/* ── Sheets ── */}

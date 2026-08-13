@@ -116,3 +116,13 @@ Option B is the more correct model conceptually — guests are group-scoped unti
 The decision gate: **how important is the claiming flow for MVP?**
 
 If claiming is Phase 2+, Option A is fine to ship now and migrate later. If claiming is Phase 1, Option B avoids a painful migration down the road.
+
+## Resolution
+
+Option B was chosen and built: `group_members` carries the surrogate `id`
+and `name` this doc specs, `expense_splits`/`expenses.paid_by`/`settlements`
+key off `group_members.id` rather than `profiles.id`, and no `profiles` row
+is ever created for a guest. Claiming shipped 2026-08-11 on top of this
+model — see `docs/group-member-model.md` § Claiming and `docs/flows.md` §
+Claim a guest seat — confirming the "avoids a painful migration down the
+road" case this doc anticipated for Option B.

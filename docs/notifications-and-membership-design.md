@@ -48,10 +48,14 @@ notification.
   invite-link joins that's accurate (insert = active immediately); for
   search-invited members it's stale (invite-creation time, not
   acceptance time).
-- **Guest claiming** (`profiles.claim_token`) is schema-present but
-  explicitly unbuilt — `docs/schema.md`: *"flow not built yet"*. No live
-  code path today moves a `group_members` row from `user_id = null` to
-  `user_id = <real id>`.
+- **Guest claiming** is built (2026-08-11), via `group_members.seat_token` —
+  not `profiles.claim_token`, which remains dead scaffolding for a
+  superseded guest model (see `docs/schema.md`). Two live paths move a
+  `group_members` row from `user_id = null` to `user_id = <real id>`: a
+  self-serve `claim_seat()` RPC (silent — see the Case 1 note below) and an
+  assisted, confirmation-required invite (`POST
+  /api/groups/members/claim-invite`, `status → 'pending'` until accepted).
+  See `docs/flows.md` § Claim a guest seat.
 - **Notifications never get deleted by app code** — every app-side touch
   of the `notifications` table is a `SELECT` or an `UPDATE ... SET read
   = true`, never a `DELETE`. The only removal path is cascade, via two
@@ -112,26 +116,35 @@ Two different questions get asked about the same `group_members` row,
 and conflating them was the source of a lot of back-and-forth:
 
 - **Case 1 — identity changed, membership didn't.** The seat was already
-  part of the group's ledger; only *who's behind it* changed. Example:
-  a guest claims an account (`user_id: null → <real id>`) — not built
-  yet, but this is the shape it'll take. Nothing about the group's
-  composition or balances changes. Per the framework: silent, no
-  notification, no activity.
+  part of the group's ledger; only *who's behind it* changed. Example: a
+  guest self-claims via `claim_seat()` (`user_id: null → <real id>`, status
+  stays `'active'` throughout). Built 2026-08-11, and it confirms the
+  prediction here: `claim_seat` never touches `status`, so the trigger that
+  notifies on new pending invites (`on_group_member_seat_invited`, guarded on
+  `NEW.status = 'pending'`) doesn't fire — self-claim really is silent, no
+  notification, no activity, exactly as this framework called it in advance.
 - **Case 2 — membership actually changed.** A genuinely new participant
   enters or leaves the group's ledger. Example: a search-invited person
   accepts (`pending → active`, `user_id` stays the same real id the
-  whole time) — this is **always** Case 2 in the current schema, because
-  Case 1's mirror (guest claiming) doesn't exist as a live path yet. Per
-  the framework: this is activity ("Jordan joined the group"), not a
+  whole time) — this is activity ("Jordan joined the group"), not a
   private notification — everyone in the group should see it, not just
   the inviter.
+- **A third shape this framework didn't originally anticipate:** the
+  *assisted* guest claim (Path B, `POST /api/groups/members/claim-invite`).
+  It's identity-changing like Case 1 (a seat that already existed in the
+  ledger gets a real `user_id`), but unlike self-claim it isn't silent — the
+  member initiating it isn't the one whose identity is changing, so it needs
+  the target's consent, which means a `group_invite` notification and a
+  `pending` state, same as Case 2. It's Case-1-shaped data with Case-2-shaped
+  consent requirements; the trigger sends a private notification (not
+  group-wide activity) since only the target needs to act on it.
 
-The closest thing to Case 1 that *does* exist today runs the opposite
-direction: decline-with-history converts a real invited person *into* a
-guest (`user_id: <real id> → null`). By the same logic this is a
-private, one-person-cares fact (the inviter), not something the whole
-group needs to see — consistent with treating it as a quiet notification
-rather than activity.
+The mirror-image transition also exists: decline-with-history converts a
+real invited person *into* a guest (`user_id: <real id> → null`). By the
+same logic this is a private, one-person-cares fact (the inviter), not
+something the whole group needs to see — consistent with treating it as a
+quiet notification rather than activity, same as self-claim going the other
+direction.
 
 ## The `status` column conflates two different lifecycles
 

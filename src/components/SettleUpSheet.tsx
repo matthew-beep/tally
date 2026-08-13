@@ -8,6 +8,7 @@ import { ModalOrSheet, ModalContent } from '@/components/modal'
 import { formatAmount, stripNegative } from '@/lib/money'
 import { useCreateSettlements } from '@/queries/useSettlements'
 import { SettleSuccess } from '@/components/settle/SettleSuccess'
+import { TransferRow } from '@/components/settle/TransferRow'
 import type { Transfer } from '@/types'
 
 interface Props {
@@ -106,25 +107,6 @@ function RecordPaymentDrawer({
 }
 
 // ── List ─────────────────────────────────────────────────────────────────
-function TransferRow({ transfer, onTap }: { transfer: Transfer; onTap: () => void }) {
-  const owed = transfer.direction === 'owed'
-  return (
-    <button
-      onClick={onTap}
-      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 4px', background: 'transparent', border: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
-    >
-      <Avatar profile={transfer.avatar} slot={transfer.slot} size={32} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: T.ink }}>{transfer.name}</div>
-        <div style={{ fontSize: 11.5, color: T.inkMuted, marginTop: 1 }}>{owed ? 'owes you' : 'you owe'}</div>
-      </div>
-      <div style={{ fontFamily: FH, fontSize: 14.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: owed ? T.mintInk : T.coralInk }}>
-        {formatAmount(transfer.amount)}
-      </div>
-    </button>
-  )
-}
-
 function ListDrawer({ transfers, onSelect }: { transfers: Transfer[]; onSelect: (t: Transfer) => void }) {
   const owed = transfers.filter(t => t.direction === 'owed')
   const owe  = transfers.filter(t => t.direction === 'owe')

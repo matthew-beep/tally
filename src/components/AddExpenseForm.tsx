@@ -44,7 +44,7 @@ export function AddExpenseSheet({ open, onClose, groupId }: AddExpenseSheetProps
       open={open}
       onClose={onClose}
       title={title}
-      maxWidth={740}
+      maxWidth={980}
       sheetContentClassName="add-expense-panel-root"
       sheetContentStyle={{ padding: 0, overflow: 'hidden' }}
       panelClassName="add-expense-panel-root"

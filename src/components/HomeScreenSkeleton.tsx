@@ -6,7 +6,7 @@ import { T } from '@/design/tokens'
 //
 //   HeroSkeleton         → HeroCard          (page.tsx)
 //   OpenBalancesSkeleton → OpenBalances      (page.tsx) → BalanceTable (desktop)
-//   AttentionSkeleton    → GroupInviteCard / SettlementConfirmCard
+//   AttentionSkeleton    → AttentionPreviewRow (capped rail preview)
 //   RailActivitySkeleton → FeedCard size="compact"
 //
 // If you change padding/size in one of those, change it here too.
@@ -187,21 +187,26 @@ export function HomeMainSkeleton() {
 
 // ── Right rail ─────────────────────────────────────────────────────────────
 
-/** Actionable notification cards — GroupInviteCard / SettlementConfirmCard. */
+/** Compact needs-attention preview rows — AttentionPreviewRow. */
 export function AttentionSkeleton({ rows = 2 }: { rows?: number }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+    <div style={{ marginBottom: 20, borderRadius: T.r.lg, overflow: 'hidden', background: T.surface, boxShadow: `inset 0 0 0 0.5px ${T.line}` }}>
       {Array.from({ length: rows }, (_, i) => (
-        <CardShell key={i} style={{ padding: 14 }}>
-          <Bone width="88%" height={12} />
-          <Bone width="52%" height={12} style={{ marginTop: 6 }} />
-          {/* Grid, not flex — Bone is flexShrink: 0 at width 100%, so two of
-              them in a flex row would each claim the full width and overflow. */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 12 }}>
-            <Bone height={38} radius={T.r.md} />
-            <Bone height={38} radius={T.r.md} />
+        <div
+          key={i}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 11,
+            padding: '13px 15px 13px 22px',
+            borderBottom: i === rows - 1 ? 0 : `0.5px solid ${T.line}`,
+          }}
+        >
+          <Bone width={38} height={38} radius={T.r.md} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Bone width="55%" height={12} />
+            <Bone width="72%" height={11} style={{ marginTop: 6 }} />
+            <Bone width="40%" height={10} style={{ marginTop: 5 }} />
           </div>
-        </CardShell>
+        </div>
       ))}
     </div>
   )
