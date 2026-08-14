@@ -23,8 +23,9 @@ The `(dashboard)` route group shares `(dashboard)/layout.tsx`: sidebar ≥1024px
 tab bar below (breakpoint in `src/styles/dashboard.css`).
 
 The four tab pages (`/`, `/groups`, `/activity`, `/me`) additionally share
-`AppHeader` — title (or Home's hour-based greeting), optional action button,
-notification bell, avatar → `/me`. Each page mounts it itself above its own
+`AppHeader` — title (or Home's hour-based greeting), action button (defaults
+to "Add expense", overridable), notification bell, avatar → `/me`. Each page
+mounts it itself above its own
 `DashboardPage` scroll area rather than the layout owning it, so pages outside
 the tab set (group detail, group settings, create group) keep their bespoke
 back-button headers. Header CSS is `.app-header*` in `dashboard.css` (renamed
@@ -105,8 +106,10 @@ never cached in the DB — recomputation happens on read.
 | `modal/*` | Modal/sheet primitives — `ModalOrSheet` picks by viewport |
 | `home/BalanceSheet`, `home/PersonProfileSheet` | Home balance breakdowns |
 | `notifications/NotificationBell` | Icon + actionable-count badge, fed by `useNotifications` + `selectActionable`. Deliberately dumb — the caller owns the sheet (`useNotificationReviewSheet` + `NotificationsSheet`) |
-| `dashboard/AppHeader` | Persistent header for the four tab pages. Owns its own bell + `NotificationsSheet` instance, so each mount is independent and callers wire nothing. `action.hideOnMobile` drops an action below 1024px when the page already surfaces it in its own content (Home's "New group", which `/groups` repeats in-panel) |
-| `dashboard/Sidebar`, `TabBar` | Desktop / mobile navigation |
+| `dashboard/AppHeader` | Persistent header for the four tab pages. Owns its own bell + `NotificationsSheet` instance, so each mount is independent and callers wire nothing. `action` defaults to "Add expense" (`setFabOpen(true)`, opens the global `ModeSheet` group picker), `hideOnMobile: true` by default since `DockedTabBar`'s center button is the mobile entry point instead — desktop-only in practice unless a page overrides it. All four tab pages use the default. Group detail keeps its own bespoke header with a directly-scoped Add Expense button (desktop only — the mobile floating duplicate was removed, see `feature-status.md`) — never goes through `ModeSheet` |
+| `dashboard/Sidebar` | Desktop nav — 3 primary destinations (Home/Groups/Activity; `Me` is not a nav item, reached via the profile card instead), inline "+" next to the "Groups" label for group creation, group list, bottom profile card (avatar + name, click → `/me`). UI-only pass — see `feature-status.md` for what was deliberately left out |
+| `TabBar` | Floating-pill mobile nav, 4 destinations incl. `Me`. Currently unmounted — kept for comparison against `DockedTabBar`, swap back into `(dashboard)/layout.tsx` to revert |
+| `DockedTabBar` | Docked-bar mobile nav with an elevated center "Add" button (→ `setFabOpen(true)`), currently mounted in `(dashboard)/layout.tsx`. Shares `NAV_TABS`/`pathnameToTab` with `TabBar` via `nav/navTabs.ts`. See `feature-status.md` — this is a live comparison, not a settled choice |
 
 ## Not built yet (referenced but pending)
 

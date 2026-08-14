@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { T, FH, F, FMONO } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { AppHeader } from '@/components/dashboard/AppHeader'
@@ -13,9 +12,8 @@ import { Avatar } from '@/components/Avatar'
 import { HandleInput } from '@/components/HandleInput'
 import type { HandleState } from '@/components/HandleInput'
 import { useCurrentProfile, useMarkNotificationsRead, useNotifications, useUpdateProfile } from '@/queries/useProfile'
+import { useSignOut } from '@/queries/useAuth'
 import { useTheme } from '@/lib/theme'
-import { createClient } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 import type { Notification } from '@/types'
 
 function ProfileSettings() {
@@ -128,8 +126,7 @@ function infoLabel(n: Notification): string {
 }
 
 export default function MePage() {
-  const router = useRouter()
-  const qc = useQueryClient()
+  const signOut = useSignOut()
   const { data: profile } = useCurrentProfile()
   const { data: notifications = [] } = useNotifications()
   const { isDark, toggle } = useTheme()
@@ -149,15 +146,6 @@ export default function MePage() {
     markRead.mutate(ids)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [infoNotifications.map(n => n.id).join(',')])
-
-  async function signOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    // Redundant with the auth-change listener in Providers — kept as
-    // insurance so the explicit path never depends on it.
-    qc.clear()
-    router.push('/login')
-  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
@@ -240,10 +228,10 @@ export default function MePage() {
 
         {/* Sign out */}
         <Btn
-          onClick={signOut} variant="outline" size="lg" fullWidth
+          onClick={() => signOut.mutate()} disabled={signOut.isPending} variant="outline" size="lg" fullWidth
           style={{ marginTop: 8, padding: '11px 20px', fontSize: 14, fontFamily: F }}
         >
-          Sign out
+          {signOut.isPending ? 'Signing out…' : 'Sign out'}
         </Btn>
       </DashboardPage>
     </div>

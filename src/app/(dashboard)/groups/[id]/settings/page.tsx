@@ -331,7 +331,9 @@ export default function GroupSettingsPage() {
                 disabled={leaveGroup.isPending}
                 variant={leaveConfirm ? 'danger' : 'dangerOutline'}
                 size="lg"
-                style={{ flex: 1, height: 44, borderRadius: T.r.md, fontFamily: FH, fontSize: 15, fontWeight: 600, boxShadow: 'none', opacity: leaveGroup.isPending ? 0.6 : 1 }}
+                // boxShadow only in the confirm state, to drop `danger`'s coral glow inside the coralSoft panel.
+                // Unconditionally would also wipe `dangerOutline`'s inset outline, which is its only border.
+                style={{ flex: 1, height: 44, borderRadius: T.r.md, fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: leaveGroup.isPending ? 0.6 : 1, ...(leaveConfirm ? { boxShadow: 'none' } : {}) }}
               >
                 {leaveGroup.isPending ? 'Leaving…' : leaveConfirm ? 'Confirm leave' : 'Leave group'}
               </Btn>

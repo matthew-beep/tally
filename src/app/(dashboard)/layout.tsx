@@ -2,8 +2,8 @@
 
 import { T, F } from '@/design/tokens'
 import { Sidebar } from '@/components/dashboard/Sidebar'
-import { ModeSheet } from '@/components/ModeSheet'
-import { TabBar } from '@/components/TabBar'
+import { AddExpenseGroupPicker } from '@/components/AddExpenseGroupPicker'
+import { DockedTabBar } from '@/components/DockedTabBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,9 +20,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </div>
       <div className="dashboard-mobile-nav">
-        <TabBar />
+        <DockedTabBar />
       </div>
-      <ModeSheet />
+      <AddExpenseGroupPicker />
     </div>
   )
 }

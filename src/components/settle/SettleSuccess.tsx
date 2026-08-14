@@ -3,7 +3,7 @@
 import { Avatar } from '@/components/Avatar'
 import { ModalContent } from '@/components/modal'
 import { Btn } from '@/components/Btn'
-import { formatAmount } from '@/lib/money'
+import { formatAmount, splitAmount } from '@/lib/money'
 import { firstName as getFirstName } from '@/lib/memberDisplay'
 import { T, FH, FMONO } from '@/design/tokens'
 import type { Profile } from '@/types'
@@ -56,8 +56,7 @@ export function SettleSuccess({
     ? <>{first} will confirm {formatAmount(amount)} when it arrives.</>
     : <>{first} has been notified. Nothing to confirm.</>
 
-  const whole = Math.floor(Math.abs(amount)).toLocaleString()
-  const cents = (Math.abs(amount) % 1).toFixed(2).slice(1)
+  const { whole, cents } = splitAmount(amount)
 
   return (
     <ModalContent style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, textAlign: 'center', padding: '28px 24px 24px' }}>

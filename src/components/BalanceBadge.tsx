@@ -1,6 +1,7 @@
 'use client'
 
 import { T, FMONO } from '@/design/tokens'
+import { splitAmount } from '@/lib/money'
 
 interface BalanceBadgeProps {
   amount: number
@@ -25,9 +26,7 @@ export function BalanceBadge({ amount }: BalanceBadgeProps) {
   }
 
   const pos = amount > 0
-  const abs = Math.abs(amount)
-  const whole = Math.floor(abs)
-  const cents = String(Math.round((abs - whole) * 100)).padStart(2, '0')
+  const { whole, cents } = splitAmount(amount)
 
   return (
     <span
@@ -44,8 +43,8 @@ export function BalanceBadge({ amount }: BalanceBadgeProps) {
       }}
     >
       {pos ? '+$' : '−$'}
-      {whole.toLocaleString()}
-      <span style={{ fontFamily: FMONO, fontSize: 11 }}>.{cents}</span>
+      {whole}
+      <span style={{ fontFamily: FMONO, fontSize: 11 }}>{cents}</span>
     </span>
   )
 }

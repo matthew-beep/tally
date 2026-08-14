@@ -1,20 +1,25 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { useRef, useState } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { T, F, FH } from '@/design/tokens'
 import { useGroups } from '@/queries/useGroups'
-import { useUIStore } from '@/store/ui'
+import { useCurrentProfile } from '@/queries/useProfile'
 import { SliderPill } from '@/components/nav/SliderPill'
 import { useSlider } from '@/components/nav/useSlider'
 import { WebNavIcon, type WebNavIconName } from '@/components/nav/WebNavIcon'
 import { SectionLabel } from '@/components/SectionLabel'
+import { Avatar } from '@/components/Avatar'
+import { ProfileMenuPopover } from '@/components/dashboard/ProfileMenuPopover'
 
+// 'Me' is deliberately not a sidebar nav destination — identity/settings
+// are reached via the profile menu at the bottom instead. See
+// docs/features.md "Sidebar redesign" for what else this pass skipped.
 const PRIMARY_NAV: { id: string; label: string; icon: WebNavIconName; href: string; match: (p: string) => boolean }[] = [
   { id: 'home', label: 'Home', icon: 'home', href: '/', match: p => p === '/' },
-  { id: 'groups', label: 'Groups', icon: 'groups', href: '/groups', match: p => p === '/groups' || p === '/groups/new' },
+  { id: 'groups', label: 'Groups', icon: 'groups', href: '/groups', match: p => p.startsWith('/groups') },
   { id: 'activity', label: 'Activity', icon: 'activity', href: '/activity', match: p => p.startsWith('/activity') },
-  { id: 'me', label: 'Me', icon: 'me', href: '/me', match: p => p.startsWith('/me') },
 ]
 
 function getPrimaryActive(pathname: string): string | null {
@@ -69,11 +74,15 @@ function SidebarNavItem({
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const { data: groups = [] } = useGroups()
-  const setNewGroupOpen = useUIStore(s => s.setNewGroupOpen)
+  const { data: profile } = useCurrentProfile()
 
   const activeId = getPrimaryActive(pathname) ?? ''
   const { containerRef, setRef, box } = useSlider(activeId)
+
+  const [menuOpen, setMenuOpen] = useState(false)
+  const profileButtonRef = useRef<HTMLButtonElement | null>(null)
 
   return (
     <aside
@@ -125,9 +134,32 @@ export function Sidebar() {
           ))}
         </div>
 
-        <SectionLabel size="sm" color={T.inkFaint} style={{ padding: '16px 12px 7px' }}>
-          Groups
-        </SectionLabel>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 4px 7px 12px' }}>
+          <SectionLabel size="sm" color={T.inkFaint}>
+            Groups
+          </SectionLabel>
+          <button
+            type="button"
+            onClick={() => router.push('/groups/new')}
+            title="New group"
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: 7,
+              border: 'none',
+              cursor: 'pointer',
+              background: T.surfaceAlt,
+              color: T.inkMuted,
+              fontSize: 14,
+              lineHeight: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            ＋
+          </button>
+        </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', flex: 1, minHeight: 0 }}>
           {groups.length === 0 && (
@@ -166,28 +198,45 @@ export function Sidebar() {
       </div>
 
       <button
+        ref={profileButtonRef}
         type="button"
-        onClick={() => setNewGroupOpen(true)}
+        onClick={() => setMenuOpen(o => !o)}
         className="wntap"
         style={{
           width: '100%',
           marginTop: 8,
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
+          gap: 10,
           padding: '10px 12px',
           borderRadius: 12,
           cursor: 'pointer',
           background: 'transparent',
-          border: `1.5px dashed ${T.lineStrong}`,
-          color: T.inkMuted,
-          fontSize: 13,
-          fontWeight: 600,
-          fontFamily: F,
+          border: 'none',
+          borderTop: `0.5px solid ${T.line}`,
+          textAlign: 'left',
         }}
       >
-        <span>＋</span> New group
+        <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
+        <span
+          style={{
+            flex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            fontSize: 13.5,
+            fontWeight: 700,
+            fontFamily: F,
+            color: T.ink,
+          }}
+        >
+          {profile ? profile.display_name ?? profile.name : 'You'}
+        </span>
+        <span style={{ fontSize: 11, color: T.inkFaint, flexShrink: 0 }}>▲</span>
       </button>
+
+      <ProfileMenuPopover open={menuOpen} anchorRef={profileButtonRef} onClose={() => setMenuOpen(false)} />
     </aside>
   )
 }

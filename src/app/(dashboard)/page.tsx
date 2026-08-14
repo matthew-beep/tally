@@ -22,6 +22,7 @@ import { NotificationsSheet } from '@/components/notifications/NotificationsShee
 import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
 import { AppHeader } from '@/components/dashboard/AppHeader'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
+import { splitAmount } from '@/lib/money'
 import { selectActionable } from '@/lib/notifications'
 import type { Profile, NotificationBatch, ActivityItem, PersonPart } from '@/types'
 
@@ -107,8 +108,7 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
   const myId = gb.myId
   const total = Math.round((gb.net[myId] ?? 0) * 100) / 100
   const isPositive = total >= 0
-  const whole = Math.floor(Math.abs(total)).toLocaleString()
-  const cents = (Math.abs(total) % 1).toFixed(2).slice(1)
+  const { whole, cents } = splitAmount(total)
   const sign = total >= 0 ? '+' : '−'
   const mainColor = isPositive ? T.mintInk : T.coralInk
   const softBg = isPositive ? T.mintSoft : T.coralSoft
@@ -447,7 +447,7 @@ export default function HomePage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
-      <AppHeader title="Home" greeting action={{ label: 'New group', onClick: () => router.push('/groups/new'), hideOnMobile: true }} />
+      <AppHeader title="Home" greeting />
 
       <div className="home-scroll">
         <div className="home-main">

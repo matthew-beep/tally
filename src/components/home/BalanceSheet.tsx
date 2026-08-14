@@ -6,7 +6,7 @@ import { Btn } from '@/components/Btn'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
-import { formatAmount, stripNegative, round2 } from '@/lib/money'
+import { formatAmount, stripNegative, round2, splitAmount } from '@/lib/money'
 import { useCreateSettlements } from '@/queries/useSettlements'
 import { SettleSuccess } from '@/components/settle/SettleSuccess'
 import type { SettlementAllocation } from '@/lib/settlements'
@@ -223,8 +223,7 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
   const mixed = grossOwed >= 0.01 && grossOwe >= 0.01
 
   const abs = Math.abs(netTransfer)
-  const whole = Math.floor(abs).toLocaleString()
-  const cents = (abs % 1).toFixed(2).slice(1)
+  const { whole, cents } = splitAmount(netTransfer)
   const groupCount = visibleParts.length
   const groupLabel = groupCount === 1 ? '1 group' : `${groupCount} groups`
   const canSettleAll = groupCount > 0 && !createSettlements.isPending

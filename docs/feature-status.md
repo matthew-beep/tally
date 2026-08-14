@@ -32,8 +32,9 @@ functional everywhere, and as of 2026-07-26 every sheet/modal in the app
 renders through the shared `ModalOrSheet` primitive (centered modal on
 desktop, not the mobile layout stretched wide). The bigger *designed*
 (not just "the mobile layout at a wider viewport") treatments remain
-narrower: group detail's 2-column layout and the sidebar nav. Home's
-3-column dashboard and group settings' desktop layout are still open.
+narrower: group detail's 2-column layout. Home's 3-column dashboard and
+group settings' desktop layout are still open. The sidebar nav got a
+designed pass 2026-08-13 (see below) but stayed UI-only.
 
 ## Core features not yet developed at all
 
@@ -53,20 +54,77 @@ narrower: group detail's 2-column layout and the sidebar nav. Home's
   edit, zero UI to read it.
 5. **Cross-group "Settle all with [person]"** — home aggregates per-person
   totals across groups, but the one-tap multi-group settle isn't built.
+6. **Sidebar balance signals** — deliberately skipped in the 2026-08-13
+  sidebar redesign (below), not because it's hard, just scoped out. Two
+  specific things were decided *against* for this pass, not merely
+  forgotten:
+   - A per-group balance dot in the sidebar's group list (owed/owe color).
+   - A net balance line in the sidebar's bottom profile card.
+   Both are one-line additions — `useGlobalBalances()` already exposes
+   `netPerGroup[groupId][myId]` and the aggregate `net[myId]` (Home reads
+   the same hook at `page.tsx:324` and `page.tsx:108`). The reason they were
+   left out: `Sidebar` mounts on every dashboard route, including ones that
+   don't otherwise call `useGlobalBalances()` (e.g. a single group detail
+   page). Wiring it in would upgrade the sidebar from a cheap `['groups']`
+   list query to `useGlobalBalances()`'s full N-group expense/settlement
+   fan-out (via `useAllGroupData`) on every navigation, not just Home/Groups.
+   Revisit if/when that fan-out cost is addressed (e.g. a lighter
+   balances-only query) or judged acceptable as-is.
 
 **App shell + button system shipped 2026-08-12** (`docs/features.md`
 § Key components): the four tab pages now share `AppHeader` (title/greeting,
 optional action, notification bell, avatar), so the bell is reachable from
 every tab rather than only from inside a group, and `.home-topbar*` CSS became
-`.app-header*`.
-`Btn` was reintroduced and adopted by every page- and sheet-level CTA (~19
-files), `AvatarStack` was extracted from the hand-rolled overlapping avatar
-rows (group-detail strip, `FeedCard`'s "split N ways" — which gains a `+N`
-chip it never had, having previously just sliced to four and dropped the
-rest), and the groups list was rebuilt on emoji tile + avatar stack + a signed
-amount (or `square ✓`) in place of `BalanceBadge`. UI only — no schema, query,
-or balance-math change, except the `useNotifications` group-join fix noted in
-`features.md`.
+`.app-header*`. `Btn` was reintroduced and adopted by every page- and
+sheet-level CTA (~19 files), `AvatarStack` was extracted from the hand-rolled
+overlapping avatar rows (group-detail strip, `FeedCard`'s "split N ways" —
+which gains a `+N` chip it never had, having previously just sliced to four
+and dropped the rest), and the groups list was rebuilt on emoji tile + avatar
+stack + a signed amount (or `square ✓`) in place of `BalanceBadge`. UI only —
+no schema, query, or balance-math change, except the `useNotifications`
+group-join fix noted in `features.md`.
+
+**Sidebar redesign shipped 2026-08-13** (`docs/features.md` § Key
+components, `Sidebar.tsx`): nav trimmed from 4 destinations to 3
+(Home/Groups/Activity) — `Me` is no longer a nav item, identity/settings are
+reached via a new bottom profile card (avatar + name, click → `/me`) that
+replaces the old dashed "+ New group" button. Group creation moved to an
+inline "+" next to the "Groups" section label instead. This was a UI-only
+pass — see item 6 above for the balance data that was explicitly scoped out.
+
+**Global "Add expense" shipped 2026-08-13** (`AppHeader.tsx`): `action`
+defaults to `{ label: 'Add expense', onClick: () => setFabOpen(true), hideOnMobile: true }`
+when a page doesn't override it, so Groups/Activity/Me picked it up with zero
+per-page changes. `ModeSheet` (`useUIStore().fabOpen`) was already fully
+built — this just wires the first real caller to `setFabOpen(true)`. Home's
+old "New group" override (redundant since group creation moved to the
+sidebar) was removed 2026-08-13 once `page.tsx` cleared of the other
+session's unrelated changes — all four tab pages now show "Add expense" on
+desktop. `hideOnMobile` is on by design here (added same day as
+`DockedTabBar`, below) — the header button is desktop-only, mobile's global
+entry point is the docked bar's center Add. Group detail deliberately keeps
+its own bespoke, always-group-scoped Add Expense button (desktop header-band
++ was also a mobile floating CTA, removed 2026-08-13 as redundant once the
+center nav button existed — see below) and never goes through `ModeSheet` —
+see "Architecture rules" in `CLAUDE.md` on why group context comes first.
+Still open: `ModeSheet`'s "Add to a group" branch routes to `/groups` rather
+than a specific group, since `activeGroupId` is set nowhere in the app.
+
+**Mobile nav — docked bar variant added 2026-08-13, currently live**
+(`DockedTabBar.tsx`): the "docked bar + elevated center Add" option from the
+"Header & Sidebar Variants" design exploration, mounted in
+`(dashboard)/layout.tsx` in place of the floating-pill `TabBar`. Center
+button calls `setFabOpen(true)` (same `ModeSheet` entry point as the desktop
+header). `TabBar.tsx` is untouched and still exported — swapping back is a
+one-line import change in the layout if the docked bar doesn't win out. Note
+that swapping back also un-hides the redundancy this removed: the header's
+Add Expense action and the group-detail mobile floating CTA were both hidden
+below 1024px / deleted specifically because this component's center button
+now covers that job — reverting to `TabBar` (no center action) would leave
+mobile without a global Add Expense entry point until those are revisited.
+`NAV_TABS`/`pathnameToTab` were extracted to `nav/navTabs.ts` so both
+components share one source of truth instead of drifting. Not yet decided:
+which one ships for real; this is a live A/B to look at, not a final call.
 
 **Guest claim flow shipped 2026-08-11** (`docs/flows.md` § Claim a guest
 seat, `docs/group-member-model.md` § Claiming): self-serve claim link

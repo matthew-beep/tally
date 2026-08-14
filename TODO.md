@@ -218,6 +218,11 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    promoted here now that scope (per-group, ranked by amount paid) is confirmed. Open
    questions for next time: exact placement on the page, whether it's all-time or
    filterable by date range, tie-breaking.
+   - **Reopened 2026-08-13 — rethink before building.** Matthew flagged the
+     concept itself for reconsideration, not just the open questions above.
+     Nothing decided yet; revisit scope (is it still per-group ranked-by-paid,
+     or a different shape entirely) before picking up the placement/range/
+     tie-breaking questions.
 
 4. **Responsive views for every screen** 🟡 — no new decisions made this session; this is
    the existing "Desktop / web layout — remaining" backlog further down this file
@@ -1133,6 +1138,13 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
     (capped attention rows, 5-row preview), add a matching bone skeleton for
     both modules so loading doesn't visually jump when data arrives.
 
+13. **Font — reconsider the type choices** 🟡 *(flagged 2026-08-13, nothing
+    scoped yet)* — look into changing the app's font pairing. Currently
+    Bricolage Grotesque (display: headings, amounts) / Plus Jakarta Sans (UI:
+    labels, body, buttons) / JetBrains Mono (tabular: cents, metadata) per
+    `design/tokens.ts` and the `CLAUDE.md` design system section. No direction
+    chosen yet — open question for next time.
+
 ---
 
 ## Now — in priority order
@@ -1368,6 +1380,11 @@ Creator (`created_by`) is the admin.
 - [ ] **Split editing** 🟡 — edit drawer keeps split membership read-only;
   editing who's in the split / split mode means re-running the full split
   builder (reuse `AddExpenseForm` machinery)
+- [ ] **Category editing** 🟢 *(flagged 2026-08-13)* — the edit drawer has no
+  category control at all today; only add-expense seeds `category` from
+  `detectCategory` with a tappable override (`CLAUDE.md` § categories,
+  `useState` convention noted under Hooks extraction below). Give the edit
+  flow the same picker/override.
 
 ### 7. Itemized splits 🟡 (schema + UX design)
 

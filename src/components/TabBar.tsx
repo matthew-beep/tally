@@ -6,25 +6,9 @@ import { SliderPill } from '@/components/nav/SliderPill'
 import { useSlider } from '@/components/nav/useSlider'
 import { WebNavIcon, type WebNavIconName } from '@/components/nav/WebNavIcon'
 import { WebNavBadge } from '@/components/nav/WebNavBadge'
-
-const NAV_TABS = [
-  { id: 'home', label: 'Home', href: '/' },
-  { id: 'groups', label: 'Groups', href: '/groups' },
-  { id: 'activity', label: 'Activity', href: '/activity' },
-  { id: 'me', label: 'Me', href: '/me' },
-] as const
-
-type TabId = (typeof NAV_TABS)[number]['id']
+import { NAV_TABS, pathnameToTab, type TabId } from '@/components/nav/navTabs'
 
 const NAV_BADGES: Partial<Record<TabId, 'dot' | number>> = {}
-
-function pathnameToTab(pathname: string): TabId {
-  if (pathname === '/') return 'home'
-  if (pathname.startsWith('/groups')) return 'groups'
-  if (pathname.startsWith('/activity')) return 'activity'
-  if (pathname.startsWith('/me')) return 'me'
-  return 'home'
-}
 
 function FloatingNav({
   active,

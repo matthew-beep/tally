@@ -2,8 +2,8 @@
 
 import { T, F, FH } from '@/design/tokens'
 import { Btn } from '@/components/Btn'
-import { createClient } from '@/lib/supabase'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSignInWithGoogle, useSignInWithPassword } from '@/queries/useAuth'
+import { useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 
 function GoogleIcon({ size = 18 }: { size?: number }) {
@@ -31,13 +31,13 @@ const inputStyle: React.CSSProperties = {
 }
 
 function LoginButtonInner() {
-  const router       = useRouter()
   const searchParams = useSearchParams()
+  const signInWithGoogle   = useSignInWithGoogle()
+  const signInWithPassword = useSignInWithPassword()
   const [devOpen, setDevOpen]     = useState(false)
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
   const [error, setError]         = useState('')
-  const [loading, setLoading]     = useState(false)
 
   const redirect    = searchParams.get('redirect') ?? '/'
   const devEmail    = process.env.NEXT_PUBLIC_DEV_EMAIL
@@ -45,28 +45,25 @@ function LoginButtonInner() {
   // Show dev login in local dev, or in any environment where NEXT_PUBLIC_DEV_EMAIL is set.
   // NODE_ENV is inlined at build time — the block is dead code in production builds.
   const showDevLogin = process.env.NODE_ENV === 'development' || !!devEmail
-
-  async function signInWithGoogle() {
-    const supabase   = createClient()
-    const redirectTo = `${location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`
-    await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } })
-  }
+  const loading = signInWithPassword.isPending
 
   async function signIn() {
-    setLoading(true); setError('')
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
-    if (authError) { setError(authError.message); setLoading(false); return }
-    router.push(redirect); router.refresh()
+    setError('')
+    try {
+      await signInWithPassword.mutateAsync({ email, password, redirect })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    }
   }
 
   async function devLogin() {
     if (!devEmail || !devPassword) return
-    setLoading(true); setError('')
-    const supabase = createClient()
-    const { error: authError } = await supabase.auth.signInWithPassword({ email: devEmail, password: devPassword })
-    if (authError) { setError(authError.message); setLoading(false); return }
-    router.push(redirect); router.refresh()
+    setError('')
+    try {
+      await signInWithPassword.mutateAsync({ email: devEmail, password: devPassword, redirect })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    }
   }
 
   return (
@@ -77,7 +74,7 @@ function LoginButtonInner() {
     }}>
       {/* Google OAuth — primary CTA */}
       <button
-        onClick={signInWithGoogle}
+        onClick={() => signInWithGoogle.mutate(redirect)}
         style={{
           width: '100%', height: 56, borderRadius: 18,
           background: T.surface, color: T.ink,

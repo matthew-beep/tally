@@ -100,7 +100,9 @@ export function AvatarStack({ members, size = 22, max = 4, overlap = 0.4, ringCo
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: Math.round(size * 0.36),
+            // Floored — the stacks that actually overflow are the small ones (16px in FeedCard,
+            // 18px in the groups list), where the bare ratio lands on an unreadable 6px.
+            fontSize: Math.max(9, Math.round(size * 0.36)),
             fontWeight: 700,
             fontFamily: FH,
             boxShadow: `0 0 0 ${ringWidth}px ${ringColor}`,

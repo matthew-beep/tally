@@ -169,7 +169,7 @@ export default function GroupDetailPage() {
             {group.emoji}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: FH, fontSize: 26, fontWeight: 700, letterSpacing: -0.7, color: T.ink, lineHeight: 1.1 }}>{group.name}</div>
+            <div style={{ fontFamily: F, fontSize: 26, fontWeight: 700, letterSpacing: -0.7, color: T.ink, lineHeight: 1.1 }}>{group.name}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginTop: 8, flexWrap: 'wrap' }}>
               <span style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.3, color: Math.abs(myBal) < 0.01 ? T.inkFaint : netPositive ? T.mintInk : T.coralInk }}>
                 {Math.abs(myBal) < 0.01 ? "You're settled up" : `${netPositive ? "You're owed" : 'You owe'} ${formatAmount(myBal)}`}
@@ -213,7 +213,7 @@ export default function GroupDetailPage() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 20 }}>{group.emoji}</span>
-            <span style={{ fontFamily: FH, fontSize: 20, fontWeight: 700, letterSpacing: -0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.ink }}>
+            <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, letterSpacing: -0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.ink }}>
               {group.name}
             </span>
           </div>
@@ -416,17 +416,6 @@ export default function GroupDetailPage() {
             </>
           )}
         </div>
-      </div>
-
-      {/* ── Floating Add expense CTA — mobile only ── */}
-      <div className="group-detail-fab" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '10px 16px 28px', pointerEvents: 'none' }}>
-        <Btn
-          onClick={() => setAddExpenseOpen(true)} variant="primary" size="lg" fullWidth
-          icon={<span style={{ fontSize: 22, lineHeight: 1 }}>+</span>}
-          style={{ pointerEvents: 'auto', height: 54, borderRadius: T.r.lg, fontFamily: FH, fontSize: 16.5, letterSpacing: -0.2, boxShadow: T.shadowFab }}
-        >
-          Add expense
-        </Btn>
       </div>
 
       <AddExpenseSheet

@@ -227,6 +227,11 @@
   .app-header-action--hide-mobile {
     display: none !important;
   }
+
+  /* Avatar duplicates the "Me" tab already in the mobile tab bar */
+  .app-header-avatar {
+    display: none;
+  }
 }
 
 @media (max-width: 399px) {
@@ -460,10 +465,6 @@
   }
 
   .group-detail-empty-members {
-    display: none !important;
-  }
-
-  .group-detail-fab {
     display: none !important;
   }
 

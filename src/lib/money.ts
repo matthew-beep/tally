@@ -22,3 +22,18 @@ export function formatAmount(n: number, { sign = false }: { sign?: boolean } = {
   if (!sign || Math.abs(n) < 0.01) return `$${abs}`
   return `${n > 0 ? '+' : '−'}$${abs}`
 }
+
+/**
+ * Splits a magnitude into the two pieces the design system's amount anatomy
+ * renders in different fonts/weights: a comma-grouped whole-dollar string and
+ * a ".cents" string (dot included). Sign is deliberately not handled here —
+ * every call site already branches on sign for color, so it derives its own
+ * +/− glyph from that same comparison instead of a second one here.
+ */
+export function splitAmount(n: number): { whole: string; cents: string } {
+  const abs = Math.abs(n)
+  return {
+    whole: Math.floor(abs).toLocaleString(),
+    cents: (abs % 1).toFixed(2).slice(1),
+  }
+}

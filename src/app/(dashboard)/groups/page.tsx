@@ -9,6 +9,7 @@ import { EmojiTile } from '@/components/EmojiTile'
 import { Btn } from '@/components/Btn'
 import { AvatarStack } from '@/components/Avatar'
 import { avatarProfile, slotFor } from '@/lib/memberDisplay'
+import { splitAmount } from '@/lib/money'
 import { useGroups } from '@/queries/useGroups'
 import { useGlobalBalances } from '@/queries/useGlobalBalances'
 import type { GroupMember } from '@/types'
@@ -103,16 +104,14 @@ function GroupCard({ group, myId, netPerGroup, membersPerGroup }: {
 
 function GroupCardAmount({ amount }: { amount: number }) {
   const pos = amount > 0
-  const abs = Math.abs(amount)
-  const whole = Math.floor(abs)
-  const cents = String(Math.round((abs - whole) * 100)).padStart(2, '0')
+  const { whole, cents } = splitAmount(amount)
 
   return (
     <div style={{ textAlign: 'right', flexShrink: 0 }}>
       <div style={{ fontFamily: FH, fontSize: 20, fontWeight: 600, letterSpacing: -0.5, color: pos ? T.mintInk : T.coralInk }}>
         <span style={{ opacity: 0.5 }}>{pos ? '+' : '−'}$</span>
-        {whole.toLocaleString()}
-        <span style={{ fontFamily: FMONO, fontSize: 13, opacity: 0.6 }}>.{cents}</span>
+        {whole}
+        <span style={{ fontFamily: FMONO, fontSize: 13, opacity: 0.6 }}>{cents}</span>
       </div>
       <div style={{ fontSize: 10, color: T.inkMuted, marginTop: 1 }}>{pos ? "you're owed" : 'you owe'}</div>
     </div>

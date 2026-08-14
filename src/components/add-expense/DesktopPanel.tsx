@@ -11,7 +11,7 @@ import { ModalHeader } from '@/components/modal'
 import { Btn } from '@/components/Btn'
 import type { GroupMember } from '@/types'
 import type { SplitMode } from './types'
-import { RemainderCounter, shortName } from './parts'
+import { RemainderInline, shortName } from './parts'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 // Desktop 4-way split_type tab strip. Mobile uses AlgorithmRadios instead.
@@ -75,7 +75,23 @@ function DesktopSplitList({ s }: { s: AddExpenseFormState }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <SectionLabel size="sm" style={{ padding: '0 4px 8px' }}>{header}</SectionLabel>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '0 4px 8px' }}>
+        <SectionLabel size="sm" style={{ padding: 0 }}>{header}</SectionLabel>
+        {mode === 'percentage' && (
+          <RemainderInline
+            valid={percentValid}
+            label={percentValid ? 'Adds up to 100%' : percentRemaining > 0 ? 'Remaining' : 'Over by'}
+            value={percentValid ? '0%' : `${percentRemaining > 0 ? '' : '−'}${Math.abs(percentRemaining).toFixed(0)}%`}
+          />
+        )}
+        {mode === 'exact' && (
+          <RemainderInline
+            valid={exactValid}
+            label={exactValid ? 'Balanced' : exactRemaining > 0 ? 'Remaining' : 'Over by'}
+            value={exactValid ? '$0.00' : `${exactRemaining > 0 ? '' : '−'}${formatAmount(exactRemaining)}`}
+          />
+        )}
+      </div>
       <div style={{ background: T.surface, borderRadius: 16, border: `0.5px solid ${T.line}`, overflow: 'hidden' }}>
         {memberIds.map((id, i) => {
           const m = memberById[id]
@@ -166,21 +182,6 @@ function DesktopSplitList({ s }: { s: AddExpenseFormState }) {
           )
         })}
       </div>
-
-      {mode === 'percentage' && (
-        <RemainderCounter
-          valid={percentValid}
-          label={percentValid ? 'Adds up to 100%' : percentRemaining > 0 ? 'Remaining' : 'Over by'}
-          value={percentValid ? '0%' : `${percentRemaining > 0 ? '' : '−'}${Math.abs(percentRemaining).toFixed(0)}%`}
-        />
-      )}
-      {mode === 'exact' && (
-        <RemainderCounter
-          valid={exactValid}
-          label={exactValid ? 'Balanced — ready to save' : exactRemaining > 0 ? 'Remaining' : 'Over by'}
-          value={exactValid ? '$0.00' : `${exactRemaining > 0 ? '' : '−'}${formatAmount(exactRemaining)}`}
-        />
-      )}
     </div>
   )
 }
@@ -304,7 +305,7 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
           <input
             value={s.description} onChange={e => s.setDescription(e.target.value)}
             placeholder="What was this for?"
-            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: FH, fontSize: 30, fontWeight: 600, letterSpacing: -0.8, color: T.ink }}
+            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: F, fontSize: 30, fontWeight: 600, letterSpacing: -0.8, color: T.ink }}
           />
         </div>
       </ModalHeader>

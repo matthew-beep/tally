@@ -42,7 +42,7 @@ export const T = {
 
 export const F     = 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif'
 export const FH    = 'var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif'
-export const FMONO = 'var(--font-jetbrains), "JetBrains Mono", monospace'
+export const FMONO = 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif'
 
 export const AVATAR_SLOTS = [
   { bg: T.sun,  fg: '#7A5200' },

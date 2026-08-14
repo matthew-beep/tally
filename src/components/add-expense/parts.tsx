@@ -16,7 +16,7 @@ export function fmtPct(n: number): string {
   return Number.isInteger(Math.round(n * 10) / 10) ? n.toFixed(0) : n.toFixed(1)
 }
 
-/** Balanced/remaining pill — used by both the desktop split list and the mobile breakdown. */
+/** Balanced/remaining pill — used by the mobile breakdown. */
 export function RemainderCounter({ label, value, valid }: { label: string; value: string; valid: boolean }) {
   return (
     <div style={{
@@ -35,6 +35,21 @@ export function RemainderCounter({ label, value, valid }: { label: string; value
       <div style={{ flex: 1 }}>{label}</div>
       <div style={{ fontFamily: FMONO, fontWeight: 700, fontSize: 14 }}>{value}</div>
     </div>
+  )
+}
+
+/** Balanced/remaining indicator — icon + label/value, no background or pill. Used at the top of the desktop split list. */
+export function RemainderInline({ label, value, valid }: { label: string; value: string; valid: boolean }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      color: valid ? T.mintInk : T.coralInk,
+      fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+    }}>
+      <span>{valid ? '✓' : '!'}</span>
+      <span>{label}</span>
+      <span style={{ fontFamily: FMONO }}>{value}</span>
+    </span>
   )
 }
 

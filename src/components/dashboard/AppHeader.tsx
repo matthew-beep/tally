@@ -8,6 +8,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
 import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
 import { useCurrentProfile } from '@/queries/useProfile'
+import { useUIStore } from '@/store/ui'
 import { firstName } from '@/lib/memberDisplay'
 
 interface AppHeaderAction {
@@ -21,6 +22,7 @@ interface AppHeaderProps {
   title: string
   /** Home only: hour-based greeting + first name under the title instead of a plain heading. */
   greeting?: boolean
+  /** Defaults to "Add expense" (opens the global AddExpenseGroupPicker), hidden below 1024px since DockedTabBar's center button covers mobile — pass to override. */
   action?: AppHeaderAction
 }
 
@@ -32,6 +34,8 @@ export function AppHeader({ title, greeting = false, action }: AppHeaderProps) {
   const router = useRouter()
   const { data: profile } = useCurrentProfile()
   const notificationSheet = useNotificationReviewSheet()
+  const setFabOpen = useUIStore(s => s.setFabOpen)
+  const resolvedAction = action ?? { label: 'Add expense', onClick: () => setFabOpen(true), hideOnMobile: true }
 
   const hour = new Date().getHours()
   const greetingWord = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -54,18 +58,16 @@ export function AppHeader({ title, greeting = false, action }: AppHeaderProps) {
       </div>
 
       <div className="app-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        {action && (
-          <button
-            onClick={action.onClick}
-            className={action.hideOnMobile ? 'app-header-action app-header-action--hide-mobile' : 'app-header-action'}
-            style={{ background: T.sun, border: 'none', borderRadius: T.r.md, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: T.sunInk, fontFamily: F, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
-          >
-            <span className="app-header-action-label">{action.label}</span>
-            <span className="app-header-action-icon">+</span>
-          </button>
-        )}
+        <button
+          onClick={resolvedAction.onClick}
+          className={resolvedAction.hideOnMobile ? 'app-header-action app-header-action--hide-mobile' : 'app-header-action'}
+          style={{ background: T.sun, border: 'none', borderRadius: T.r.md, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: T.sunInk, fontFamily: F, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+        >
+          <span className="app-header-action-label">{resolvedAction.label}</span>
+          <span className="app-header-action-icon">+</span>
+        </button>
         <NotificationBell size={34} onClick={notificationSheet.openList} />
-        <div onClick={() => router.push('/me')} style={{ cursor: 'pointer' }}>
+        <div className="app-header-avatar" onClick={() => router.push('/me')} style={{ cursor: 'pointer' }}>
           <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
         </div>
       </div>

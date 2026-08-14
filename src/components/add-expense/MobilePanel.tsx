@@ -342,7 +342,7 @@ export function MobilePanel({ s, onCancel }: { s: AddExpenseFormState; onCancel:
         <input
           type="text" value={s.description} onChange={e => s.setDescription(e.target.value)}
           placeholder="What was it for?"
-          style={{ background: 'none', border: 'none', outline: 'none', fontFamily: FH, fontSize: 21, fontWeight: 700, letterSpacing: -0.5, color: T.ink, padding: '0 0 6px', caretColor: T.sun, width: '100%' }}
+          style={{ background: 'none', border: 'none', outline: 'none', fontFamily: F, fontSize: 21, fontWeight: 700, letterSpacing: -0.5, color: T.ink, padding: '0 0 6px', caretColor: T.sun, width: '100%' }}
         />
 
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, paddingBottom: 18 }}>
