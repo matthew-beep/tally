@@ -9,6 +9,7 @@ import { avatarProfile } from '@/lib/memberDisplay'
 import { formatAmount, round2, stripNegative, parseNum } from '@/lib/money'
 import { ModalHeader } from '@/components/modal'
 import { Btn } from '@/components/Btn'
+import { DatePicker } from '@/components/DatePicker'
 import type { GroupMember } from '@/types'
 import type { SplitMode } from './types'
 import { RemainderInline, shortName } from './parts'
@@ -34,7 +35,7 @@ function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMo
           <button key={tab.v} type="button" onClick={() => onChange(tab.v)} style={{
             border: 0, cursor: 'pointer', padding: '8px 15px',
             background: on ? T.sun : 'transparent',
-            color: on ? T.sunInk : T.inkMuted,
+            color: on ? T.sunOn : T.inkMuted,
             borderRadius: 10, fontFamily: F, fontSize: 13, fontWeight: 600,
             boxShadow: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none',
             transition: 'all 0.15s',
@@ -229,7 +230,7 @@ function CategoryChips({ category, onSelect }: { category: string; onSelect: (em
               display: 'inline-flex', alignItems: 'center', gap: 5,
               padding: '4px 10px 4px 8px', borderRadius: 999,
               background: on ? T.sun : 'transparent',
-              color: on ? T.sunInk : T.ink,
+              color: on ? T.sunOn : T.ink,
               boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
               border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 600, fontFamily: F,
             }}
@@ -285,7 +286,7 @@ function SaveFooter({ onCancel, onSave, canSave, saveLabel, isPending, statusHin
           style={{
             padding: '10px 20px', borderRadius: 10,
             background: canSave ? T.sun : T.lineStrong,
-            color: canSave ? T.sunInk : T.inkFaint,
+            color: canSave ? T.sunOn : T.inkFaint,
             fontSize: 14, letterSpacing: -0.2,
             boxShadow: canSave ? '0 6px 16px rgba(242,192,74,0.32)' : 'none',
           }}
@@ -337,10 +338,7 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
 
           <div>
             <SectionLabel size="sm" style={{ marginBottom: 8 }}>Date</SectionLabel>
-            <input
-              type="date" value={s.expenseDate} onChange={e => s.setExpenseDate(e.target.value)}
-              style={{ width: '100%', padding: '8px 10px', borderRadius: T.r.md, border: `1px solid ${T.line}`, background: T.bg, fontSize: 14, fontFamily: F, color: T.ink, outline: 'none' }}
-            />
+            <DatePicker value={s.expenseDate} onChange={s.setExpenseDate} />
           </div>
         </div>
 

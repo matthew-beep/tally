@@ -8,7 +8,13 @@ export const T = {
   inkFaint:   'var(--tally-ink-faint)',
   line:       'var(--tally-line)',
   lineStrong: 'var(--tally-line-strong)',
+  grayFill:   'var(--tally-gray-fill)',
   sidebarBg:  'var(--tally-sidebar-bg)',
+  sidebarNavInk:    'var(--tally-sidebar-nav-ink)',
+  sidebarHeaderInk: 'var(--tally-sidebar-header-ink)',
+  sidebarGroupInk:  'var(--tally-sidebar-group-ink)',
+  sidebarActiveInk:  'var(--tally-sidebar-active-ink)',
+  sidebarActiveSoft: 'var(--tally-sidebar-active-soft)',
 
   sun:      'var(--tally-sun)',  sunSoft:   'var(--tally-sun-soft)',  sunInk:   'var(--tally-sun-ink)',
   sunOn:    'var(--tally-sun-on)',
@@ -39,6 +45,9 @@ export const T = {
   cardBorder: 'var(--tally-card-border)',
   cardShadow: 'var(--tally-card-shadow)',
 } as const
+
+export const PADDING_X_BASE = 28
+export const CONTENT_MAX_WIDTH = 680
 
 export const F     = 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif'
 export const FH    = 'var(--font-bricolage), "Bricolage Grotesque", system-ui, sans-serif'

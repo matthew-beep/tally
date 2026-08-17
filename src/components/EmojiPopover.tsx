@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { T, F } from '@/design/tokens'
+import { usePopoverPosition } from '@/lib/usePopoverPosition'
 
 interface Props {
   open: boolean
@@ -15,84 +15,15 @@ interface Props {
   onPick: (emoji: string) => void
 }
 
-const GAP = 8
-const MARGIN = 8
-
 /**
  * Desktop emoji picker: a compact row floating over its anchor.
- *
- * Portalled and positioned `fixed` rather than absolutely inside the anchor's
- * parent, because both places this mounts clip their overflow — the detail
- * drawer's ModalContent scrolls (`overflowY: auto`) and the feed's month card
- * is `overflow: hidden`. An absolutely-positioned popover would be sliced off
- * in both. Fixed coordinates from getBoundingClientRect sidestep the ancestor
- * chain entirely.
- *
- * Opens upward by default and flips below only when the anchor is too near the
- * top of the viewport; clamped horizontally so it never runs off either edge.
+ * Positioning + escape/outside-click dismissal is shared with
+ * ProfileMenuPopover via usePopoverPosition.
  */
 export function EmojiPopover({
   open, emojis, selected = [], anchorRef, zIndex = 400, onClose, onPick,
 }: Props) {
-  const popRef = useRef<HTMLDivElement | null>(null)
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
-
-  // Layout effect so the first paint is already in place — measuring in a
-  // regular effect shows one frame at the origin before it snaps.
-  useLayoutEffect(() => {
-    if (!open) { setPos(null); return }
-
-    function place() {
-      const anchor = anchorRef.current
-      const pop = popRef.current
-      if (!anchor || !pop) return
-      const a = anchor.getBoundingClientRect()
-      const p = pop.getBoundingClientRect()
-
-      const above = a.top - p.height - GAP
-      const top = above >= MARGIN ? above : a.bottom + GAP
-      const left = Math.min(
-        Math.max(MARGIN, a.left + a.width / 2 - p.width / 2),
-        window.innerWidth - p.width - MARGIN
-      )
-      setPos({ top, left })
-    }
-
-    place()
-    // The anchor moves when anything behind the popover scrolls, so track it
-    // on capture (scroll doesn't bubble from inner scrollers).
-    window.addEventListener('scroll', place, true)
-    window.addEventListener('resize', place)
-    return () => {
-      window.removeEventListener('scroll', place, true)
-      window.removeEventListener('resize', place)
-    }
-  }, [open, anchorRef])
-
-  useEffect(() => {
-    if (!open) return
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
-      // Capture + stop: the detail drawer and desktop Modal both listen for
-      // Escape on window, and one press should close only the popover.
-      e.stopPropagation()
-      onClose()
-    }
-    function onDown(e: MouseEvent) {
-      const target = e.target as Node
-      if (popRef.current?.contains(target)) return
-      if (anchorRef.current?.contains(target)) return // let the button toggle itself
-      onClose()
-    }
-
-    window.addEventListener('keydown', onKey, true)
-    document.addEventListener('mousedown', onDown, true)
-    return () => {
-      window.removeEventListener('keydown', onKey, true)
-      document.removeEventListener('mousedown', onDown, true)
-    }
-  }, [open, onClose, anchorRef])
+  const { popRef, pos } = usePopoverPosition({ open, anchorRef, onClose, align: 'center', gap: 8 })
 
   if (!open) return null
 
@@ -107,7 +38,8 @@ export function EmojiPopover({
       onClick={e => e.stopPropagation()}
       style={{
         position: 'fixed',
-        top: pos?.top ?? 0,
+        top: pos?.top,
+        bottom: pos?.bottom,
         left: pos?.left ?? 0,
         // Hidden for the measuring pass so it never flashes at the origin.
         visibility: pos ? 'visible' : 'hidden',

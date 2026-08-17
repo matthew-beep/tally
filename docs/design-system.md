@@ -140,6 +140,40 @@ color. Warm charcoal picks `#F0EAFB` (lightened lavender, consistent with how
 `sun-ink`/`mint-ink`/`coral-ink` relate to their base colors) rather than
 carrying the placeholder forward.
 
+## `sun-ink` vs `sun-on` — two different jobs, split 2026-08-14/15
+
+`--tally-sun-ink` (`T.sunInk`) is theme-adaptive, like every other `-ink`
+token: `#7A5200` in light, lightened to `#FAE7B0` in dark. It's for text/icons
+tinted *against* a translucent `sun-soft` fill — the avatar-slot convention in
+`CLAUDE.md` ("Slot 1 / You: Sun bg, sunInk text") and similar low-contrast
+sun-tinted contexts, where lightening the ink in dark mode is correct because
+the background it sits on also lightens.
+
+That breaks for text/icons on a **solid** `T.sun` swatch — CTA buttons
+(`Btn.tsx` primary), the add-expense FAB (`DockedTabBar.tsx`), the app header
+action button, the mobile tab bar's add button, `NotificationBell`. `T.sun`
+itself stays a saturated gold in both themes (`#F2C144` light / `#F5CB66`
+dark) — it does not lighten the way `sun-soft` does — so `sunInk`'s dark-mode
+value (`#FAE7B0`, near-white) landed near-white text on near-gold, a contrast
+regression that didn't exist in light mode (where both tokens happened to be
+the same value).
+
+Fix: `--tally-sun-on` (`T.sunOn`), fixed at `#7A5200` in **both** themes —
+declared identically in `:root` and `[data-theme="dark"]`, no adaptation, by
+design. Rule of thumb: `sunInk` for text tinted against `sun-soft`, `sunOn`
+for text/icons sitting directly on solid `T.sun`. Several files use both
+(e.g. `add-expense/DesktopPanel.tsx`, `home/BalanceSheet.tsx`,
+`groups/new/page.tsx`) for exactly these two different purposes — that's
+correct, not drift.
+
+**Known gap:** `sun-on` was added to `src/app/globals.css`'s CSS-variable
+blocks (`:root` / `[data-theme="dark"]`) but not to the `@theme` block lower
+in the same file that mirrors these as Tailwind utilities
+(`--color-tally-sun-ink` has no `--color-tally-sun-on` counterpart). Not
+currently load-bearing — every consumer reads `T.sunOn` via CSS-in-JS, none
+go through a Tailwind class — but add it there too if a `text-tally-sun-on`
+utility class is ever reached for.
+
 ## Fonts
 
 Two fonts as of 2026-08-13, down from three. `src/design/tokens.ts` exports

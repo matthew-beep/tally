@@ -7,6 +7,7 @@ import { Avatar, AvatarStack } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
 import { Btn } from '@/components/Btn'
+import { Card } from '@/components/Card'
 import { formatAmount } from '@/lib/money'
 import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
@@ -14,9 +15,7 @@ import { SettleUpSheet } from '@/components/SettleUpSheet'
 import { MemberBalancesModal } from '@/components/settle/MemberBalancesModal'
 import { WhosAheadRow } from '@/components/leaderboard/WhosAheadRow'
 import { LeaderboardSheet } from '@/components/leaderboard/LeaderboardSheet'
-import { NotificationBell } from '@/components/notifications/NotificationBell'
-import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
-import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
+import { AppHeader } from '@/components/dashboard/AppHeader'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReactionPills } from '@/components/ReactionPills'
 import { toGroupFeedCard } from '@/lib/feedCards'
@@ -48,7 +47,6 @@ export default function GroupDetailPage() {
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
   const [settleUser, setSettleUser] = useState<string | null>(null)
   const [viewingMemberId, setViewingMemberId] = useState<string | null>(null)
-  const notificationSheet = useNotificationReviewSheet()
 
   const { group, loadingGroup, members, loadingMembers, expenses, settlements, profile } = useGroupDetail(groupId)
 
@@ -137,29 +135,31 @@ export default function GroupDetailPage() {
   return (
     <div style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: F, color: T.ink }}>
 
-      {/* ── Desktop: top app bar — breadcrumb, group search (placeholder), notifications (placeholder), avatar ── */}
-      <div className="group-detail-topbar" style={{ height: 56, alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: `0.5px solid ${T.line}`, flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: T.inkMuted }}>
-          <button
-            onClick={() => router.push('/groups')}
-            style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', color: 'inherit' }}
-          >
-            Groups
-          </button>
-          <span style={{ opacity: 0.5 }}>/</span>
-          <span style={{ color: T.ink, fontWeight: 700 }}>{group.name}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', borderRadius: T.r.pill, background: T.surfaceAlt, color: T.inkMuted, fontSize: 12.5, whiteSpace: 'nowrap' }}>
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <circle cx="6.5" cy="6.5" r="4.5" stroke={T.inkMuted} strokeWidth="1.4"/>
-              <path d="M10 10l3 3" stroke={T.inkMuted} strokeWidth="1.4" strokeLinecap="round"/>
-            </svg>
-            Search this group
-          </div>
-          <NotificationBell size={34} onClick={notificationSheet.openList} />
-          <Avatar profile={profile ?? undefined} slot={0} size={30} isYou />
-        </div>
+      {/* ── Desktop: shared app header — breadcrumb + Add expense action ── */}
+      <div className="group-detail-topbar">
+        <AppHeader
+          title={
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={() => router.push('/groups')}
+                style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 500, color: T.inkMuted }}
+              >
+                Groups
+              </button>
+              <span style={{ fontSize: 13, color: T.inkFaint }}>/</span>
+              <span 
+                style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', font: 'inherit', fontSize: 13, fontWeight: 500, color: T.ink }}
+                >
+                {group.name}
+              </span>
+            </span>
+          }
+          action={{
+            label: 'Add expense',
+            onClick: () => setAddExpenseOpen(true),
+            hideOnMobile: false,
+          }}
+        />
       </div>
 
       {/* ── Desktop: group header band — identity, one-line net status, stats, primary actions ── */}
@@ -183,13 +183,6 @@ export default function GroupDetailPage() {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
-            <Btn
-              onClick={() => setAddExpenseOpen(true)} variant="dark" size="md"
-              icon={<span style={{ fontSize: 16, lineHeight: 1 }}>+</span>}
-              style={{ padding: '9px 16px', fontSize: 13 }}
-            >
-              Add expense
-            </Btn>
             <button
               onClick={() => router.push(`/groups/${groupId}/settings`)}
               style={{ width: 36, height: 36, borderRadius: T.r.md, background: T.surface, border: `0.5px solid ${T.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: T.shadowSm }}
@@ -319,7 +312,7 @@ export default function GroupDetailPage() {
                 Add your first expense and it'll appear here, split across everyone.
               </div>
               {/* Member preview — mobile only; desktop has left column */}
-              <div className="group-detail-empty-members" style={{ width: '100%', background: T.surface, borderRadius: T.r.lg, overflow: 'hidden', marginTop: 16, boxShadow: T.shadowSm }}>
+              <Card tone="surface" className="group-detail-empty-members" style={{ width: '100%', borderRadius: T.r.lg, overflow: 'hidden', marginTop: 16 }}>
                 {members.map((m, i) => {
                   const name    = displayName(m)
                   const isYou   = m.user_id === profile?.id
@@ -332,7 +325,7 @@ export default function GroupDetailPage() {
                     </div>
                   )
                 })}
-              </div>
+              </Card>
             </div>
 
           ) : (
@@ -431,12 +424,6 @@ export default function GroupDetailPage() {
         mySeatId={myId ?? ''}
         transfers={transfers}
         preselect={preselectTransfer}
-      />
-
-      <NotificationsSheet
-        open={notificationSheet.open}
-        onClose={notificationSheet.close}
-        initialReview={notificationSheet.initialReview}
       />
 
       <LeaderboardSheet

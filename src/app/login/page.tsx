@@ -70,7 +70,7 @@ export default function LoginPage() {
               margin: '0 auto',
               borderRadius: 19,
               background: T.sun,
-              color: T.sunInk,
+              color: T.sunOn,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

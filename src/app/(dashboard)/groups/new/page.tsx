@@ -9,6 +9,7 @@ import type { MemberEntry } from '@/components/MemberCombobox'
 import { SuggestedMembers } from '@/components/SuggestedMembers'
 import { SectionLabel } from '@/components/SectionLabel'
 import { Btn } from '@/components/Btn'
+import { Card } from '@/components/Card'
 import { useCreateGroup } from '@/queries/useGroups'
 import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { useRecentCollaborators } from '@/queries/useMembers'
@@ -211,11 +212,7 @@ export default function NewGroupPage() {
           {/* Group header card */}
           <div style={{ padding: '10px 16px 14px' }}>
             <div ref={emojiPickerRef} style={{ position: 'relative' }}>
-              <div style={{
-                background: T.surface, borderRadius: 20, padding: '14px 16px',
-                display: 'flex', alignItems: 'center', gap: 14,
-                boxShadow: T.shadowSm,
-              }}>
+              <Card tone="surface" style={{ borderRadius: 20, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
                 <button
                   onClick={() => setShowEmojiPicker(v => !v)}
                   style={{
@@ -253,7 +250,7 @@ export default function NewGroupPage() {
                     padding: 0, caretColor: T.sun,
                   }}
                 />
-              </div>
+              </Card>
 
               {showEmojiPicker && (
                 <div style={{
@@ -284,9 +281,8 @@ export default function NewGroupPage() {
           {/* Selected strip */}
           {members.length > 0 && (
             <div style={{ padding: '0 16px 14px' }}>
-              <div style={{
-                display: 'flex', gap: 10, overflowX: 'auto',
-                scrollbarWidth: 'none', padding: '2px 0 4px',
+              <div className="tally-scroll-hidden" style={{
+                display: 'flex', gap: 10, overflowX: 'auto', padding: '2px 0 4px',
               }}>
                 {members.map((entry, i) => {
                   const p = entry.type === 'user'
@@ -341,13 +337,15 @@ export default function NewGroupPage() {
 
           {/* Search bar */}
           <div style={{ padding: '0 16px 14px' }}>
-            <div style={{
-              background: T.surface, borderRadius: 14, padding: '11px 14px',
-              display: 'flex', alignItems: 'center', gap: 10,
-              border: `1.5px solid ${searchFocused ? T.sun : T.line}`,
-              transition: 'border-color 0.15s',
-              boxShadow: T.shadowSm,
-            }}>
+            <Card
+              tone="surface"
+              style={{
+                borderRadius: 14, padding: '11px 14px',
+                display: 'flex', alignItems: 'center', gap: 10,
+                border: `1.5px solid ${searchFocused ? T.sun : T.line}`,
+                transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
+              }}
+            >
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
                 <circle cx="6.5" cy="6.5" r="4.5" stroke={T.ink} strokeWidth="1.5" />
                 <path d="M11 11l3.5 3.5" stroke={T.ink} strokeWidth="1.5" strokeLinecap="round" />
@@ -377,7 +375,7 @@ export default function NewGroupPage() {
                   </svg>
                 </button>
               )}
-            </div>
+            </Card>
           </div>
 
           {/* Section label */}
@@ -469,7 +467,7 @@ export default function NewGroupPage() {
             style={{
               pointerEvents: 'auto', padding: '16px', borderRadius: 18,
               background: name.trim() ? T.sun : T.surfaceAlt,
-              color: name.trim() ? T.sunInk : T.inkMuted,
+              color: name.trim() ? T.sunOn : T.inkMuted,
               fontFamily: FH, fontSize: 16, fontWeight: 700, letterSpacing: -0.3,
               boxShadow: name.trim() ? T.shadowFab : 'none',
               transition: 'background 0.15s, box-shadow 0.15s',
@@ -616,10 +614,7 @@ export default function NewGroupPage() {
             />
 
             {/* Members card */}
-            <div style={{
-              background: T.surface, borderRadius: 18,
-              boxShadow: T.shadowSm, overflow: 'hidden', marginTop: 14,
-            }}>
+            <Card tone="surface" style={{ borderRadius: 18, overflow: 'hidden', marginTop: 14 }}>
               <div style={{
                 padding: '14px 18px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -672,7 +667,7 @@ export default function NewGroupPage() {
                   />
                 )
               })}
-            </div>
+            </Card>
 
             {members.length > 0 && (
               <div style={{
@@ -692,7 +687,7 @@ export default function NewGroupPage() {
           {/* Right — preview */}
           <aside>
             <SectionLabel size="sm" style={{ marginBottom: 12 }}>Preview</SectionLabel>
-            <div style={{ background: T.surface, borderRadius: 18, boxShadow: T.shadowSm, padding: '14px 14px 16px' }}>
+            <Card tone="surface" style={{ borderRadius: 18, padding: '14px 14px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 12, flexShrink: 0,
@@ -747,7 +742,7 @@ export default function NewGroupPage() {
                   {totalMembers} {totalMembers === 1 ? 'member' : 'members'}
                 </span>
               </div>
-            </div>
+            </Card>
           </aside>
         </div>
 
@@ -786,7 +781,7 @@ export default function NewGroupPage() {
               style={{
                 padding: '12px 22px',
                 background: name.trim() ? T.sun : T.surfaceAlt,
-                color: name.trim() ? T.sunInk : T.inkMuted,
+                color: name.trim() ? T.sunOn : T.inkMuted,
                 fontFamily: FH, fontSize: 15, letterSpacing: -0.2,
                 boxShadow: name.trim() ? '0 6px 16px rgba(242,192,74,0.32)' : 'none',
                 transition: 'background 0.15s, box-shadow 0.15s',

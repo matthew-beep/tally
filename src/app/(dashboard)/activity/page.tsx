@@ -1,6 +1,6 @@
 'use client'
 
-import { T } from '@/design/tokens'
+import { T, CONTENT_MAX_WIDTH } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { AppHeader } from '@/components/dashboard/AppHeader'
 import { Card } from '@/components/Card'
@@ -36,7 +36,7 @@ export default function ActivityPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       <AppHeader title="Activity" />
-      <DashboardPage>
+      <DashboardPage maxWidth={CONTENT_MAX_WIDTH}>
         {isLoading && (
           <div style={{ color: T.inkMuted, fontSize: 14 }}>Loading…</div>
         )}

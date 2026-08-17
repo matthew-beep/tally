@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { T, FH, FMONO } from '@/design/tokens'
 import { ModalOrSheet } from '@/components/modal'
 import { Btn } from '@/components/Btn'
+import { Card } from '@/components/Card'
 import { copyToClipboard } from '@/lib/clipboard'
 import { useUIStore } from '@/store/ui'
 
@@ -41,7 +42,7 @@ export function InviteGroupSheet({ open, onClose, groupName, groupEmoji, inviteT
       <div style={{ padding: '10px 22px 30px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ fontSize: 13, color: T.inkMuted }}>{groupEmoji} {groupName}</div>
 
-        <div style={{ background: T.surface, border: `0.5px solid ${T.line}`, boxShadow: T.shadowSm, borderRadius: T.r.lg, padding: 16 }}>
+        <Card tone="surface" style={{ border: `0.5px solid ${T.line}`, borderRadius: T.r.lg, padding: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
             <svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M7.5 10.5a3 3 0 004.24 0l2.5-2.5a3 3 0 00-4.24-4.24l-.9.9M10.5 7.5a3 3 0 00-4.24 0l-2.5 2.5a3 3 0 004.24 4.24l.9-.9" stroke={T.inkMuted} strokeWidth="1.5" strokeLinecap="round"/></svg>
             <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>Shareable link</span>
@@ -52,13 +53,13 @@ export function InviteGroupSheet({ open, onClose, groupName, groupEmoji, inviteT
             </div>
             <button
               onClick={handleCopy}
-              style={{ flexShrink: 0, height: 40, padding: '0 16px', borderRadius: T.r.md, border: 0, cursor: 'pointer', background: copied ? T.mint : T.sun, color: copied ? 'white' : T.sunInk, fontFamily: FH, fontSize: 14, fontWeight: 700 }}
+              style={{ flexShrink: 0, height: 40, padding: '0 16px', borderRadius: T.r.md, border: 0, cursor: 'pointer', background: copied ? T.mint : T.sun, color: copied ? 'white' : T.sunOn, fontFamily: FH, fontSize: 14, fontWeight: 700 }}
             >
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
           <div style={{ fontSize: 11.5, color: T.inkFaint, marginTop: 10, lineHeight: 1.45 }}>Anyone with this link can join and see this group&rsquo;s expenses.</div>
-        </div>
+        </Card>
 
         <Btn
           onClick={handleShare} variant="primary" size="lg" fullWidth

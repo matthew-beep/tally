@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { ModalOrSheet } from '@/components/modal'
 import { Btn } from '@/components/Btn'
+import { Card } from '@/components/Card'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile, displayName, firstName } from '@/lib/memberDisplay'
 import { formatAmount } from '@/lib/money'
@@ -218,7 +219,7 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
             </div>
             <Btn
               onClick={handleSendInvite} disabled={inviteToSeat.isPending} variant="primary" size="lg" fullWidth
-              style={{ padding: '15px', borderRadius: T.r.lg, background: T.sun, color: T.sunInk, fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: inviteToSeat.isPending ? 0.7 : 1 }}
+              style={{ padding: '15px', borderRadius: T.r.lg, background: T.sun, color: T.sunOn, fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: inviteToSeat.isPending ? 0.7 : 1 }}
             >
               {inviteToSeat.isPending ? 'Sending…' : 'Send invite'}
             </Btn>
@@ -248,7 +249,7 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
               </div>
               <button
                 onClick={handleCopyClaimLink}
-                style={{ flexShrink: 0, height: 40, padding: '0 16px', borderRadius: T.r.md, border: 0, cursor: 'pointer', background: claimCopied ? T.mint : T.sun, color: claimCopied ? 'white' : T.sunInk, fontFamily: FH, fontSize: 14, fontWeight: 700 }}
+                style={{ flexShrink: 0, height: 40, padding: '0 16px', borderRadius: T.r.md, border: 0, cursor: 'pointer', background: claimCopied ? T.mint : T.sun, color: claimCopied ? 'white' : T.sunOn, fontFamily: FH, fontSize: 14, fontWeight: 700 }}
               >
                 {claimCopied ? 'Copied' : 'Copy'}
               </button>
@@ -257,7 +258,7 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
         )}
 
         {(!isGuest || guestView === 'action') && display.canRemove && (
-          <div style={{ background: T.surface, border: `0.5px solid ${T.line}`, borderRadius: T.r.card, overflow: 'hidden', boxShadow: T.shadowSm }}>
+          <Card tone="surface" style={{ border: `0.5px solid ${T.line}`, borderRadius: T.r.card, overflow: 'hidden' }}>
             {!settled && (
               <div style={{ padding: '9px 16px', display: 'flex', alignItems: 'center', gap: 8, background: T.coralSoft }}>
                 <span style={{ fontSize: 12, color: T.coralInk, fontWeight: 600 }}>
@@ -274,7 +275,7 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
                 {removing ? 'Removing…' : 'Remove from group'}
               </span>
             </button>
-          </div>
+          </Card>
         )}
 
         <Btn

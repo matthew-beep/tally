@@ -29,7 +29,7 @@ export function Avatar({ profile, slot = 0, size = 36, isYou = false }: AvatarPr
         alt={profile.display_name ?? profile.name}
         width={size}
         height={size}
-        style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
       />
     )
   }
@@ -81,9 +81,9 @@ export function AvatarStack({ members, size = 22, max = 4, overlap = 0.4, ringCo
   const extra = members.length - max
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
       {shown.map((m, i) => (
-        <div key={i} style={{ marginLeft: i === 0 ? 0 : -size * overlap, zIndex: max - i, borderRadius: '50%', boxShadow: `0 0 0 ${ringWidth}px ${ringColor}`, opacity: m.dimmed ? 0.45 : 1 }}>
+        <div key={i} style={{ marginLeft: i === 0 ? 0 : -size * overlap, zIndex: i, flexShrink: 0, borderRadius: '50%', boxShadow: `0 0 0 ${ringWidth}px ${ringColor}`, opacity: m.dimmed ? 0.45 : 1 }}>
           <Avatar profile={m.profile} slot={m.slot} size={size} isYou={m.isYou} />
         </div>
       ))}
@@ -91,11 +91,12 @@ export function AvatarStack({ members, size = 22, max = 4, overlap = 0.4, ringCo
         <div
           style={{
             marginLeft: -size * overlap,
-            zIndex: 0,
+            zIndex: shown.length,
+            flexShrink: 0,
             width: size,
             height: size,
             borderRadius: '50%',
-            background: T.line,
+            background: T.grayFill,
             color: T.inkMuted,
             display: 'flex',
             alignItems: 'center',

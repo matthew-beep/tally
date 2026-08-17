@@ -22,8 +22,8 @@ function pillGeom(variant: SliderVariant, box: SliderBox) {
     top: box.top,
     width: box.width,
     height: box.height,
-    borderRadius: 12,
-    background: T.sunSoft,
+    borderRadius: 10,
+    background: T.sun,
   }
 }
 

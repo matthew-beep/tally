@@ -25,7 +25,7 @@ function variantStyle(variant: BtnVariant, disabled: boolean): CSSProperties {
     case 'primary':
       return disabled
         ? { background: T.lineStrong, color: T.inkFaint, border: 0 }
-        : { background: T.sun, color: T.sunInk, border: 0 }
+        : { background: T.sun, color: T.sunOn, border: 0 }
     case 'dark':
       return disabled
         ? { background: T.lineStrong, color: T.inkFaint, border: 0 }

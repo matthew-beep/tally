@@ -1,4 +1,5 @@
 import { T } from '@/design/tokens'
+import { Card } from '@/components/Card'
 
 // Loading bones for the home page. Each skeleton mirrors the real component it
 // stands in for — same wrapper classes, same paddings, same row heights — so
@@ -220,18 +221,14 @@ export function RailActivitySkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} style={{
-          background: T.surface, borderRadius: T.r.md,
-          padding: '11px 14px', display: 'flex', gap: 10,
-          alignItems: 'center', boxShadow: T.shadowSm,
-        }}>
+        <Card key={i} tone="surface" style={{ padding: '11px 14px', display: 'flex', gap: 10, alignItems: 'center' }}>
           <Bone width={34} height={34} radius={T.r.sm} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
             <Bone width={ROW_WIDTHS[i % ROW_WIDTHS.length]} height={11} />
             <Bone width="34%" height={9} />
           </div>
           <Bone width={42} height={12} />
-        </div>
+        </Card>
       ))}
     </div>
   )

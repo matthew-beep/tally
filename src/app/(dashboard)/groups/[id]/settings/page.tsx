@@ -19,6 +19,7 @@ import { postJson } from '@/lib/api'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
 import { Btn } from '@/components/Btn'
+import { Card } from '@/components/Card'
 import { formatAmount } from '@/lib/money'
 import { PlusIcon } from 'lucide-react'
 
@@ -149,7 +150,7 @@ export default function GroupSettingsPage() {
 
         {/* ── Group identity ── */}
         <SectionLabel style={{ padding: '14px 0 6px' }}>Group identity</SectionLabel>
-        <div style={{ background: T.surface, border: `0.5px solid ${T.line}`, borderRadius: T.r.card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: T.shadowSm }}>
+        <Card tone="surface" style={{ border: `0.5px solid ${T.line}`, borderRadius: T.r.card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <button
             ref={emojiBtnRef}
             onClick={() => isAdmin && setEmojiOpen(o => !o)}
@@ -187,7 +188,7 @@ export default function GroupSettingsPage() {
               {!isAdmin ? 'Only the creator can rename' : editingName ? 'Press Enter to save' : 'Tap to rename'}
             </div>
           </div>
-        </div>
+        </Card>
 
         <button
           onClick={() => setInviteOpen(true)}
@@ -202,14 +203,14 @@ export default function GroupSettingsPage() {
           <SectionLabel>Members · {members.length}</SectionLabel>
           <button
             onClick={() => setAddMemberOpen(o => !o)}
-            style={{ width: 26, height: 26, borderRadius: '50%', border: `1.5px solid ${T.sun}`, background: addMemberOpen ? T.sun : T.sunSoft, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: addMemberOpen ? T.sunInk : T.sunInk, fontSize: 16, lineHeight: 1, padding: 0, textAlign: 'center' }}
+            style={{ width: 26, height: 26, borderRadius: '50%', border: `1.5px solid ${T.sun}`, background: addMemberOpen ? T.sun : T.sunSoft, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: addMemberOpen ? T.sunOn : T.sunInk, fontSize: 16, lineHeight: 1, padding: 0, textAlign: 'center' }}
           >
             <PlusIcon size={16} />
           </button>
         </div>
 
         {addMemberOpen && (
-          <div style={{ marginBottom: 10, background: T.surface, borderRadius: T.r.lg, padding: 14, boxShadow: T.shadowSm, border: `0.5px solid ${T.line}` }}>
+          <Card tone="surface" style={{ marginBottom: 10, borderRadius: T.r.lg, padding: 14, border: `0.5px solid ${T.line}` }}>
             <MemberCombobox
               value={pendingMembers}
               onChange={setPendingMembers}
@@ -237,10 +238,10 @@ export default function GroupSettingsPage() {
                 {adding ? 'Adding…' : pendingMembers.length ? `Add ${pendingMembers.length} to group` : 'Add to group'}
               </Btn>
             </div>
-          </div>
+          </Card>
         )}
 
-        <div style={{ background: T.surface, border: `0.5px solid ${T.line}`, borderRadius: T.r.card, overflow: 'hidden', boxShadow: T.shadowSm }}>
+        <Card tone="surface" style={{ border: `0.5px solid ${T.line}`, borderRadius: T.r.card, overflow: 'hidden' }}>
           {myMember && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px' }}>
               <Avatar profile={avatarProfile(myMember)} slot={slotFor(members, myMember.id)} size={36} isYou />
@@ -293,7 +294,7 @@ export default function GroupSettingsPage() {
               ))}
             </>
           )}
-        </div>
+        </Card>
 
         {/* ── Danger zone ── */}
         <SectionLabel color={T.coralInk} style={{ opacity: 0.75, padding: '20px 0 6px' }}>Danger zone</SectionLabel>

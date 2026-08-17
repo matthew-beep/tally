@@ -81,9 +81,8 @@ function StripItem({ profile, selected, onSelect }: {
 
 function Strip({ profiles, selected, onSelect }: Omit<SuggestedMembersProps, 'variant'>) {
   return (
-    <div style={{
+    <div className="tally-scroll-hidden" style={{
       display: 'flex', gap: 8, overflowX: 'auto', padding: '2px 0 6px',
-      scrollbarWidth: 'none',
     }}>
       {profiles.map(p => (
         <StripItem

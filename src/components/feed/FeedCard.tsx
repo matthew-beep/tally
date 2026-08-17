@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { T, FMONO } from '@/design/tokens'
+import { Card, CardChevron } from '@/components/Card'
 import { AvatarStack } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { formatAmount } from '@/lib/money'
@@ -41,16 +42,11 @@ export function FeedCard({ model, size = 'full', footer, className }: Props) {
   const clickable = !!model.onClick
 
   return (
-    <div
+    <Card
+      tone="surface"
       className={className}
       onClick={model.onClick}
-      style={{
-        background: T.surface,
-        borderRadius: T.r.md,
-        padding: s.pad,
-        boxShadow: T.shadowSm,
-        cursor: clickable ? 'pointer' : 'default',
-      }}
+      style={{ padding: s.pad, cursor: clickable ? 'pointer' : 'default' }}
     >
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         {model.icon.kind === 'emoji' ? (
@@ -101,10 +97,12 @@ export function FeedCard({ model, size = 'full', footer, className }: Props) {
             )}
           </div>
         )}
+
+        {clickable && <CardChevron />}
       </div>
 
       {footer}
-    </div>
+    </Card>
   )
 }
 

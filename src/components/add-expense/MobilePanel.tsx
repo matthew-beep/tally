@@ -80,7 +80,7 @@ function AlgorithmRadios({ splitMode, onSelect }: { splitMode: SplitMode; onSele
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.14s',
             }}>
-              {sel && <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.sunInk }} />}
+              {sel && <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.sunOn }} />}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 15, fontWeight: sel ? 700 : 500, color: T.ink }}>{algo.label}</div>
@@ -421,7 +421,7 @@ export function MobilePanel({ s, onCancel }: { s: AddExpenseFormState; onCancel:
           style={{
             background: s.canSave ? T.sun : T.lineStrong, borderRadius: 14,
             padding: '17px', fontSize: 16,
-            color: s.canSave ? T.sunInk : T.inkFaint,
+            color: s.canSave ? T.sunOn : T.inkFaint,
             boxShadow: s.canSave ? '0 4px 16px rgba(242,192,74,0.28)' : 'none',
             fontFamily: FH, letterSpacing: -0.2,
           }}

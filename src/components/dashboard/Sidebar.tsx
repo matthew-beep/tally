@@ -12,6 +12,7 @@ import { WebNavIcon, type WebNavIconName } from '@/components/nav/WebNavIcon'
 import { SectionLabel } from '@/components/SectionLabel'
 import { Avatar } from '@/components/Avatar'
 import { ProfileMenuPopover } from '@/components/dashboard/ProfileMenuPopover'
+import { SettingsModal } from '@/components/dashboard/SettingsModal'
 
 // 'Me' is deliberately not a sidebar nav destination — identity/settings
 // are reached via the profile menu at the bottom instead. See
@@ -42,7 +43,7 @@ function SidebarNavItem({
   active: boolean
   setRef: (id: string) => (el: HTMLElement | null) => void
 }) {
-  const ink = active ? T.sunInk : T.inkFaint
+  const ink = active ? T.sidebarActiveInk : T.sidebarNavInk
   return (
     <div ref={setRef(id)}>
       <Link
@@ -54,13 +55,14 @@ function SidebarNavItem({
           width: '100%',
           display: 'flex',
           alignItems: 'center',
-          gap: 11,
+          gap: 12,
           padding: '10px 12px',
-          borderRadius: 12,
+          borderRadius: 10,
           color: ink,
-          fontSize: 13.5,
-          fontWeight: active ? 700 : 600,
+          fontSize: 15,
+          fontWeight: active ? 700 : 500,
           textDecoration: 'none',
+          transform: 'none',
         }}
       >
         <WebNavIcon name={icon} color={ink} fill={active} />
@@ -82,17 +84,19 @@ export function Sidebar() {
   const { containerRef, setRef, box } = useSlider(activeId)
 
   const [menuOpen, setMenuOpen] = useState(false)
-  const profileButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const profileFooterRef = useRef<HTMLDivElement | null>(null)
+  const firstName = (profile ? profile.display_name ?? profile.name : 'You').trim().split(/\s+/)[0]
 
   return (
     <aside
       className="dashboard-sidebar"
       style={{
-        width: 232,
+        width: 270,
         flexShrink: 0,
         height: '100dvh',
         boxSizing: 'border-box',
-        padding: '20px 16px',
+        padding: '22px 14px 14px',
         display: 'flex',
         flexDirection: 'column',
         background: T.sidebarBg,
@@ -120,7 +124,7 @@ export function Sidebar() {
       >
         <SliderPill variant="pill" box={activeId ? box : null} />
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {PRIMARY_NAV.map(item => (
             <SidebarNavItem
               key={item.id}
@@ -134,34 +138,33 @@ export function Sidebar() {
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 4px 7px 12px' }}>
-          <SectionLabel size="sm" color={T.inkFaint}>
-            Groups
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 12px 6px' }}>
+          <SectionLabel size="sm" color={T.sidebarHeaderInk} style={{ fontSize: 10.5, letterSpacing: 0.8, fontWeight: 800 }}>
+            Your groups
           </SectionLabel>
           <button
             type="button"
             onClick={() => router.push('/groups/new')}
             title="New group"
+            className="sidebar-icon-btn"
             style={{
               width: 22,
               height: 22,
               borderRadius: 7,
               border: 'none',
               cursor: 'pointer',
-              background: T.surfaceAlt,
-              color: T.inkMuted,
-              fontSize: 14,
-              lineHeight: 1,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            ＋
+            <svg width="14" height="14" viewBox="0 0 16 16">
+              <path d="M8 3v10M3 8h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden', flex: 1, minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden', flex: 1, minHeight: 0 }}>
           {groups.length === 0 && (
             <div style={{ fontSize: 12, color: T.inkFaint, padding: '6px 12px' }}>No groups yet</div>
           )}
@@ -172,22 +175,23 @@ export function Sidebar() {
               <Link
                 key={group.id}
                 href={`/groups/${group.id}`}
-                className="wntap"
+                className={active ? 'wntap' : 'wntap gp-pick-row'}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: 11,
-                  padding: '10px 12px',
-                  borderRadius: 12,
+                  padding: '8px 12px',
+                  borderRadius: 9,
                   textDecoration: 'none',
-                  color: active ? T.sunInk : T.ink,
+                  color: active ? T.sidebarActiveInk : T.sidebarGroupInk,
                   fontSize: 13.5,
-                  fontWeight: active ? 700 : 600,
-                  background: active ? T.sunSoft : 'transparent',
+                  fontWeight: active ? 700 : 500,
+                  background: active ? T.sidebarActiveSoft : undefined,
                   transition: 'background .15s ease, color .15s ease',
+                  transform: 'none',
                 }}
               >
-                <span style={{ fontSize: 17, width: 19, textAlign: 'center', flexShrink: 0 }}>{group.emoji}</span>
+                <span style={{ fontSize: 15, width: 22, textAlign: 'center', flexShrink: 0 }}>{group.emoji}</span>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {group.name}
                 </span>
@@ -196,47 +200,53 @@ export function Sidebar() {
           })}
         </div>
       </div>
-
-      <button
-        ref={profileButtonRef}
-        type="button"
-        onClick={() => setMenuOpen(o => !o)}
-        className="wntap"
-        style={{
-          width: '100%',
-          marginTop: 8,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '10px 12px',
-          borderRadius: 12,
-          cursor: 'pointer',
-          background: 'transparent',
-          border: 'none',
-          borderTop: `0.5px solid ${T.line}`,
-          textAlign: 'left',
-        }}
-      >
-        <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
-        <span
+      <div ref={profileFooterRef} style={{ marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(o => !o)}
+          className="wntap gp-pick-row"
           style={{
-            flex: 1,
-            minWidth: 0,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            fontSize: 13.5,
-            fontWeight: 700,
-            fontFamily: F,
-            color: T.ink,
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 11,
+            padding: '9px 12px',
+            borderRadius: 11,
+            border: 'none',
+            cursor: 'pointer',
+            textAlign: 'left',
+            transform: 'none',
           }}
         >
-          {profile ? profile.display_name ?? profile.name : 'You'}
-        </span>
-        <span style={{ fontSize: 11, color: T.inkFaint, flexShrink: 0 }}>▲</span>
-      </button>
+          <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: 13.5,
+              fontWeight: 700,
+              fontFamily: F,
+              color: T.ink,
+            }}
+          >
+            {firstName}
+          </span>
+          <svg width="13" height="13" viewBox="0 0 16 16" style={{ flexShrink: 0 }}>
+            <path d="M4 10l4-4 4 4" fill="none" stroke={T.inkFaint} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
 
-      <ProfileMenuPopover open={menuOpen} anchorRef={profileButtonRef} onClose={() => setMenuOpen(false)} />
+      <ProfileMenuPopover
+        open={menuOpen}
+        anchorRef={profileFooterRef}
+        onClose={() => setMenuOpen(false)}
+        onSettings={() => setSettingsOpen(true)}
+      />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </aside>
   )
 }

@@ -9,6 +9,7 @@ import type { HandleState } from '@/components/HandleInput'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { SectionLabel } from '@/components/SectionLabel'
 import { Btn } from '@/components/Btn'
+import { Card } from '@/components/Card'
 import type { Profile } from '@/types'
 
 function suggestFromName(name: string): string {
@@ -103,7 +104,7 @@ function OnboardingInner() {
           {profile && (
             <div style={{ marginTop: 36 }}>
               <SectionLabel style={{ marginBottom: 10, padding: '0 4px' }}>This is what friends see</SectionLabel>
-              <div style={{ background: T.surface, borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, boxShadow: T.shadowSm }}>
+              <Card tone="surface" style={{ borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
                 <Avatar profile={profile} slot={0} size={46} isYou />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.2 }}>{displayName}</div>
@@ -114,7 +115,7 @@ function OnboardingInner() {
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: T.inkFaint, padding: '4px 8px', borderRadius: 6, background: T.surfaceAlt, flexShrink: 0 }}>
                   preview
                 </span>
-              </div>
+              </Card>
             </div>
           )}
 

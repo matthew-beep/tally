@@ -10,6 +10,7 @@ import { postJson } from '@/lib/api'
 import { firstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
 import { Btn } from '@/components/Btn'
+import { Card } from '@/components/Card'
 
 export default function AddByCodePage() {
   const params = useParams()
@@ -76,7 +77,7 @@ export default function AddByCodePage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
-            width: 30, height: 30, borderRadius: 10, background: T.sun, color: T.sunInk,
+            width: 30, height: 30, borderRadius: 10, background: T.sun, color: T.sunOn,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontWeight: 800, fontSize: 15, fontFamily: FH,
           }}>T</div>
@@ -133,7 +134,7 @@ export default function AddByCodePage() {
             </div>
           ) : (
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-              <div style={{ background: T.surface, borderRadius: 18, overflow: 'hidden', boxShadow: T.shadowSm }}>
+              <Card tone="surface" style={{ borderRadius: 18, overflow: 'hidden' }}>
                 {eligible.map((g, i) => {
                   const sel = g.id === effectiveSelected
                   return (
@@ -190,7 +191,7 @@ export default function AddByCodePage() {
                     </div>
                   </div>
                 </button>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -209,7 +210,7 @@ export default function AddByCodePage() {
                 onClick={handleAdd} disabled={adding} variant="primary" size="lg"
                 style={{
                   flex: 1, padding: '14px 18px', borderRadius: 14,
-                  background: T.sun, color: T.sunInk,
+                  background: T.sun, color: T.sunOn,
                   fontFamily: FH, fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
                   boxShadow: '0 8px 20px rgba(242,192,74,0.30)',
                   opacity: adding ? 0.7 : 1,

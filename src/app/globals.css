@@ -12,7 +12,13 @@
   --tally-ink-faint:   rgba(31,26,20,0.28);
   --tally-line:        rgba(31,26,20,0.07);
   --tally-line-strong: rgba(31,26,20,0.16);
-  --tally-sidebar-bg:  rgba(31,26,20,0.02);
+  --tally-gray-fill:   #DDD6C8;
+  --tally-sidebar-bg:          #FFFFFF;
+  --tally-sidebar-nav-ink:     rgba(31,26,20,0.72);
+  --tally-sidebar-header-ink:  rgba(31,26,20,0.42);
+  --tally-sidebar-group-ink:   rgba(31,26,20,0.88);
+  --tally-sidebar-active-ink:  #3D2E07;
+  --tally-sidebar-active-soft: #FAE7B0;
   --tally-shadow-sm:   0 1px 0 rgba(31,26,20,0.04);
   --tally-shadow-float:0 8px 24px rgba(0,0,0,0.08);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.28);
@@ -62,7 +68,13 @@
   --tally-ink-faint:   rgba(244,238,227,0.38);
   --tally-line:        rgba(244,238,227,0.08);
   --tally-line-strong: rgba(244,238,227,0.16);
-  --tally-sidebar-bg:  rgba(244,238,227,0.015);
+  --tally-gray-fill:   #4A4238;
+  --tally-sidebar-bg:          #231D17;
+  --tally-sidebar-nav-ink:     rgba(244,238,227,0.72);
+  --tally-sidebar-header-ink:  rgba(244,238,227,0.42);
+  --tally-sidebar-group-ink:   rgba(244,238,227,0.88);
+  --tally-sidebar-active-ink:  #FAE7B0;
+  --tally-sidebar-active-soft: rgba(245,203,102,0.20);
   --tally-shadow-sm:   0 1px 0 rgba(0,0,0,0.4);
   --tally-shadow-float:0 8px 24px rgba(0,0,0,0.55);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.75);
@@ -192,6 +204,48 @@ body {
 
 button, input, textarea, select {
   font-family: inherit;
+}
+
+/* ── Scrollbars ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--tally-line-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--tally-line-strong);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--tally-ink-faint);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.tally-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.tally-scroll-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Number inputs — no native spinner arrows ── */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .ndtap,

@@ -35,7 +35,7 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  const isPublic = ['/login', '/invite', '/claim', '/expense', '/auth'].some(p =>
+  const isPublic = ['/login', '/invite', '/claim', '/expense', '/auth', '/devpreviewxyz'].some(p =>
     pathname.startsWith(p)
   )
 

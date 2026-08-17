@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { BalanceBadge } from '@/components/BalanceBadge'
-import { Card } from '@/components/Card'
+import { Card, CardChevron } from '@/components/Card'
 import { SectionLabel } from '@/components/SectionLabel'
 import { HomeMainSkeleton, AttentionSkeleton, RailActivitySkeleton } from '@/components/HomeScreenSkeleton'
 import { useNotifications } from '@/queries/useProfile'
@@ -205,6 +205,7 @@ function PersonRow({ person, onAvatarTap, onRowTap }: {
         </div>
       </div>
       <BalanceBadge amount={person.net} />
+      <CardChevron />
     </Card>
   )
 }

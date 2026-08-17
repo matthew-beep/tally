@@ -227,11 +227,6 @@
   .app-header-action--hide-mobile {
     display: none !important;
   }
-
-  /* Avatar duplicates the "Me" tab already in the mobile tab bar */
-  .app-header-avatar {
-    display: none;
-  }
 }
 
 @media (max-width: 399px) {
@@ -418,6 +413,72 @@
   }
 }
 
+/* Shared hover affordance for any actionable Card (Card.tsx sets this class
+   whenever `onClick`/`hoverable` is passed, so static cards never get it).
+   Touch has no hover, so cards there rest at the chevron's resting opacity —
+   no separate touch treatment needed. */
+.card-affordance {
+  transition: background 0.13s ease, box-shadow 0.13s ease, transform 0.13s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card-affordance:hover {
+    background: var(--tally-sun-soft);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(31, 26, 20, 0.07);
+  }
+
+  .card-chevron {
+    opacity: 0.35;
+    transition: opacity 0.15s ease;
+  }
+  .card-affordance:hover .card-chevron {
+    opacity: 1;
+  }
+}
+
+.groups-search-input::placeholder {
+  color: var(--tally-ink-faint);
+  opacity: 1;
+}
+
+/* ── Groups balance summary — two cards on mobile, one divided strip on desktop ── */
+.groups-summary-mobile {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.groups-summary-desktop {
+  display: none;
+  margin-bottom: 20px;
+}
+
+@media (min-width: 1024px) {
+  .groups-summary-mobile {
+    display: none;
+  }
+
+  .groups-summary-desktop {
+    display: flex;
+  }
+}
+
+/* ── Group row — member count on mobile, avatar stack on desktop ── */
+.group-row-avatars {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .group-row-members-text {
+    display: none;
+  }
+
+  .group-row-avatars {
+    display: block;
+  }
+}
+
 @media (min-width: 1024px) {
   .group-detail-header {
     display: none !important;
@@ -425,6 +486,10 @@
 
   .group-detail-topbar {
     display: flex;
+  }
+
+  .group-detail-topbar .app-header {
+    width: 100%;
   }
 
   .group-detail-header-band {
@@ -474,4 +539,14 @@
     align-items: center;
     gap: 7px;
   }
+}
+
+/* ── Sidebar — refined variant ── */
+.sidebar-icon-btn {
+  transition: background 0.12s ease, color 0.12s ease;
+  color: var(--tally-sidebar-header-ink);
+}
+.sidebar-icon-btn:hover {
+  background: var(--tally-surface-alt);
+  color: var(--tally-ink);
 }

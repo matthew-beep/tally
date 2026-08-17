@@ -52,7 +52,7 @@ export function NotificationBell({ size = 40, onClick }: Props) {
             boxSizing: 'border-box',
             borderRadius: T.r.pill,
             background: T.sun,
-            color: T.sunInk,
+            color: T.sunOn,
             fontFamily: FMONO,
             fontSize: 10,
             fontWeight: 700,

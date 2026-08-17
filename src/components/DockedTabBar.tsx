@@ -78,7 +78,7 @@ export function DockedTabBar() {
           border: `4px solid ${T.surface}`,
           cursor: 'pointer',
           background: T.sun,
-          color: T.sunInk,
+          color: T.sunOn,
           boxShadow: T.shadowFab,
           display: 'inline-flex',
           alignItems: 'center',

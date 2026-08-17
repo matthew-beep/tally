@@ -176,9 +176,16 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
        (not just denying-while-pending) needs its own migration to add that
        restriction — don't assume the existing policy already covers this.
 
-2. **Emoji reactions on expenses** 🟡 (schema + UX) — react to an expense with an emoji,
-   this is a new concept, not an extension of the existing group-emoji or category-emoji
-   pickers.
+2. **Emoji reactions on expenses** 🟡 (schema + UX) — ✅ **shipped, verified 2026-08-16.**
+   React to an expense with an emoji, a new concept, not an extension of the existing
+   group-emoji or category-emoji pickers.
+   - **Built as scoped, one deliberate deviation:** reactions are NOT joined into
+     `expensesQueryOptions` — `src/queries/useExpenseSocial.ts` keeps them on a separate
+     query key so toggling a reaction doesn't widen/invalidate the dashboard's
+     global-balances query. Table: `supabase/migrations/20260809000000_expense_reactions.sql`
+     (UNIQUE + composite FK + RLS as scoped). UI: `src/components/ReactionPills.tsx`
+     (grouped pills + "Add reaction") wired into `ExpenseActionSheet.tsx`, reusing
+     `EmojiPickerSheet.tsx`.
    - **Schema direction agreed:** a new table, not a column on `expenses` — same shape as
      `expense_history`/`notifications` (append-only rows joined in). Proposed:
      ```sql
@@ -223,6 +230,12 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      Nothing decided yet; revisit scope (is it still per-group ranked-by-paid,
      or a different shape entirely) before picking up the placement/range/
      tie-breaking questions.
+   - **Shipped 2026-08-16 (verified) — the rethink concluded and it was
+     built.** `src/lib/leaderboard.ts` (`calcLeaderboard`, tested), rendered
+     via `WhosAheadRow` + `src/components/leaderboard/LeaderboardSheet.tsx`,
+     wired into `groups/[id]/page.tsx`. The placement/range/tie-breaking
+     questions this section opened aren't separately documented as
+     resolved — check the shipped UI directly if that detail matters.
 
 4. **Responsive views for every screen** 🟡 — no new decisions made this session; this is
    the existing "Desktop / web layout — remaining" backlog further down this file
@@ -232,10 +245,9 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
 
 5. **Finish cross-group settlement flow from dashboard** 🟡 — **UI shipped
    2026-08-02; seat plumbing + confirm-screen copy shipped 2026-08-03;
-   writes still open.** `BalanceSheet.tsx` no longer routes away to a group
-   page at all (the `/groups/[id]/settle` route it used to target is
-   deleted, see item 1). It has its own two screens, both still no-op on
-   the write:
+   writes shipped, verified 2026-08-16.** `BalanceSheet.tsx` no longer routes
+   away to a group page at all (the `/groups/[id]/settle` route it used to
+   target is deleted, see item 1). It has its own two screens:
    - **Balance screen's "Settle up with X" CTA** → a settle-all confirm
      screen: total, every group at its full balance, single confirm button.
    - **Tapping a specific group row** → a new `GroupSettleScreen`, drilled
@@ -243,8 +255,11 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      editable number, Full/Half/Clear quick-set chips, its own "Settle $X
      in [Group]" button. Settling here never touches the person's other
      groups.
-   Both buttons are `onClick={() => {}}` today. Reference design:
-   `Dashboard Settle.html` in the `splitter` claude.ai/design project
+   **Both wired, verified 2026-08-16** — `handleSettleAll` in
+   `BalanceSheet.tsx` calls `useCreateSettlements` (`batch_id`-stamped), and
+   the confirm screen shows gross-per-direction plus the net transfer per
+   (a′)/(b), not raw `Math.abs(net)`. Reference design: `Dashboard
+   Settle.html` in the `splitter` claude.ai/design project
    (`36d6382c-156c-422e-afd2-063025ff0a0f`).
 
    **Landed 2026-08-03 — seat resolution.** `PersonPart` hoisted to
@@ -676,10 +691,11 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
        (`global-balances`, `recent-activity`, `all-activity`) whose keys no
        longer exist; activity and global balances derive from the per-group
        caches with no keys of their own.
-   - [ ] **Wire both CTAs** — 1 row for the drill-down, N for settle-all — and
-     fix the settle-all review screen to show gross per direction *and* the
-     net transfer, per (b) as refined by (a′). The CTA currently shows
-     `Math.abs(net)` alone.
+   - [x] **Wire both CTAs** — done, verified 2026-08-16. 1 row for the
+     drill-down, N for settle-all; the settle-all review screen shows gross
+     per direction *and* the net transfer, per (b) as refined by (a′)
+     (`BalanceSheet.tsx`'s `grossOwed`/`grossOwe`/`netTransfer`), not raw
+     `Math.abs(net)`.
    - [x] **Batch grouping — data layer done 2026-08-09** (item 12 phase A).
      `useNotifications` now returns `NotificationBatch[]`, grouped by
      `batch_id`; `useConfirmSettlement`/`useDenySettlement` take id arrays and
@@ -760,6 +776,14 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      cross-group section still says settlement is "UI aggregation, not a data
      model change" and that each group "generates its own confirmation
      notification to the payee." (b)–(f) override both.
+   - **`docs/audit-fix-plan.md` Phase 3 superseded — noted 2026-08-16.** That
+     doc (written 2026-08-15 from an independent pass over `src/`) proposed
+     re-fixing the exact mixed-direction/partial-confirm problem (a′)/(d)
+     solve here, including a `confirm_settlement_batch`/`deny_settlement_batch`
+     RPC pair — apparently without seeing this section. It missed that
+     `batch_id` shipped 2026-08-08, a week before it was written. Corrected
+     in place there; nothing to do here beyond not re-litigating it if that
+     doc resurfaces.
 
    **`buildPeopleFlow` (`(dashboard)/page.tsx`) — one decided, one open.**
    Both were filed 2026-08-03 as gaps from gating the dashboard on the *net*
@@ -822,12 +846,12 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
    uses `useAllActivity(6)`. Group shows as row metadata via `showGroup`.
    Removed `ActivityGroup` bucketing.
 
-7. **Add-expense entry point in the nav bar** 🟡 — **plan settled
-   2026-08-10, not yet implemented.** Today add-expense is only reachable
-   from inside a group: `groups/[id]/page.tsx`'s triggers and the
-   `/groups/[id]/add` route. `TabBar.tsx` has no add button and no FAB, so
-   CLAUDE.md's "Tab bar + FAB" navigation model has never actually been
-   built — the FAB is the missing half.
+7. **Add-expense entry point in the nav bar** 🟡 — ✅ **shipped, verified
+   2026-08-16.** `DockedTabBar.tsx` has a raised center `+` calling
+   `useUIStore().setFabOpen(true)`; the group picker lives in
+   `src/components/AddExpenseGroupPicker.tsx` (functionally the
+   `GroupPickerSheet` this section scoped, just not literally named that).
+   CLAUDE.md's "Tab bar + FAB" navigation model is now actually built.
 
    **Design source** — import via the `claude_design` MCP
    (`https://api.anthropic.com/v1/design/mcp`, auth via `/design-login`).
@@ -893,6 +917,15 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
 
 8. **Mobile presentation pass — sheets and app chrome** 🟡 (2026-08-03, Matthew's
    observations; the pointers below are where to start looking, not diagnoses)
+   - **Verified 2026-08-16 — 2 of 3 done, 1 regressed.** Settle-drawer sizing:
+     done (`.tally-sheet-content` sizing is now consistent — both settle and
+     add-expense use `calc(100dvh - 40px)`, `globals.css`). Shared header:
+     done (`AppHeader.tsx` now exists and is mounted app-wide, see "Now" §4).
+     Full-viewport background: **not done, and actively reverted** —
+     `globals.css` currently has the mesh-gradient background "temporarily
+     flattened to a solid color to preview against the iOS Safari chrome
+     mismatch," gradient commented out rather than fixed, in both light and
+     dark mode. Needs a revisit, not just a checkmark.
    - **Settle drawer sizing.** The settle sheet is content-sized while
      add-expense is not: `globals.css` gives `.tally-sheet-content` a
      `max-height: calc(100dvh - 40px)`, but only
@@ -945,11 +978,11 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      per-row. The `CLAUDE.md` amendment this bullet anticipated is item 5
      phase 3's supersession pointer.
 
-10. **Post-settlement confirmation screen** 🟢 — after completing a settlement,
-    show a brief success state instead of just closing the sheet — "Settled $X
-    with [Name]." Today `SettleUpSheet.handleConfirm` (`SettleUpSheet.tsx:181-193`)
-    calls `handleClose()` immediately on mutation success with no acknowledgment
-    at all; you tap confirm and the sheet just vanishes.
+10. **Post-settlement confirmation screen** 🟢 — ✅ **shipped, verified
+    2026-08-16.** `SettleUpSheet.tsx` now has a third `Screen` state
+    (`'list' | 'record-payment' | 'success'`), reached after the mutation
+    resolves, rendering pending/confirmed/batch-specific copy. Original
+    scoping notes kept below for reference.
     - **Design reference already exists, previously deferred.** Item 1 flagged
       `SFPaymentSent`/`SFSettlementConfirmed` — full-screen success states in
       `Settle Up Flow.html` (`splitter` claude.ai/design project,
@@ -1015,9 +1048,15 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
     multi-agent pass) once 1–10 are done, before calling it shippable.
 
 12. **Bounded rail — merge notifications + activity in the home rail** 🟡
-    *(logged 2026-08-05, not started — scoped only this session)* — cap the
-    "needs attention" module and fix its recent-activity preview to a real
-    fixed size, so notifications can never push activity down.
+    — ✅ **shipped, verified 2026-08-16.** `(dashboard)/page.tsx` caps
+    attention rows at `ATTN_CAP = 2` with a "+N more" overflow into
+    `NotificationsSheet`; `AttentionPreviewRow.tsx` explicitly has no action
+    buttons (comment: "Confirm/Deny/Join/Decline live in [the review
+    pane]"), and those actions now live in `SettlementReview.tsx` via
+    `useConfirmSettlement`/`useDenySettlement`. Matches the "data layer →
+    notification center → thin the rail" sequencing this section called for.
+    Original scoping/design notes kept below for reference; specific
+    sub-bullets (e.g. skeleton loaders) not individually re-verified.
 
     **Design source** — `claude_design` MCP, same `splitter` project
     (`36d6382c-156c-422e-afd2-063025ff0a0f`):
@@ -1138,12 +1177,15 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
     (capped attention rows, 5-row preview), add a matching bone skeleton for
     both modules so loading doesn't visually jump when data arrives.
 
-13. **Font — reconsider the type choices** 🟡 *(flagged 2026-08-13, nothing
-    scoped yet)* — look into changing the app's font pairing. Currently
-    Bricolage Grotesque (display: headings, amounts) / Plus Jakarta Sans (UI:
-    labels, body, buttons) / JetBrains Mono (tabular: cents, metadata) per
-    `design/tokens.ts` and the `CLAUDE.md` design system section. No direction
-    chosen yet — open question for next time.
+13. **Font — reconsider the type choices** 🟡 — **changed, verified
+    2026-08-16 — needs a CLAUDE.md update.** `design/tokens.ts` now maps
+    `FMONO` to Plus Jakarta Sans instead of JetBrains Mono, and no
+    JetBrains Mono reference remains anywhere in `src`. The app is
+    effectively down to a two-typeface system (Bricolage Grotesque display /
+    Plus Jakarta Sans everything else), which is a real deviation from
+    CLAUDE.md's documented three-typeface stack — **CLAUDE.md's design
+    system section still describes JetBrains Mono for tabular/cents text and
+    needs updating to match.**
 
 ---
 
@@ -1317,17 +1359,15 @@ item 9): a count is only useful once notifications reach the right person.
   an hour and can be upgraded to B later — the count query is the same either
   way.
 
-- [ ] **Unread count query** (needed by both options) — **half done.** The
-  count itself ships: `NotificationBell` renders
-  `selectActionable(useNotifications()).length`, and because
-  `useNotifications` returns `NotificationBatch[]`, it already counts
-  **distinct batches, not rows** (punch-list item 9's requirement). It is not
-  the "single int" query described here — it reuses the full notifications
-  query rather than adding a second one, which is why no separate cache to
-  keep in sync exists. Still missing: `refetchInterval: 30_000` +
-  `refetchIntervalInBackground: false` per CLAUDE.md's sync rules — today the
-  count refreshes on mount and window focus only, so a payee sitting on an
-  open tab won't see a new request arrive.
+- [x] **Unread count query** (needed by both options) — **done, verified
+  2026-08-16.** The count ships via `NotificationBell` rendering
+  `selectActionable(useNotifications()).length`; `useNotifications` returns
+  `NotificationBatch[]`, so it counts **distinct batches, not rows**
+  (punch-list item 9's requirement). It's not the "single int" query
+  originally described — it reuses the full notifications query rather than
+  adding a second one — but the polling gap is closed: `useNotifications`
+  (`src/queries/useProfile.ts`) now sets `refetchInterval: 30_000,
+  refetchIntervalInBackground: false` per CLAUDE.md's sync rules.
 - [ ] **App-level data prefetch** — `useGlobalBalances` only runs on the home
   page, so deep-linked pages lack cross-group balance data (avatar taps on
   the group detail balance card have nothing to show):
@@ -1362,10 +1402,10 @@ Creator (`created_by`) is the admin.
   shortcut). Also drops `GroupActionMenu` out of consolidation pass 2's
   #3 (`review-todo.md`) — only `DeleteGroupSheet` and `ExpenseActionSheet`
   still hand-roll their own sheet chrome now.
-- [ ] **Invite link** — show + copy + regenerate `invite_token`. Not built
-  anywhere: the token exists on `groups` and `/invite/:token` accepts it,
-  but no UI surfaces it, so link-based invites are currently dead — the only
-  way to add someone today is `MemberCombobox` search/QR/guest.
+- [ ] **Invite link** — **partially shipped, verified 2026-08-16.** Show +
+  copy + native share are built (`InviteGroupSheet.tsx`, mounted from group
+  settings) — link-based invites are no longer dead. **Regenerate is still
+  missing** — no `regenerate` action exists anywhere in the codebase.
 - [ ] **Cancel pending invite** — pending members render as a static
   read-only row in settings (no tap handler); need a DELETE path (safe only
   while the pending row has no splits — reuse the decline route's history
@@ -1373,6 +1413,12 @@ Creator (`created_by`) is the admin.
   pending rows.
 
 ### 6. Expense editing — remaining
+
+**Verified 2026-08-16 — despite a commit message ("working on edit expense
+details"), none of the three items below have landed.** `ExpenseActionSheet`'s
+edit drawer still only edits description/amount/paid-by; splits render as
+static chips, category has no picker, and `(edited)` isn't a tappable link to
+any history view. `expense_history` still has no frontend reader at all.
 
 - [ ] **Edit history drawer** 🟡 (light — needs a look at the sheet design) —
   tap "(edited)" → sheet listing `expense_history` snapshots (edited_by name,
@@ -1391,9 +1437,14 @@ Creator (`created_by`) is the admin.
 `equal`, `exact`, `percentage` shipped (running remainder counters included).
 
 - [ ] `itemized` — line items assigned to members, tax/tip distributed
-  proportionally. Requires `expense_items` + `expense_item_assignments` tables
-  (not yet created). Mobile builder UI exists as a non-saving preview in
-  `AddExpenseForm`. Phase 3 receipt scanning pre-fills this flow.
+  proportionally. **Correction, verified 2026-08-16: `expense_items` +
+  `expense_item_assignments` tables already exist** (part of the
+  `20260721000000_baseline_schema.sql` squash, with RLS) — the "not yet
+  created" note here was stale. What's still missing is entirely client-side:
+  the desktop panel literally renders "Itemized splits coming soon," and
+  `add-expense/types.ts`'s own comment says "nothing here reaches
+  `handleSave`." Mobile builder UI exists as a non-saving preview only.
+  Phase 3 receipt scanning pre-fills this flow.
 
 ---
 
@@ -1465,22 +1516,40 @@ Creator (`created_by`) is the admin.
     member" to a member when the lookup errored; `useRecentCollaborators`
     throws instead of rendering a failure as "no recent people."
 - [ ] **Generated Supabase types** 🟡 (needs linked-project login) —
-  `types/index.ts` is handwritten and has already drifted (Notification
-  union). `npx supabase gen types typescript --linked > src/types/supabase.ts`,
-  then chip away at the 17 `as any` casts.
-- [ ] **CI** 🟢 — no `.github/workflows`. Add typecheck + test + build on
-  push/PR; the vitest suite exists now so this pays immediately.
-- [ ] **`import 'server-only'` in `src/lib/supabase-server.ts`** 🟢 — build-time
-  guard so the service-role module can never be pulled into a client bundle.
+  `types/index.ts` is still handwritten, no generated `supabase.ts` exists.
+  **Verified 2026-08-16: the "17 `as any` casts" symptom is gone** —
+  `types/index.ts` now has zero `as any` — so the type-drift risk this item
+  was hedging against is lower than when it was written, even though the
+  generation step itself is still undone.
+- [x] **CI** 🟢 — **done, verified 2026-08-16.** `.github/workflows/ci.yml`
+  runs on push/PR: `npm ci` + `npm run typecheck`. Note: doesn't yet run the
+  vitest suite or a production build, just typecheck — worth widening.
+- [x] **`import 'server-only'` in `src/lib/supabase-server.ts`** 🟢 — **done,
+  verified 2026-08-16.**
 
 ### Polish / small fixes
 
+- [ ] 🟢 **Top loading bar on page navigation** — thin progress bar (2.5px,
+  fixed to viewport top, `sun`→`coral` gradient) that animates during route
+  transitions, NProgress-style. App Router has no public "navigation
+  started" event, so the trick: patch `window.history.pushState`/
+  `replaceState` (every `<Link>` click and `router.push`/`replace` call goes
+  through these; confirmed nothing else in the app touches the history API —
+  vaul's sheets don't either) to kick off the bar, creeping to ~90% and
+  stalling. Finish line is `usePathname()`/`useSearchParams()` changing
+  (wrap in `<Suspense>`, required for `useSearchParams` in the App Router) —
+  snap to 100%, fade out. New component `src/components/RouteProgress.tsx`,
+  mounted once in `src/app/providers.tsx` (not scoped to the dashboard
+  layout, so it covers `/login`, `/onboarding`, `/invite`, etc. too). No new
+  dependency needed.
 - [x] **Display name editing** — shipped: Me page edits `display_name` +
   `handle` with dirty-checking and save via `useUpdateProfile`.
 - [ ] **Home page layout** 🟡 — desktop multi-column layout differs from the
   `DashboardPage` wrapper used elsewhere; consider aligning (see Desktop)
-- [ ] **Balance cards expand button** 🟡 — modal with full per-person
-  breakdown (who owes what, across which groups)
+- [x] **Balance cards expand button** 🟡 — **done, verified 2026-08-16.**
+  `PersonProfileSheet.tsx` + `BalanceSheet.tsx`'s `GroupBreakdown` are wired
+  to avatar/row taps on home, showing full per-person, per-group breakdown
+  (and a settle-just-this-group flow).
 - [ ] 🟢 **Money display must be exact — stop dropping cents** (decided
   2026-08-05, fix later). Three treatments coexist on one card:
   `BalanceTable.tsx:90` floors the row amount, `:115` renders the
@@ -1493,6 +1562,12 @@ Creator (`created_by`) is the admin.
   has the correct whole + padded-cents version); the math-layer
   `Math.round(x*100)/100` is unrelated and stays. Full write-up in
   `docs/review-todo.md` #6.
+  **Still present, verified 2026-08-16** — now at `BalanceTable.tsx:90`
+  (`Math.floor` on the row) and `:69` (`.toFixed(0)` on the column sum);
+  home's gross totals also floor via `.toFixed(0)` at
+  `(dashboard)/page.tsx:143`. `BalanceBadge.tsx`'s net total correctly shows
+  both whole + cents — the fix just hasn't propagated to the ledger table or
+  home's gross figures.
 
 ### Desktop / web layout — remaining
 
@@ -1505,6 +1580,12 @@ Group detail 2-column layout (§19) shipped.
   action cards. Single column below 1024px. All data already fetched —
   layout + rendering task only. (Full column-by-column spec lived in TODO
   §18 — see git history if needed.)
+  **Verified 2026-08-16 — still 2-region, not 3-column.** Current layout is
+  `home-main` + `home-rail` (hero + open balances on one side,
+  needs-attention/recent-activity on the other). No groups mini-list, no
+  "Up Next" cards. Notably, a `RecentGroups` component is already fully
+  written in `(dashboard)/page.tsx` but never rendered — dead code that's
+  most of the "groups mini-list" column already sitting there unused.
 - [x] **Modal sizing audit** 🟢 — done 2026-07-26 as part of §19e below.
   `DeleteGroupSheet` and `ExpenseActionSheet` were the only stragglers not
   on `ModalOrSheet`; both migrated. Every sheet in the app now goes through
@@ -1546,12 +1627,11 @@ Group detail 2-column layout (§19) shipped.
   `npx supabase db push`** to take effect in prod.
 
 **Logic implemented more than once:**
-- [ ] 🟢 **Balance math ×3** — `lib/balance.ts` (tested), `useGlobalBalances`
-  (reimplements nets/pairwise/gross inline, 292 lines), and group detail
-  `page.tsx` (inline pairwise nets). **Design settled — see "Shared balance
-  core" in `docs/review-todo.md`** (calcPairwiseNets + summarizeBalances,
-  seat-space core, identity fold in the hook). Decided worth doing
-  2026-07-13; build on request.
+- [x] 🟢 **Balance math ×3** — **done, verified 2026-08-16.**
+  `useGlobalBalances.ts` imports `calcNetBalances`/`calcPairwiseNets`/
+  `summarizeBalances` from `lib/balance.ts`, and group detail `page.tsx`
+  imports and calls the same `calcNetBalances`/`calcPairwiseNets` — no
+  reimplementation remains.
 - [ ] 🟡 **Avatar slot color — two conventions, and they're not interchangeable**
   — *rewritten 2026-08-02; the earlier "just migrate everything to index-based"
   direction was wrong and would have broken call sites.*
@@ -1574,17 +1654,24 @@ Group detail 2-column layout (§19) shipped.
     or accepting the split and documenting the rule (`slotFor` inside a group,
     `hashSlot` for context-free lists). Either way, export the chosen helper(s)
     from `lib/memberDisplay.ts` and delete the 3 local `hashSlot` copies.
-- [ ] 🟢 **Display-name fallback** — `lib/memberDisplay.ts` exists but 10
-  files still inline `display_name ?? name` (mostly on `ProfileSnippet`,
-  which the helper doesn't accept). Add a profile-shaped overload and
-  migrate call sites.
-- [ ] 🟢 **Invalidation key lists** — the same 5-key invalidation block
-  (`expenses`, `settlements`, `global-balances`, `recent-activity`,
-  `all-activity`) is copy-pasted across `useExpenses`/`useSettlements`
-  mutations. Extract an `invalidateMoneyData(qc, groupId)` helper so a new
-  aggregate key can't be forgotten in one of five places.
-- [ ] 🟢 **Mobile/desktop duplicate add-member JSX** in group detail —
-  two hand-written copies of the same panel; extract one component.
+- [ ] 🟢 **Display-name fallback** — `lib/memberDisplay.ts` exists but
+  **verified 2026-08-16: now 17 files** (up from 10) still inline
+  `display_name ?? name` despite `memberDisplay.ts` already exporting
+  `displayName()` — e.g. `me/page.tsx`, `Avatar.tsx`, `MemberCombobox.tsx`,
+  `MemberActionSheet.tsx`, `Sidebar.tsx`, `groups/new/page.tsx` (×5). Getting
+  worse, not better, as new screens get built.
+- [ ] 🟢 **Invalidation key lists** — **note: item 5 phase 2's own text
+  (above) already calls this entry stale** — the described 5-key block no
+  longer exists (activity/global-balances derive from per-group caches with
+  no keys of their own). **Verified 2026-08-16:** `useExpenses.ts` and
+  `useSettlements.ts` do still each hand-roll their own `invalidateQueries`
+  calls per mutation, so there's live duplication — just not the specific
+  5-key shape this bullet describes. Worth rewriting this bullet against
+  current reality rather than extracting the originally-described helper.
+- [x] 🟢 **Mobile/desktop duplicate add-member JSX** in group detail —
+  **done, verified 2026-08-16.** Adding members now lives solely in
+  `groups/[id]/settings/page.tsx` via a single shared `MemberCombobox` — no
+  duplicate mobile/desktop panels remain in `groups/[id]/page.tsx`.
 - [ ] Modal system fragmentation — already tracked (Desktop → modal sizing
   audit + review checklist Phase 6).
 
@@ -1605,9 +1692,16 @@ removed):
   otherwise call query hooks directly and `useMemo` derived values
 
 **Worth extracting:**
-- [ ] `useAddExpense` — the split-building + category logic in `AddExpenseForm`
-- [ ] `useSettleUp` — pre-fill from debt simplification, validation
-- [ ] `useCreateGroup` — name/emoji form state + mutation
+- [x] `useAddExpense` — **done, verified 2026-08-16**, though not in
+  `src/hooks/`: `src/components/add-expense/useAddExpenseForm.ts` (346 lines)
+  now holds the split-building + category logic, leaving `AddExpenseForm.tsx`
+  at 56 lines. Co-located rather than in `src/hooks/`, but the extraction
+  itself is done.
+- [ ] `useSettleUp` — still not extracted. `SettleUpSheet.tsx` (212 lines)
+  keeps `screen`/`activeTransfer`/`settled` state inline.
+- [ ] `useCreateGroup` — **partial.** `useGroups.ts` has a thin mutation
+  wrapper, but `groups/new/page.tsx` (806 lines) still holds all form state
+  inline — the extraction this bullet asks for hasn't happened.
 - [ ] `useMemberSearch` — debounce, three input modes, query gating (folded
   into "Now" step 3)
 
@@ -1627,10 +1721,38 @@ consumer.
 
 ### Later (Phase 2+/3)
 
-- Public expense share page (`/expense/[share_token]`) — skeleton exists,
-  needs service-role fetch
-- Guest claim flow (`claim_token`, email match, manual link)
-- "Former member" display for left members
+- **Public expense share page (`/expense/[share_token]`) — likely fully
+  broken, found during `docs/audit-fix-plan.md` re-audit 2026-08-16.** The
+  service-role fetch this bullet was waiting on exists now, but its joins
+  don't match the current schema: `expenses.paid_by` FKs to
+  `group_members.id`, not `profiles`, and `expense_splits` has no `profiles`
+  relationship at all (only `group_member_id`). The query does
+  `payer:profiles!paid_by(*)` and nests `profile:profiles(*)` under
+  `expense_splits` — neither has a resolvable FK path for PostgREST to embed,
+  so the fetch almost certainly errors, `{ data: expense }` comes back
+  `null`, and every share link renders "This link is invalid or has
+  expired." Not verified live yet. Fix: route both joins through
+  `group_members` (and its own `profiles` relationship), narrow columns
+  (never `profiles(*)` — service role bypasses RLS), filter
+  `deleted_at IS NULL`. Detail in `docs/audit-fix-plan.md` Phase 6.
+- ~~Guest claim flow (`claim_token`, email match, manual link)~~ — **done,
+  verified 2026-08-16.** `src/app/claim/[token]/page.tsx` implements the
+  full RPC-based flow (`get_seat_by_claim_token`, `claim_seat`), handling
+  invalid/already-claimed/login-redirect/conflict states.
+- "Former member" display for left members — **verified still not started
+  2026-08-16.** Schema supports `status = 'left'`, but no UI reads it —
+  `groups/[id]/page.tsx` only branches on `pending`/`active`.
 - Receipt scanning / OCR (`/api/ocr`) — Phase 3, feeds `itemized`
-- Expense reactions, group leaderboards
-- Email notifications, dark-mode toggle surface, PWA/offline
+- ~~Expense reactions, group leaderboards~~ — **both shipped, verified
+  2026-08-16** — see punch-list items 2 and 3 above.
+- Email notifications, dark-mode toggle surface (dark mode itself shipped
+  per the 2026-08-16 "redesigned dark mode" commit — a toggle surface may or
+  may not still be needed, not verified), PWA/offline
+- **Unseen-activity indicator per group** (2026-08-15 discussion) — dot on
+  home/sidebar when a group has activity the user hasn't seen. No new table
+  needed: add `last_seen_at timestamptz` directly to `group_members` (already
+  one row per `(group_id, user_id)`), updated when the user opens that
+  group's detail page. Dot = `last_seen_at` older than the group's latest
+  `expenses`/`settlements` `created_at`/`updated_at`. Only gives per-group
+  granularity, not per-item ("3 new expenses") — fine for a dot, would need
+  a count/diff query if that's ever wanted.

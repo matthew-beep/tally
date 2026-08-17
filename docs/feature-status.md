@@ -82,6 +82,13 @@ which gains a `+N` chip it never had, having previously just sliced to four
 and dropped the rest), and the groups list was rebuilt on emoji tile + avatar
 stack + a signed amount (or `square ✓`) in place of `BalanceBadge`. UI only —
 no schema, query, or balance-math change, except the `useNotifications`
+
+**`AppHeader`'s avatar removed 2026-08-15.** It only ever linked to `/me`,
+duplicating the mobile tab bar's own `Me` tab and (on desktop) `Sidebar`'s
+bottom profile card — the latter now opens `ProfileMenuPopover` (identity row
+→ `/me`, theme toggle, sign out) rather than navigating straight there. The
+CSS rule that hid `.app-header-avatar` below 1024px (same reasoning, mobile
+side only) was dead code once the element itself was deleted, so it went too.
 group-join fix noted in `features.md`.
 
 **Sidebar redesign shipped 2026-08-13** (`docs/features.md` § Key

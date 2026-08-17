@@ -54,7 +54,7 @@ export function InviteReview({ batch, onResolved }: Props) {
           label: 'Join group',
           disabled: busy,
           background: T.sun,
-          color: T.sunInk,
+          color: T.sunOn,
           onClick: () => accept.mutate(
             { groupId, notificationId },
             { onSuccess: onResolved },

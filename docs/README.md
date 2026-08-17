@@ -17,6 +17,8 @@ start there when you're working on a concern across domains.
 | [features.md](./features.md) | Feature → code map: routes, query hooks, components, libs |
 | [feature-status.md](./feature-status.md) | Point-in-time review: what's done vs. missing, mobile + desktop |
 | [publish-roadmap.md](./publish-roadmap.md) | Critical path and sizing to a public launch — what blocks, what is cut |
+| [react-native-port.md](./react-native-port.md) | **Plan, not as-built** — shared core vs native rewrite, Expo Router map, adapters. No packages or Expo app yet |
+| [audit-fix-plan.md](./audit-fix-plan.md) | **Plan, not as-built** — 2026-08-15 audit: remaining RLS holes, invite/settle/expense write bugs, UI loading and quality nits |
 | [responsive-qa.md](./responsive-qa.md) | Breakpoint contract and the per-feature mobile/tablet/desktop test sweep |
 | [review-checklist.md](./review-checklist.md) | File-by-file reading order for a full manual code review |
 | [notifications-and-membership-design.md](./notifications-and-membership-design.md) | Paused design discussion: invite accept/decline notifications, activity-vs-notification framework, `group_members.status` semantics |

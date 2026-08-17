@@ -156,7 +156,7 @@ export default function InvitePage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 40, justifyContent: 'center' }}>
           <div style={{
             width: 30, height: 30, borderRadius: 10,
-            background: T.sun, color: T.sunInk,
+            background: T.sun, color: T.sunOn,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontWeight: 800, fontSize: 15, fontFamily: FH,
           }}>T</div>
