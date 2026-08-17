@@ -49,7 +49,7 @@ function ChevronImpl({ orientation }: ChevronProps) {
 export function DatePicker({ value, onChange }: Props) {
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
-  const { popRef, pos } = usePopoverPosition({ open, anchorRef, onClose: () => setOpen(false), align: 'start' })
+  const { popRef, pos } = usePopoverPosition({ open, anchorRef, onClose: () => setOpen(false), align: 'start', preferBelow: true })
 
   const selectedDate = value ? parseISO(value) : undefined
 
@@ -90,9 +90,13 @@ export function DatePicker({ value, onChange }: Props) {
             components={{ DayButton: DayButtonImpl, Chevron: ChevronImpl }}
             styles={{
               root: { margin: 0 },
-              month_caption: { fontFamily: FH, fontSize: 14, fontWeight: 700, color: T.ink, padding: '0 4px 10px' },
+              months: { position: 'relative' },
+              month_caption: {
+                display: 'flex', alignItems: 'center', height: 34,
+                fontFamily: FH, fontSize: 14, fontWeight: 700, color: T.ink, padding: '0 64px 10px 4px',
+              },
               weekday: { fontFamily: F, fontSize: 11, fontWeight: 600, color: T.inkFaint, textTransform: 'uppercase' },
-              nav: { display: 'flex', gap: 2 },
+              nav: { position: 'absolute', top: 0, right: 0, display: 'flex', alignItems: 'center', gap: 2, height: 34 },
               button_previous: { border: 0, background: 'transparent', cursor: 'pointer', padding: 6, borderRadius: T.r.pill },
               button_next: { border: 0, background: 'transparent', cursor: 'pointer', padding: 6, borderRadius: T.r.pill },
             }}

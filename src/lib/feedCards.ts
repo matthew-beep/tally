@@ -18,19 +18,27 @@ export function shortDate(dateStr: string): string {
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-/** Cross-group Activity tab. No splits available, so no share or participants. */
+/**
+ * Cross-group Activity tab. Splits are available (each per-group expense
+ * fetch already carries them), so this personalizes the amount the same way
+ * toGroupFeedCard does — "your share", not the raw total — for anything the
+ * viewer is actually a party to; expenses they're not in fall back to the
+ * neutral total, matching the "not $0.00" rule below.
+ */
 export function toActivityCard(item: ActivityItem, showGroup = false): FeedCardModel {
   const group = `${item.groupEmoji} ${item.groupName}`
 
   if (item.type === 'expense') {
+    const hasShare = item.myShare !== null && Math.abs(item.myShare) > 0
     return {
       id: item.id,
       icon: { kind: 'emoji', emoji: item.category ?? '💸' },
       title: item.description,
       titleTag: item.updatedAt && item.updatedAt !== item.createdAt ? '(edited)' : undefined,
       subtitle: showGroup ? `${item.payerName} · ${group}` : `${item.payerName} · ${shortDate(item.date)}`,
-      amount: item.amount,
-      amountTone: 'neutral',
+      amount: hasShare ? Math.abs(item.myShare as number) : item.amount,
+      amountTone: hasShare ? ((item.myShare as number) > 0 ? 'positive' : 'negative') : 'neutral',
+      amountCaption: hasShare ? 'your share' : undefined,
     }
   }
 
@@ -38,7 +46,11 @@ export function toActivityCard(item: ActivityItem, showGroup = false): FeedCardM
   return {
     id: item.id,
     icon: { kind: 'settlement', confirmed },
-    title: `${item.fromName} paid ${item.toName}`,
+    title: item.youFrom
+      ? `You paid ${item.toName}`
+      : item.youTo
+        ? `${item.fromName} paid you`
+        : `${item.fromName} paid ${item.toName}`,
     subtitle: showGroup ? group : '',
     statusTag: item.status,
     amount: item.amount,

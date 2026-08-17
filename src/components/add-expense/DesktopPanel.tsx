@@ -336,7 +336,7 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
             <CategoryChips category={s.category} onSelect={s.selectCategory} />
           </div>
 
-          <div>
+          <div className="border-2 h-full">
             <SectionLabel size="sm" style={{ marginBottom: 8 }}>Date</SectionLabel>
             <DatePicker value={s.expenseDate} onChange={s.setExpenseDate} />
           </div>

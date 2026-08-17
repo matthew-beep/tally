@@ -22,7 +22,7 @@ start there when you're working on a concern across domains.
 | [responsive-qa.md](./responsive-qa.md) | Breakpoint contract and the per-feature mobile/tablet/desktop test sweep |
 | [review-checklist.md](./review-checklist.md) | File-by-file reading order for a full manual code review |
 | [notifications-and-membership-design.md](./notifications-and-membership-design.md) | Paused design discussion: invite accept/decline notifications, activity-vs-notification framework, `group_members.status` semantics |
-| [social-and-leaderboard-design.md](./social-and-leaderboard-design.md) | Planned: expense reactions/comments, the expense detail drawer, and the group leaderboard — data model, RLS shape, phasing |
+| [social-and-leaderboard-design.md](./social-and-leaderboard-design.md) | Expense reactions/comments, the expense detail drawer, and the group leaderboard — data model, RLS shape, phasing. Phases A–C and D1 shipped; D2 (comment discoverability chip) decided as next priority; comment notifications (E) still planned |
 
 ## What Tally is
 

@@ -69,6 +69,19 @@ export interface ExpenseReaction {
   created_at: string
 }
 
+// Same seat-keyed + denormalized-group_id shape as ExpenseReaction (see
+// 20260816000000_expense_comments.sql). Never enters a balance. Removal is
+// soft (deleted_at) — the app filters deleted_at IS NULL at fetch time.
+export interface ExpenseComment {
+  id: string
+  expense_id: string
+  group_id: string
+  group_member_id: string
+  body: string
+  created_at: string
+  deleted_at: string | null
+}
+
 export interface ExpenseItem {
   id: string
   expense_id: string
@@ -213,6 +226,8 @@ export type ActivityItem =
       createdAt: string
       updatedAt: string
       payerName: string
+      youPaid: boolean
+      myShare: number | null  // signed net for the viewer: + owed to you, − you owe, null = no stake in it
       groupId: string
       groupName: string
       groupEmoji: string
@@ -224,6 +239,8 @@ export type ActivityItem =
       status: 'pending' | 'confirmed'
       fromName: string
       toName: string
+      youFrom: boolean
+      youTo: boolean
       date: string // settled_date — bucket key (same role as expense.date)
       createdAt: string
       groupId: string

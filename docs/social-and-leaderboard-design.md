@@ -1,8 +1,11 @@
 # Expense social + group leaderboard — design
 
-**Status:** design agreed 2026-08-08. Leaderboard (phase A) in progress; the
-rest is planned, not built. This is a *design* doc, not as-built — where it
-describes tables or components that don't exist yet, they don't exist yet.
+**Status:** design agreed 2026-08-08. Phases A–C and D1 shipped (leaderboard,
+detail drawer, reactions, comment thread + composer). **D2 (comment
+discoverability chip) is decided and next priority** — see Phasing. Phase E
+(comment notifications) is still planned, not built. This is a *design* doc,
+not as-built — where it describes components that don't exist yet, they don't
+exist yet.
 
 Source: the `Group Page Social.html` artboard in the Claude Design project
 (`36d6382c-156c-422e-afd2-063025ff0a0f`), which consolidates the earlier 3×3
@@ -160,18 +163,15 @@ Behaviour:
    group feed, not an addition. Alternative: keep the grouped month card and
    render pills as a compact inline suffix on the caption line. The artboard
    assumes cards.
-2. **Comment discoverability.** The artboard's feed row shows reaction pills
-   but no comment indicator — you would never know a thread exists without
-   opening the drawer. Needs a `💬 3` chip.
-3. **Desktop.** The artboard is 390-wide only. The leaderboard's natural home
+2. **Desktop.** The artboard is 390-wide only. The leaderboard's natural home
    is the left rail under the members ledger, but that rail already sorts by
    net standing, and two adjacent rankings of the same people measuring
    different things needs its own artboard. Phase A ships it in the shared
    right column for both breakpoints as an interim.
-4. **Settlement rows** — reactable? Proposed: no.
-5. **`/expense/[share_token]`** — the public page must exclude reactions and
+3. **Settlement rows** — reactable? Proposed: no.
+4. **`/expense/[share_token]`** — the public page must exclude reactions and
    comments, or it leaks member names to unauthenticated viewers.
-6. **Comment notifications** — a new `notifications` type plus trigger, which
+5. **Comment notifications** — a new `notifications` type plus trigger, which
    collides with the in-flight `batch_id` work. Deferred. Reactions should
    never notify.
 
@@ -186,7 +186,8 @@ Each phase ships independently.
 | **A** | Leaderboard card | none |
 | **B** | Detail drawer — refactor `ExpenseActionSheet`'s `Screen` from `'actions' \| 'edit' \| 'delete-confirm'` to `'detail' \| …`, replace the menu body with detail content, move Edit/Delete into `ModalFooter` | none |
 | **C** | Reactions — table, RLS, optimistic toggle, pills in feed, facepile in drawer | `expense_reactions` |
-| **D** | Comments — table, RLS, composer, counts on rows | `expense_comments` |
+| **D1** | Comments — table, RLS, composer, thread in drawer | `expense_comments` |
+| **D2** | Comment discoverability — feed rows show reaction pills but no comment indicator today, so a thread is invisible until you open the drawer. **Decided 2026-08-16: priority, build next.** Needs a `💬 N` chip on the feed row, which means folding comment counts into the `['expense-social', groupId]` query (see Fetching) rather than the current comments-only-fetched-on-open model | none — reuses `expense_comments` |
 | **E** | Comment notifications, if wanted at all | enum + trigger |
 
 B before C/D deliberately: the drawer is the container the social content drops

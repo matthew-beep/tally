@@ -144,6 +144,7 @@ describe('toActivityCard', () => {
     type: 'expense' as const, id: 'e1', description: 'Dinner', category: '🍽️',
     amount: 30, date: '2026-08-01', createdAt: '2026-08-01T00:00:00Z',
     updatedAt: '2026-08-01T00:00:00Z', payerName: 'Sam',
+    youPaid: false, myShare: null,
     groupId: 'g', groupName: 'Big Sur', groupEmoji: '🌲',
   } satisfies ActivityItem
 
@@ -152,15 +153,43 @@ describe('toActivityCard', () => {
     expect(toActivityCard(base, true).subtitle).toBe('Sam · 🌲 Big Sur')
   })
 
-  it('never claims a share — the cross-group feed has no splits', () => {
+  it('falls back to the neutral total for an expense the viewer has no stake in', () => {
     const card = toActivityCard(base, true)
     expect(card.amount).toBe(30)
+    expect(card.amountTone).toBe('neutral')
     expect(card.amountCaption).toBeUndefined()
     expect(card.participants).toBeUndefined()
+  })
+
+  it('shows what you owe when you were split into the expense', () => {
+    const card = toActivityCard({ ...base, myShare: -12.5 }, true)
+    expect(card.amount).toBe(12.5)
+    expect(card.amountTone).toBe('negative')
+    expect(card.amountCaption).toBe('your share')
+  })
+
+  it('shows what others owe you when you paid', () => {
+    const card = toActivityCard({ ...base, youPaid: true, myShare: 20 }, true)
+    expect(card.amount).toBe(20)
+    expect(card.amountTone).toBe('positive')
+    expect(card.amountCaption).toBe('your share')
   })
 
   it('does not shift the date across a timezone boundary', () => {
     // Parsed as local midnight, not UTC — otherwise this renders as Jul 31.
     expect(toActivityCard({ ...base, date: '2026-08-01' }, false).subtitle).toContain('Aug 1')
+  })
+
+  const sbase = {
+    type: 'settlement' as const, id: 's1', amount: 20, status: 'pending' as const,
+    fromName: 'Sam', toName: 'Ada', youFrom: false, youTo: false,
+    date: '2026-08-02', createdAt: '2026-08-02T00:00:00Z',
+    groupId: 'g', groupName: 'Big Sur', groupEmoji: '🌲',
+  } satisfies ActivityItem
+
+  it('personalizes settlement copy from the viewer’s side', () => {
+    expect(toActivityCard(sbase, true).title).toBe('Sam paid Ada')
+    expect(toActivityCard({ ...sbase, youFrom: true }, true).title).toBe('You paid Ada')
+    expect(toActivityCard({ ...sbase, youTo: true }, true).title).toBe('Sam paid you')
   })
 })

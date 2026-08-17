@@ -13,6 +13,8 @@ interface Opts {
   margin?: number
   /** Match the popover's minimum width to the anchor's width. */
   matchAnchorWidth?: boolean
+  /** Open below the anchor by default, flipping above only if there's no room. Default false (opens above). */
+  preferBelow?: boolean
 }
 
 interface Pos {
@@ -31,7 +33,7 @@ interface Pos {
  * popover. Fixed coordinates sidestep the ancestor chain entirely.
  *
  * Opens upward by default and flips below only when the anchor is too near
- * the top of the viewport. Placement is pinned to the anchor's edge with
+ * the top of the viewport (reversed when `preferBelow` is set). Placement is pinned to the anchor's edge with
  * top/bottom (not a precomputed height offset), so the popover grows away
  * from the anchor and can't end up overlapping it if content height changes
  * after the initial measurement — see ProfileMenuPopover's git history for
@@ -39,7 +41,7 @@ interface Pos {
  * element caused getBoundingClientRect to under-report its resting height).
  */
 export function usePopoverPosition({
-  open, anchorRef, onClose, align = 'center', gap = 8, margin = 8, matchAnchorWidth = false,
+  open, anchorRef, onClose, align = 'center', gap = 8, margin = 8, matchAnchorWidth = false, preferBelow = false,
 }: Opts) {
   const popRef = useRef<HTMLDivElement | null>(null)
   const [pos, setPos] = useState<Pos | null>(null)
@@ -57,6 +59,8 @@ export function usePopoverPosition({
       const p = pop.getBoundingClientRect()
 
       const fitsAbove = a.top - p.height - gap >= margin
+      const fitsBelow = a.bottom + p.height + gap <= window.innerHeight - margin
+      const openAbove = preferBelow ? !fitsBelow && fitsAbove : fitsAbove
       const left = align === 'center'
         ? Math.min(
             Math.max(margin, a.left + a.width / 2 - p.width / 2),
@@ -65,7 +69,7 @@ export function usePopoverPosition({
         : Math.min(Math.max(margin, a.left), window.innerWidth - p.width - margin)
       const width = matchAnchorWidth ? a.width : undefined
 
-      setPos(fitsAbove
+      setPos(openAbove
         ? { bottom: window.innerHeight - a.top + gap, left, width }
         : { top: a.bottom + gap, left, width })
     }
@@ -79,7 +83,7 @@ export function usePopoverPosition({
       window.removeEventListener('scroll', place, true)
       window.removeEventListener('resize', place)
     }
-  }, [open, anchorRef, align, gap, margin, matchAnchorWidth])
+  }, [open, anchorRef, align, gap, margin, matchAnchorWidth, preferBelow])
 
   useEffect(() => {
     if (!open) return

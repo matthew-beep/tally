@@ -11,6 +11,7 @@ import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisp
 import { formatAmount, stripNegative } from '@/lib/money'
 import { calcExpenseNets } from '@/lib/balance'
 import { ReactionPills } from '@/components/ReactionPills'
+import { CommentsList } from '@/components/CommentsList'
 import { useDeleteExpense, useUpdateExpense } from '@/queries/useExpenses'
 import type { Expense, GroupMember } from '@/types'
 
@@ -242,7 +243,7 @@ function DeleteConfirmDrawer({
 // ── Detail ───────────────────────────────────────────────────────────────
 // Content-first view of one expense: what it was, who fronted it, and what it
 // did to each participant. Edit/Delete live in the footer rather than being
-// the point of the sheet. Reactions and comments land here next.
+// the point of the sheet, with reactions and comments below the split.
 function ExpenseDetailScreen({
   expense, members, groupId, mySeatId, canPost,
 }: {
@@ -315,6 +316,14 @@ function ExpenseDetailScreen({
         canPost={canPost}
         size="drawer"
         label="Reactions"
+      />
+
+      <CommentsList
+        expenseId={expense.id}
+        groupId={groupId}
+        members={members}
+        mySeatId={mySeatId}
+        canPost={canPost}
       />
     </ModalContent>
   )

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { mergeFeed } from './feed'
-import type { Expense, Settlement } from '@/types'
+import { mergeFeed, bucketActivity } from './feed'
+import type { ActivityItem, Expense, Settlement } from '@/types'
 
 // mergeFeed(expenses, settlements) → one timeline, newest first, each entry
 // tagged { type: 'expense' | 'settlement', data }. Sort key is created_at —
@@ -86,5 +86,51 @@ describe('mergeFeed', () => {
 
     const feed = mergeFeed([backdated, older], [])
     expect(feed.map(f => f.data.id)).toEqual([backdated.id, older.id])
+  })
+})
+
+function activityItem(date: string): ActivityItem {
+  return {
+    type: 'expense', id: 'a-' + date, description: 'test', category: null,
+    amount: 10, date, createdAt: date + 'T00:00:00Z', updatedAt: date + 'T00:00:00Z',
+    payerName: 'Sam', youPaid: false, myShare: null,
+    groupId: 'g1', groupName: 'Group', groupEmoji: '💸',
+  }
+}
+
+describe('bucketActivity', () => {
+  // Fixed "today" so relative labels (Today/Yesterday/this week) are deterministic.
+  const today = new Date('2026-08-16T12:00:00')
+
+  it('labels today, yesterday, and the rest of the week separately', () => {
+    const buckets = bucketActivity([
+      activityItem('2026-08-16'), // today
+      activityItem('2026-08-15'), // yesterday
+      activityItem('2026-08-12'), // 4 days ago — earlier this week
+    ], today)
+
+    expect(buckets.map(b => b.label)).toEqual(['Today', 'Yesterday', 'Earlier this week'])
+    expect(buckets.every(b => b.items.length === 1)).toBe(true)
+  })
+
+  it('falls back to a month label past the "this week" window', () => {
+    const buckets = bucketActivity([activityItem('2026-07-20')], today)
+    expect(buckets.map(b => b.label)).toEqual(['July 2026'])
+  })
+
+  it('groups multiple items under the same label in order', () => {
+    const buckets = bucketActivity([activityItem('2026-08-16'), activityItem('2026-08-16')], today)
+    expect(buckets).toHaveLength(1)
+    expect(buckets[0].items).toHaveLength(2)
+  })
+
+  it('does not shift a bucket across a timezone boundary', () => {
+    // Parsed as local midnight, not UTC — otherwise this reads as "Yesterday".
+    const buckets = bucketActivity([activityItem('2026-08-16')], today)
+    expect(buckets[0].label).toBe('Today')
+  })
+
+  it('returns [] for an empty list', () => {
+    expect(bucketActivity([], today)).toEqual([])
   })
 })
