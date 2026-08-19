@@ -231,8 +231,6 @@ export default function GroupSettingsPage() {
                 variant="dark" size="md"
                 style={{
                   padding: '8px 16px', fontSize: 13,
-                  background: pendingMembers.length ? T.ink : T.surfaceAlt,
-                  color: pendingMembers.length ? T.bg : T.inkMuted,
                 }}
               >
                 {adding ? 'Adding…' : pendingMembers.length ? `Add ${pendingMembers.length} to group` : 'Add to group'}

@@ -16,7 +16,14 @@ way:
 |---|---|---|---|---|
 | **Mobile** | ≤ 767px | Tab bar | Single column | Vaul bottom sheet |
 | **Mixed** | 768–1023px | Tab bar | Single column | **Centered desktop modal** |
-| **Desktop** | ≥ 1024px | Sidebar | 2-column | Centered desktop modal |
+| **Desktop** | ≥ 1024px | Sidebar (270px, or 64px rail) | 2-column | Centered desktop modal |
+
+The sidebar is a floating panel inset 12px from the window edges, and is
+user-collapsible to a 64px rail (⌘\\, or the header toggle). The choice
+persists in localStorage and is applied pre-paint, so **both widths need
+testing at every desktop breakpoint** — a rail frees ~206px, which is enough to
+change how the 2-column page layouts sit. There is no automatic collapse at any
+width; it is always an explicit user choice. See `features.md` → "Sidebar rail".
 
 `useIsMobileSheet()` switches at `max-width: 767px`. The layout CSS switches at
 `max-width: 1023px` (`dashboard.css:10`, `:191`, `:383`). They disagree across a

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { T, F, FMONO } from '@/design/tokens'
+import { T, F, FMONO, well } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { useSearchProfiles } from '@/queries/useProfile'
 import type { ProfileSnippet } from '@/queries/useProfile'
@@ -126,9 +126,8 @@ export function MemberCombobox({ value, onChange, excludeIds = [], placeholder =
         style={{
           display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
           padding: '8px 10px', borderRadius: T.r.md, minHeight: 44,
-          border: `1.5px solid ${open ? T.lineStrong : T.line}`,
-          background: T.surfaceAlt, cursor: 'text',
-          transition: 'border-color 0.15s',
+          cursor: 'text',
+          ...well(open),
         }}
       >
         {value.map((entry, i) => (

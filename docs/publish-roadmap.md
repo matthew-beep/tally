@@ -179,9 +179,9 @@ was the point.
 
 Two threads from the original item stay open, both smaller than the item was:
 
-- **The 30s poll** from `CLAUDE.md` — the count refreshes on mount/window-focus
-  like every other query, not on an interval. Cheap to add
-  (`refetchInterval: 30_000`, active tab only) whenever it's wanted.
+- ~~**The 30s poll** from `CLAUDE.md`~~ — **shipped 2026-08-16.**
+  `useNotifications` sets `refetchInterval: 30_000,
+  refetchIntervalInBackground: false`.
 - **Option A's tab badge** — `TabBar.tsx`'s `NAV_BADGES` is still a hardcoded
   empty object, and `Sidebar.tsx` has no badge slot. Not redundant with the
   bell: the badge is what you see with a sheet or another page's chrome in
@@ -208,9 +208,11 @@ is not.
   call — but it hurts nobody today because it's unreachable. If it stays cut,
   also narrow that `profiles(*)` select before the route is ever reachable: it
   pulls `email` and `claim_token` on an unauthenticated service-role endpoint.
-- **Itemized splits**, **emoji reactions**, **spending leaderboard**, **desktop
-  3-column home**, **nav FAB** (`TODO.md` item 7), **cross-group settlement
-  batching**. All either hidden or degrade gracefully.
+- **Itemized splits**, ~~**emoji reactions**~~, ~~**spending leaderboard**~~,
+  **desktop 3-column home**, ~~**nav FAB** (`TODO.md` item 7)~~,
+  ~~**cross-group settlement batching**~~. Reactions, leaderboard, nav FAB, and
+  cross-group settlement all shipped 2026-08-13–16; itemized splits and 3-column
+  home remain cut/deferred.
 - ~~**Guest claim flow.**~~ Shipped 2026-08-11 alongside the invite-path fix
   above (P0 §3) — see `docs/flows.md` § Claim a guest seat. `CLAUDE.md` still
   describes this as Phase 2 / not-in-MVP scope; `docs/` and the actual code

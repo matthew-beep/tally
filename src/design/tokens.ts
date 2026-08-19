@@ -38,13 +38,47 @@ export const T = {
   shadowSm:    'var(--tally-shadow-sm)',
   shadowFloat: 'var(--tally-shadow-float)',
   shadowModal: 'var(--tally-shadow-modal)',
-  shadowFab:   '0 8px 20px rgba(242,192,74,0.5)',
   shadow:      'var(--tally-shadow-sm)',
 
   cardBg:     'var(--tally-card-bg)',
   cardBorder: 'var(--tally-card-border)',
   cardShadow: 'var(--tally-card-shadow)',
+
+  // Tactile depth — raised object (rest / hover-lift / press-sink)
+  shadowRaised:      'var(--tally-shadow-raised)',
+  shadowRaisedHover: 'var(--tally-shadow-raised-hover)',
+  shadowPressed:     'var(--tally-shadow-pressed)',
+  sunHi:             'var(--tally-sun-hi)',
+  sunLo:             'var(--tally-sun-lo)',
+  shadowSun:         'var(--tally-shadow-sun)',
+  shadowSunHover:    'var(--tally-shadow-sun-hover)',
+  shadowSunPressed:  'var(--tally-shadow-sun-pressed)',
+
+  // Tactile depth — recessed trough (inputs) + the flat information tier
+  sink:            'var(--tally-sink)',
+  shadowRecessed:  'var(--tally-shadow-recessed)',
+  shadowHair:      'var(--tally-shadow-hair)',
+  focusRim:        'var(--tally-focus-rim)',
+  shadowNone:      'var(--tally-shadow-none)',
 } as const
+
+/**
+ * RECESSED input well — a trough pressed into the surface, which is what the
+ * tactile language uses to say "put a value here".
+ *
+ * The rim layer is always present (transparent when idle) so focus eases in:
+ * box-shadow only animates between lists of equal length. Pass `rimColor` to
+ * show validation state instead of the sun focus rim.
+ */
+export function well(focused = false, rimColor?: string) {
+  const rim = rimColor ?? (focused ? 'var(--tally-sun)' : 'transparent')
+  return {
+    background: T.sink,
+    border: 0,
+    boxShadow: `${T.shadowRecessed}, inset 0 0 0 1.5px ${rim}`,
+    transition: 'box-shadow .15s ease',
+  }
+}
 
 export const PADDING_X_BASE = 28
 export const CONTENT_MAX_WIDTH = 680

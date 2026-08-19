@@ -140,7 +140,7 @@ function LoginButtonInner() {
               </button>
               <Btn
                 onClick={signIn} disabled={loading || !email || !password} variant="dark" size="md"
-                style={{ padding: '9px', fontSize: 13, background: T.ink, color: T.bg, opacity: loading || !email || !password ? 0.4 : 1 }}
+                style={{ padding: '9px', fontSize: 13, opacity: loading || !email || !password ? 0.4 : 1 }}
               >
                 {loading ? 'Signing in…' : 'Sign in with email'}
               </Btn>

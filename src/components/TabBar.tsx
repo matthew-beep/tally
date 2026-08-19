@@ -18,7 +18,6 @@ function FloatingNav({
   onSelect: (id: TabId) => void
 }) {
   const { containerRef, setRef, box } = useSlider(active)
-  const glow = 'rgba(242,192,74,0.4)'
 
   return (
     <div
@@ -32,7 +31,7 @@ function FloatingNav({
       }}
     >
       <div ref={containerRef} style={{ position: 'relative', display: 'flex', width: '100%' }}>
-        <SliderPill variant="float" box={box} glow={glow} />
+        <SliderPill variant="float" box={box} />
         {NAV_TABS.map(tab => {
           const on = tab.id === active
           const ink = on ? T.sunOn : T.inkMuted

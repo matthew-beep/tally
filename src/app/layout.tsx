@@ -35,6 +35,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/* Runs before first paint — prevents dark mode flash */}
         <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('tally-theme')==='dark'){document.documentElement.setAttribute('data-theme','dark');var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content','#181410')}}catch(e){}` }} />
+        {/* Same reason — the sidebar rail must be set before paint, or the
+            sidebar renders full-width and snaps narrow on hydration. */}
+        <script dangerouslySetInnerHTML={{ __html: `try{if(localStorage.getItem('tally-sidebar')==='rail'){document.documentElement.setAttribute('data-sidebar','rail')}}catch(e){}` }} />
       </head>
       <body>
         <Providers>

@@ -11,6 +11,8 @@ interface ModalMenuProps {
   className?: string
   /** Stop clicks inside the panel from reaching the overlay */
   onPanelClick?: (e: React.MouseEvent) => void
+  closing?: boolean
+  onAnimationEnd?: (e: React.AnimationEvent<HTMLDivElement>) => void
 }
 
 export function ModalMenu({
@@ -19,6 +21,8 @@ export function ModalMenu({
   style,
   className,
   onPanelClick,
+  closing = false,
+  onAnimationEnd,
 }: ModalMenuProps) {
   return (
     <div
@@ -41,11 +45,12 @@ export function ModalMenu({
           e.stopPropagation()
           onPanelClick?.(e)
         }}
+        onAnimationEnd={onAnimationEnd}
         style={{
           pointerEvents: 'auto',
           width: '100%',
           maxWidth,
-          animation: 'modal-pop-in 0.22s ease-out',
+          animation: closing ? 'modal-pop-out 0.16s ease-in forwards' : 'modal-pop-in 0.22s ease-out',
           ...style,
         }}
       >

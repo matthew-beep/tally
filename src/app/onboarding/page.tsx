@@ -129,8 +129,6 @@ function OnboardingInner() {
             style={{
               height: 56, borderRadius: 18,
               fontFamily: FH, fontSize: 17, fontWeight: 600, letterSpacing: -0.2,
-              boxShadow: ctaEnabled ? '0 8px 20px rgba(242,192,74,0.35)' : 'none',
-              transition: 'background 0.2s, box-shadow 0.2s, color 0.2s',
             }}
           >
             {saving ? 'Saving…' : ctaEnabled ? `Claim @${handle}` : 'Continue'}

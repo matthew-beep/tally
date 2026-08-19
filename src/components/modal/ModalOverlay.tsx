@@ -7,9 +7,10 @@ const Z_OVERLAY = 300
 interface ModalOverlayProps {
   onClick?: MouseEventHandler<HTMLDivElement>
   style?: CSSProperties
+  closing?: boolean
 }
 
-export function ModalOverlay({ onClick, style }: ModalOverlayProps) {
+export function ModalOverlay({ onClick, style, closing = false }: ModalOverlayProps) {
   return (
     <div
       role="presentation"
@@ -22,7 +23,7 @@ export function ModalOverlay({ onClick, style }: ModalOverlayProps) {
         background: 'rgba(15, 12, 8, 0.22)',
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
-        animation: 'modal-fade-in 0.2s ease-out',
+        animation: closing ? 'modal-fade-out 0.16s ease-in forwards' : 'modal-fade-in 0.2s ease-out',
         ...style,
       }}
     />

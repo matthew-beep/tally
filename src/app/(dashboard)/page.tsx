@@ -475,27 +475,23 @@ export default function HomePage() {
         />
       </div>
 
-      {profilePerson?.profile && (
-        <PersonProfileSheet
-          open={!!profilePerson}
-          onClose={() => setProfilePerson(null)}
-          profile={profilePerson.profile}
-          slot={profilePerson.slot}
-          parts={profilePerson.parts}
-        />
-      )}
+      <PersonProfileSheet
+        open={!!profilePerson}
+        onClose={() => setProfilePerson(null)}
+        profile={profilePerson?.profile ?? null}
+        slot={profilePerson?.slot ?? 0}
+        parts={profilePerson?.parts ?? []}
+      />
 
-      {balancePerson && (
-        <BalanceSheet
-          open={!!balancePerson}
-          onClose={() => setBalancePerson(null)}
-          name={balancePerson.name}
-          profile={balancePerson.profile}
-          slot={balancePerson.slot}
-          net={balancePerson.net}
-          parts={balancePerson.parts}
-        />
-      )}
+      <BalanceSheet
+        open={!!balancePerson}
+        onClose={() => setBalancePerson(null)}
+        name={balancePerson?.name ?? null}
+        profile={balancePerson?.profile}
+        slot={balancePerson?.slot ?? 0}
+        net={balancePerson?.net ?? 0}
+        parts={balancePerson?.parts ?? []}
+      />
     </div>
   )
 }

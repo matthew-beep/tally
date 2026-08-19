@@ -85,10 +85,7 @@ function ProfileSettings() {
         onClick={handleSave} disabled={!canSave} variant="dark" size="lg" fullWidth
         style={{
           padding: '13px',
-          background: canSave ? T.ink : T.surfaceAlt,
-          color: canSave ? T.bg : T.inkMuted,
           fontFamily: FH, fontSize: 15,
-          transition: 'background 0.15s',
         }}
       >
         {updateProfile.isPending ? 'Saving…' : 'Save changes'}

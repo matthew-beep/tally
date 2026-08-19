@@ -1,6 +1,99 @@
 /* Dashboard shell — sidebar desktop, tab bar mobile */
+/* Wrapper supplies the inset that makes the sidebar panel read as floating;
+   `display: flex` stretches the panel to fill the padded box. */
 .dashboard-sidebar {
   flex-shrink: 0;
+  display: flex;
+  padding: 12px;
+}
+
+/* ── Sidebar rail ──
+   Collapse is CSS-driven off `data-sidebar` on <html>, set pre-paint by the
+   inline script in app/layout.tsx. React only toggles the attribute — it never
+   owns the width, so there is no hydration flash. See lib/sidebar.ts. */
+.dashboard-sidebar-panel {
+  width: 270px;
+  padding: 22px 14px 14px;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Labels clip rather than wrap while the width animates, and fade out ahead of
+   it so they don't smear against the panel edge. */
+.sidebar-label {
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.12s ease;
+}
+
+.sidebar-groups {
+  transition: opacity 0.12s ease;
+  display: flex;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  padding: 2px 10px 18px;
+}
+
+.sidebar-logo-mark {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+[data-sidebar="rail"] .dashboard-sidebar-panel {
+  width: 64px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+[data-sidebar="rail"] .sidebar-label {
+  opacity: 0;
+  width: 0;
+  flex: 0 0 0 !important;
+}
+
+/* The group list is hidden outright in the rail — header, the new-group "+",
+   and the rows. The Groups nav item is the way back to them. */
+[data-sidebar="rail"] .sidebar-groups {
+  display: none;
+}
+
+/* Wordmark is ~55px at 20px and won't fit the rail's 48px content box, so it
+   drops out and the toggle becomes the whole header. */
+[data-sidebar="rail"] .sidebar-logo {
+  display: none;
+}
+
+[data-sidebar="rail"] .sidebar-header {
+  justify-content: center;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* The inline `gap` has to go too, or it reserves space beside the zero-width
+   label and the icon sits left of centre. */
+[data-sidebar="rail"] .sidebar-nav-item,
+[data-sidebar="rail"] .sidebar-profile-btn {
+  justify-content: center;
+  gap: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+[data-sidebar="rail"] .sidebar-chevron {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-sidebar-panel,
+  .sidebar-label,
+  .sidebar-groups {
+    transition: none;
+  }
 }
 
 .dashboard-mobile-nav {
@@ -20,7 +113,10 @@
   .dashboard-mobile-nav {
     display: block;
     flex-shrink: 0;
-    /* Safe-area inset for iPhone home indicator */
+    background: var(--tally-surface);
+    /* Safe-area inset for iPhone home indicator — background must match
+       DockedTabBar's own surface color or this padding shows page bg
+       instead, so the nav color visibly stops short of Safari's chrome. */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 

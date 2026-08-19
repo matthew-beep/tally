@@ -15,6 +15,7 @@ start there when you're working on a concern across domains.
 | [schema.md](./schema.md) | Database schema as deployed, identity model, triggers, RLS |
 | [flows.md](./flows.md) | End-to-end user flows with the code that implements each step |
 | [features.md](./features.md) | Feature → code map: routes, query hooks, components, libs |
+| [design-system.md](./design-system.md) | Token palette history, dark-mode schemes, tactile depth tiers, fonts |
 | [feature-status.md](./feature-status.md) | Point-in-time review: what's done vs. missing, mobile + desktop |
 | [publish-roadmap.md](./publish-roadmap.md) | Critical path and sizing to a public launch — what blocks, what is cut |
 | [react-native-port.md](./react-native-port.md) | **Plan, not as-built** — shared core vs native rewrite, Expo Router map, adapters. No packages or Expo app yet |

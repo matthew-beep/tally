@@ -11,13 +11,17 @@ interface CardProps {
   hoverable?: boolean
   /** `elevated` (default) is the prominent card-bg tier — stat blocks, empty states.
    *  `surface` is the flatter list-row tier — feed rows, inline sections. No border by default;
-   *  pass `border` in `style` for the bordered surface rows used elsewhere. */
-  tone?: 'elevated' | 'surface'
+   *  pass `border` in `style` for the bordered surface rows used elsewhere.
+   *  `flat` is the tactile FLAT tier — a hairline ring, no elevation. For read-only
+   *  information, so that raised/recessed stay meaningful. Opt-in while we evaluate
+   *  it; see /devpreviewxyz/tactile-cards for the side-by-side. */
+  tone?: 'elevated' | 'surface' | 'flat'
 }
 
 const TONE_BASE = {
   elevated: { background: T.cardBg, border: T.cardBorder, borderRadius: T.r.lg, boxShadow: T.cardShadow },
   surface:  { background: T.surface, border: 'none', borderRadius: T.r.md, boxShadow: T.shadowSm },
+  flat:     { background: 'transparent', border: 'none', borderRadius: T.r.lg, boxShadow: T.shadowHair },
 } as const
 
 export function Card({ children, style, className, onClick, hoverable = false, tone = 'elevated' }: CardProps) {

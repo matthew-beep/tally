@@ -741,12 +741,13 @@ const T = {
 };
 ```
 
-**Fonts**
-- `"Bricolage Grotesque"` — display: app name, headings, monetary amounts. Weight 600–800.
-- `"Plus Jakarta Sans"` — UI: labels, body, buttons, inputs. Weight 400–700.
-- `"JetBrains Mono"` — tabular: cents on amounts, metadata captions. Weight 400–600.
+**Fonts** (two families as of 2026-08-13 — see `docs/design-system.md` § Fonts)
+- `"Bricolage Grotesque"` (`FH`) — display: app name, headings, monetary amount hero digits. Weight 600–800.
+- `"Plus Jakarta Sans"` (`F`, `FMONO`) — everything else: labels, body, buttons, inputs, and tabular cents/metadata. `FMONO` is the same face with `font-variant-numeric: tabular-nums` for column alignment — JetBrains Mono was removed from the bundle.
 
-**Amount anatomy**: sign + $ in Bricolage at ½ opacity → whole number in Bricolage → .cents in JetBrains Mono muted. Always show sign. Use − (U+2212), not hyphen.
+**Amount anatomy**: sign + $ in Bricolage at ½ opacity → whole number in Bricolage → .cents in Plus Jakarta Sans (`FMONO`) muted. Always show sign. Use − (U+2212), not hyphen.
+
+**Tactile depth** (2026-08-19 — full spec in `docs/design-system.md` § Tactile depth): four tiers (flat / recessed / raised / floating). Shared primitives: `Btn`, `Input`, `Segmented`, `Token`/`PersonToken`, `well()` in `design/tokens.ts`. Rule: one raised sun object per view (`sunOn` for text on solid `T.sun`, `sunInk` for text on `sunSoft` fills).
 
 **Avatar colours** (deterministic by slot):
 - Slot 1 / You: Sun bg, sunInk text

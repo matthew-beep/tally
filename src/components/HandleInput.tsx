@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { T, FH, F } from '@/design/tokens'
+import { T, FH, F, well } from '@/design/tokens'
 
 // 'error' = the availability lookup itself failed. Distinct from 'invalid'
 // (the handle is malformed) so the copy can say so, and distinct from
@@ -136,10 +136,12 @@ export function HandleInput({
     return () => clearTimeout(debounceRef.current)
   }, [value, currentHandle, currentProfileId, profileName])
 
-  const borderColor =
+  // The recessed well already draws its own edge, so the rim is reserved for
+  // validation state — transparent while idle rather than a resting border.
+  const rimColor =
     state === 'available' ? T.mint :
     isProblem(state)      ? T.coral :
-    T.lineStrong
+    'transparent'
 
   const statusText =
     state === 'checking'  ? `Checking @${value}…` :
@@ -159,10 +161,9 @@ export function HandleInput({
       {/* Input row */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 2,
-        background: T.surface, borderRadius: 18,
+        borderRadius: 18,
         padding: '16px 18px 16px 22px',
-        boxShadow: `inset 0 0 0 1.5px ${borderColor}, 0 1px 0 rgba(31,26,20,0.04)`,
-        transition: 'box-shadow 0.18s',
+        ...well(false, rimColor),
       }}>
         <span style={{
           fontFamily: FH, fontSize: 28, fontWeight: 600, letterSpacing: -0.6,

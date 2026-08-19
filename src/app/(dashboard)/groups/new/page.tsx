@@ -466,11 +466,7 @@ export default function NewGroupPage() {
             onClick={handleCreate} disabled={!name.trim() || creating} variant="primary" size="lg" fullWidth
             style={{
               pointerEvents: 'auto', padding: '16px', borderRadius: 18,
-              background: name.trim() ? T.sun : T.surfaceAlt,
-              color: name.trim() ? T.sunOn : T.inkMuted,
               fontFamily: FH, fontSize: 16, fontWeight: 700, letterSpacing: -0.3,
-              boxShadow: name.trim() ? T.shadowFab : 'none',
-              transition: 'background 0.15s, box-shadow 0.15s',
             }}
           >
             {creating ? 'Creating…' : `Create group · ${totalMembers} ${totalMembers === 1 ? 'member' : 'members'}`}
@@ -780,11 +776,7 @@ export default function NewGroupPage() {
               onClick={handleCreate} disabled={!name.trim() || creating} variant="primary" size="md"
               style={{
                 padding: '12px 22px',
-                background: name.trim() ? T.sun : T.surfaceAlt,
-                color: name.trim() ? T.sunOn : T.inkMuted,
                 fontFamily: FH, fontSize: 15, letterSpacing: -0.2,
-                boxShadow: name.trim() ? '0 6px 16px rgba(242,192,74,0.32)' : 'none',
-                transition: 'background 0.15s, box-shadow 0.15s',
               }}
             >
               {creating ? 'Creating…' : 'Create group'}

@@ -78,7 +78,7 @@ export function DatePicker({ value, onChange }: Props) {
             top: pos?.top, bottom: pos?.bottom, left: pos?.left ?? 0,
             visibility: pos ? 'visible' : 'hidden',
             zIndex: 400,
-            background: T.surface, border: `0.5px solid ${T.line}`, borderRadius: T.r.lg,
+            background: T.surface, borderRadius: T.r.lg,
             boxShadow: T.shadowFloat, padding: 12,
             animation: 'tally-fade 0.12s ease',
           }}

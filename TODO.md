@@ -917,10 +917,12 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
 
 8. **Mobile presentation pass — sheets and app chrome** 🟡 (2026-08-03, Matthew's
    observations; the pointers below are where to start looking, not diagnoses)
-   - **Verified 2026-08-16 — 2 of 3 done, 1 regressed.** Settle-drawer sizing:
+   - **Verified 2026-08-19 — 3 of 4 done, 1 regressed.** Settle-drawer sizing:
      done (`.tally-sheet-content` sizing is now consistent — both settle and
      add-expense use `calc(100dvh - 40px)`, `globals.css`). Shared header:
      done (`AppHeader.tsx` now exists and is mounted app-wide, see "Now" §4).
+     Mobile nav safe-area gap: done (UI pass 2026-08-18 —
+     `.dashboard-mobile-nav` background + `env(safe-area-inset-bottom)`).
      Full-viewport background: **not done, and actively reverted** —
      `globals.css` currently has the mesh-gradient background "temporarily
      flattened to a solid color to preview against the iOS Safari chrome
@@ -1177,15 +1179,164 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
     (capped attention rows, 5-row preview), add a matching bone skeleton for
     both modules so loading doesn't visually jump when data arrives.
 
-13. **Font — reconsider the type choices** 🟡 — **changed, verified
-    2026-08-16 — needs a CLAUDE.md update.** `design/tokens.ts` now maps
-    `FMONO` to Plus Jakarta Sans instead of JetBrains Mono, and no
-    JetBrains Mono reference remains anywhere in `src`. The app is
-    effectively down to a two-typeface system (Bricolage Grotesque display /
-    Plus Jakarta Sans everything else), which is a real deviation from
-    CLAUDE.md's documented three-typeface stack — **CLAUDE.md's design
-    system section still describes JetBrains Mono for tabular/cents text and
-    needs updating to match.**
+13. **Font — reconsider the type choices** 🟡 — ✅ **done, verified
+    2026-08-19.** Two-typeface stack: Bricolage Grotesque (display) + Plus
+    Jakarta Sans (everything else, including tabular cents via `FMONO`).
+    JetBrains Mono removed from the bundle. **`CLAUDE.md` and
+    `docs/design-system.md` updated to match.**
+
+---
+
+## UI/design pass backlog (2026-08-18 planning session)
+
+Matthew's current UI polish list, audited against the codebase 2026-08-18.
+Status snapshot — re-check before starting each item. Suggested sequencing at
+the bottom; related gaps not on the original list are tracked separately.
+
+### Done
+
+- [x] **Scroll design + input arrows** 🟢 — global thin scrollbars and number-input
+  spinner removal in `src/app/globals.css` (`.tally-scroll-hidden` utility too).
+- [x] **Fix mobile navbar bottom color gap** 🟢 — `.dashboard-mobile-nav` gets
+  `background: var(--tally-surface)` + `padding-bottom: env(safe-area-inset-bottom)`
+  in `src/styles/dashboard.css` (Safari home-indicator gap).
+- [x] **Edit individual group amount from dashboard** 🟢 — `BalanceSheet.tsx` →
+  `GroupBreakdown` rows tap into `GroupSettleScreen` (editable amount, Full/Half/Clear
+  chips, single-group scope only).
+- [x] **Tactile depth design system** 🟢 — four-tier shadows, `well()` primitive,
+  shared components `Input`, `Segmented`, `Token`/`PersonToken`, `Btn` tactile
+  treatment. Documented in `docs/design-system.md` § Tactile depth; dev preview at
+  `/devpreviewxyz/tactile-cards` (delete before shipping).
+- [x] **Sidebar floating panel + collapsible rail** 🟢 — inset 12px panel,
+  64px rail mode (⌘\\), pre-paint `data-sidebar` state. Documented in
+  `docs/features.md` → "Sidebar rail".
+- [x] **Desktop add-expense panel refactor (partial)** 🟢 — `DesktopPanel.tsx`
+  rebuilt on `Input` / `Segmented` / `PersonToken` / `DatePicker`. Itemized tab
+  and breakpoint QA still open (see below).
+
+### Open — polish / layout
+
+- [ ] **Edit dark mode action button** 🟡 — `ExpenseActionSheet.tsx` Edit footer still
+  uses `Btn variant="dark"` (`T.ink` bg / `T.bg` text). In dark mode that inverts to
+  cream-on-charcoal — functional but not the intended footer treatment. Needs a
+  theme-aware variant or sheet-footer override.
+- [ ] **Add expense on desktop — finish rework** 🟡 — panel refactor landed
+  (see Done above) but still open: itemized tab is "Coming soon", 768–1023px
+  mixed zone untested (mobile nav + desktop modal panel — see
+  `docs/responsive-qa.md`), design verification not done.
+- [ ] **Mobile padding on group page** 🟡 — padding exists (`group-detail-right`:
+  `16px 16px 100px`; header: `8px 14px 6px` inline in `groups/[id]/page.tsx`) but
+  not tuned to final spec. The 100px bottom pad is a FAB workaround, not a finished
+  layout pass.
+- [ ] **Move group name to center (mobile group detail)** 🟡 — mobile header is
+  `back | left-aligned name+emoji | settings` (`groups/[id]/page.tsx` ~197–224). No
+  centered title treatment in CSS or JSX yet.
+- [ ] **Date picker design — mobile parity** 🟡 — custom `DatePicker.tsx` wired on
+  desktop only (`DesktopPanel.tsx`). `MobilePanel.tsx` has no date field; expense date
+  silently defaults via `useAddExpenseForm`. Desktop picker itself may still need a
+  visual pass.
+- [ ] **Mobile drawer sheet close animation** 🟡 — sheets use Vaul globally via
+  `Sheet.tsx`, not dashboard-only. Open/dismiss is Vaul's default; no custom close
+  animation like desktop modals (`modal-fade-out`, `modal-pop-out` in
+  `ModalOverlay.tsx`). Legacy `tally-slideup` exists in `ActionSheet.tsx` /
+  `EmojiPickerSheet.tsx` but not on the main Vaul path. Decide: polish Vaul dismiss
+  globally, or scope custom animation to specific sheets only.
+- [ ] **Modal/sheet header + close button consistency** 🟡 — audited 2026-08-18.
+  Canonical close is `ModalHeader`'s 32×32 `surfaceAlt` + Lucide `X` (see
+  `src/components/modal/ModalHeader.tsx`). Only 4 surfaces use it today:
+  `SettingsModal`, `AddExpenseGroupPicker`, desktop `DesktopPanel`, and
+  `NotificationsSheet` (manual duplicate — pill radius instead of `T.r.md`). Most
+  `ModalOrSheet` consumers (`ExpenseActionSheet`, `SettleUpSheet`, `BalanceSheet`,
+  `DeleteGroupSheet`, `InviteGroupSheet`, `MemberActionSheet`, `PersonProfileSheet`,
+  `LeaderboardSheet`, `MemberBalancesModal`) render inline content titles with no
+  header bar and no visible X on desktop — close is overlay/Escape only. Mobile
+  relies on Vaul drag handle + swipe; add-expense mobile uses a text Cancel instead.
+  `EmojiPickerSheet` is backdrop-only; `ActionSheet` is a third pattern (Cancel card
+  on mobile) and is currently unused. Decide: adopt `ModalHeader` (or a sheet-aware
+  wrapper) on all desktop modals? Add X to mobile sheets or keep swipe-only? Fold
+  multi-screen back/cancel patterns into one rule?
+- [ ] **Group page FAB overlap / clipping** 🟡 — structural mitigation exists (FAB in
+  `(dashboard)/layout.tsx`, feed has 100px bottom padding on `.group-detail-right`) but
+  `docs/responsive-qa.md` still unchecked: "Floating Add-expense CTA doesn't cover the
+  last feed row." Verify on real device after FAB scoping work below.
+- [ ] **Remove search from group page** 🟡 — **scope-dependent:**
+  - Group **detail** (`/groups/[id]`) — no search UI ✅ (done if this is what was meant).
+  - Groups **list** (`/groups`) — search input still present (`groups/page.tsx` ~50–62).
+  - Group **settings** — `MemberCombobox` search for adding members remains (probably
+    keep). Decide which surfaces lose search before deleting.
+- [ ] **Change to floating nav** 🟡 — `DockedTabBar` is live in
+  `(dashboard)/layout.tsx`. Floating `TabBar.tsx` (pill + `SliderPill`) exists but is
+  unmounted. Documented as live A/B in `docs/feature-status.md` — **decision not made.**
+  Note: reverting to floating `TabBar` removes mobile's global Add entry point unless
+  FAB scoping / header actions are rebuilt.
+
+### Open — behavior / features
+
+- [ ] **Global FAB scoping to current group (mobile)** 🟡 — FAB always opens
+  `AddExpenseGroupPicker` (all groups). `activeGroupId` in `store/ui.ts` is **never set
+  anywhere**. On `/groups/[id]`, FAB should skip the picker and go straight to
+  `?add=1` for that group. Wire `setActiveGroup(groupId)` on group detail mount /
+  clear on leave.
+- [ ] **New group action on mobile header** 🟡 — `AppHeader` actions hide below 1024px
+  (`.app-header-action--hide-mobile`). "+ New group" only appears in Groups page body,
+  not header. Sidebar "+" is desktop-only. Pass `{ label: 'New group', onClick: …,
+  hideOnMobile: false }` on Groups tab, or equivalent.
+- [ ] **Randomize emoji for new group** 🟢 — `groups/new/page.tsx` defaults to `'💸'`.
+  `EMOJIS` array is picker vocabulary only. Pick random from list on mount.
+- [ ] **Upload group photo** 🟡 — no `image_url` (or similar) on `groups` in schema;
+  groups are emoji-only today. Needs migration + Supabase storage + UI in create/settings.
+- [ ] **Implement itemized mode** 🟡 — **feature epic, not just UI.** UI shell only:
+  desktop/mobile show "Coming soon"; save blocked in `useAddExpenseForm.ts`.
+  **`expense_items` / `expense_item_assignments` tables exist** in baseline schema
+  (`docs/schema.md`) — what's missing is the client save path and builders, plus
+  OCR hookup (`/api/ocr` Phase 3). Split into: save path → mobile/desktop builders
+  → receipt scan pre-fill.
+- [ ] **Optional note on add-expense modal** 🟡 — `expenses` has no `note` column today
+  (`note` exists on `settlements` only). Add optional comment field to add-expense on
+  desktop (`DesktopPanel.tsx`) and mobile (`MobilePanel.tsx`); wire through
+  `useAddExpenseForm` → `useAddExpense` insert. Needs migration (`expenses.note text`),
+  types update, and a decision on where it surfaces read-only (detail sheet, feed card,
+  edit drawer). Collapsible "Add a note" row on mobile is the likely pattern.
+- [ ] **Category + date editing on expenses** 🟡 — add-expense sets both (`category` via
+  `CategoryChips` / `detectCategory`, `expense_date` via `DatePicker` on desktop only).
+  Edit flow (`ExpenseActionSheet.tsx` → `ExpenseEditDrawer`) only edits
+  description/amount/paid_by — category renders as a static emoji beside the description
+  input (~133), date is read-only in the detail screen (~272). Extend
+  `useUpdateExpense` to accept `category` + `expense_date`; reuse add-expense's
+  `CategoryChips` + `DatePicker` in the edit drawer. Category alone also tracked under
+  **Now §6** below — do both together.
+
+### Suggested priority (this pass)
+
+1. **Nav decision** (floating vs docked) — unlocks FAB scoping design.
+2. **FAB scoping + centered group title + mobile padding** — group page feels broken
+   without these.
+3. **Dark mode Edit button** — quick polish win.
+4. **Remove groups list search** (if intended) + **mobile header "New group"**.
+5. **Desktop add-expense QA** at all breakpoints + mobile date picker.
+6. **Itemized mode** — separate epic; don't block the polish pass on it.
+
+### Related gaps (not on the original list)
+
+Track elsewhere but will block polish or ship if ignored:
+
+- **768–1023px breakpoint** — align `useIsMobileSheet` (767px) with layout CSS (1023px),
+  or design the mixed zone (`docs/responsive-qa.md`).
+- **Responsive QA sweep** — `docs/responsive-qa.md` almost entirely unchecked; every
+  screen in light + dark.
+- **Public expense share page** (`/expense/[share_token]`) — route exists; fetch
+  likely broken (stale joins).
+- **Edit history viewer** — `expense_history` captured, zero UI.
+- **Split editing + category/date editing** in expense edit drawer (`TODO.md` § Now step 6).
+- **Expense note field** — optional comment on add/edit; needs `expenses.note` migration
+  (UI/design pass backlog 2026-08-18).
+- **Cancel pending invite**; invite link regenerate in group settings (show/copy shipped).
+- **Home 3-column desktop layout**; **group settings desktop layout** (still mobile
+  card at all widths).
+- **`TabBar` `NAV_BADGES`** still hardcoded empty (header bell poll shipped 2026-08-16).
+- **Known bugs:** full viewport background after scroll / Safari chrome collapse
+  (punch list item 8); settle sheet height jumps between screens; CTA button styling
+  drift (`docs/review-todo.md`).
 
 ---
 
@@ -1415,10 +1566,11 @@ Creator (`created_by`) is the admin.
 ### 6. Expense editing — remaining
 
 **Verified 2026-08-16 — despite a commit message ("working on edit expense
-details"), none of the three items below have landed.** `ExpenseActionSheet`'s
+details"), none of the items below have landed.** `ExpenseActionSheet`'s
 edit drawer still only edits description/amount/paid-by; splits render as
-static chips, category has no picker, and `(edited)` isn't a tappable link to
-any history view. `expense_history` still has no frontend reader at all.
+static chips, category/date have no pickers, note field doesn't exist, and
+`(edited)` isn't a tappable link to any history view. `expense_history`
+still has no frontend reader at all.
 
 - [ ] **Edit history drawer** 🟡 (light — needs a look at the sheet design) —
   tap "(edited)" → sheet listing `expense_history` snapshots (edited_by name,
@@ -1426,11 +1578,17 @@ any history view. `expense_history` still has no frontend reader at all.
 - [ ] **Split editing** 🟡 — edit drawer keeps split membership read-only;
   editing who's in the split / split mode means re-running the full split
   builder (reuse `AddExpenseForm` machinery)
-- [ ] **Category editing** 🟢 *(flagged 2026-08-13)* — the edit drawer has no
-  category control at all today; only add-expense seeds `category` from
-  `detectCategory` with a tappable override (`CLAUDE.md` § categories,
-  `useState` convention noted under Hooks extraction below). Give the edit
-  flow the same picker/override.
+- [ ] **Category + date editing** 🟢 *(flagged 2026-08-13; date added 2026-08-18)* —
+  edit drawer has no category or date controls today; only add-expense sets them
+  (`CategoryChips` + `DatePicker` on desktop, neither on mobile add). Detail view
+  shows both read-only. `useUpdateExpense` only PATCHes
+  `description`/`amount`/`paid_by`. Reuse add-expense pickers in
+  `ExpenseEditDrawer`; extend the mutation. Also in UI/design pass backlog
+  (2026-08-18).
+- [ ] **Optional expense note (add + edit)** 🟡 *(2026-08-18)* — no `note` column on
+  `expenses` yet. Add migration + optional note field on add-expense modal
+  (`DesktopPanel`/`MobilePanel`), persist via `useAddExpense`, surface in detail/edit.
+  See UI/design pass backlog (2026-08-18).
 
 ### 7. Itemized splits 🟡 (schema + UX design)
 

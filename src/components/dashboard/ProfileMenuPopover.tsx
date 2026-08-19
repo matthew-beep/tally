@@ -201,7 +201,7 @@ export function ProfileMenuPopover({ open, anchorRef, onClose, onSettings }: Pro
         zIndex: 400,
         background: T.bg,
         borderRadius: T.r.lg,
-        boxShadow: `${T.shadowFloat}, inset 0 0 0 1px ${T.line}`,
+        boxShadow: T.shadowFloat,
         overflow: 'hidden',
         transformOrigin: 'bottom center',
         animation: 'tally-pop 0.15s ease-out',

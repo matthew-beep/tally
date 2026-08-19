@@ -9,6 +9,9 @@ import { avatarProfile } from '@/lib/memberDisplay'
 import { formatAmount, round2, stripNegative, parseNum } from '@/lib/money'
 import { ModalHeader } from '@/components/modal'
 import { Btn } from '@/components/Btn'
+import { Input } from '@/components/Input'
+import { Segmented } from '@/components/Segmented'
+import { PersonToken, Token } from '@/components/PersonToken'
 import { DatePicker } from '@/components/DatePicker'
 import type { GroupMember } from '@/types'
 import type { SplitMode } from './types'
@@ -16,34 +19,15 @@ import { RemainderInline, shortName } from './parts'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 // Desktop 4-way split_type tab strip. Mobile uses AlgorithmRadios instead.
+const MODE_TABS: { value: SplitMode; label: string }[] = [
+  { value: 'equal',      label: 'Equal'    },
+  { value: 'percentage', label: 'Percent'  },
+  { value: 'exact',      label: 'Exact'    },
+  { value: 'itemized',   label: 'Itemized' },
+]
+
 function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMode) => void }) {
-  const tabs: { v: SplitMode; l: string }[] = [
-    { v: 'equal',      l: 'Equal'    },
-    { v: 'percentage', l: 'Percent'  },
-    { v: 'exact',      l: 'Exact'    },
-    { v: 'itemized',   l: 'Itemized' },
-  ]
-  return (
-    <div style={{
-      display: 'inline-flex', alignSelf: 'flex-start', gap: 4,
-      padding: 4, borderRadius: 14, background: T.surfaceAlt,
-      boxShadow: `inset 0 0 0 0.5px ${T.line}`,
-    }}>
-      {tabs.map(tab => {
-        const on = value === tab.v
-        return (
-          <button key={tab.v} type="button" onClick={() => onChange(tab.v)} style={{
-            border: 0, cursor: 'pointer', padding: '8px 15px',
-            background: on ? T.sun : 'transparent',
-            color: on ? T.sunOn : T.inkMuted,
-            borderRadius: 10, fontFamily: F, fontSize: 13, fontWeight: 600,
-            boxShadow: on ? '0 1px 2px rgba(0,0,0,0.12)' : 'none',
-            transition: 'all 0.15s',
-          }}>{tab.l}</button>
-        )
-      })}
-    </div>
-  )
+  return <Segmented options={MODE_TABS} value={value} onChange={onChange} />
 }
 
 // Unified desktop split list — one row renderer for all three amount modes.
@@ -138,22 +122,15 @@ function DesktopSplitList({ s }: { s: AddExpenseFormState }) {
                     <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(m, youMemberId)}</div>
                     <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{formatAmount(dollars)}</div>
                   </div>
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'baseline', gap: 1,
-                    padding: '8px 12px', borderRadius: 10, background: T.bg,
-                    boxShadow: isFocus ? `inset 0 0 0 1.5px ${T.sun}` : `inset 0 0 0 1px ${T.line}`,
-                    minWidth: 88, justifyContent: 'flex-end',
-                  }}>
-                    <input
-                      type="number" inputMode="decimal" min={0}
-                      value={percents[id] ?? ''}
-                      onChange={e => setPercent(id, stripNegative(e.target.value))}
-                      onFocus={() => setFocusId(id)} onBlur={() => setFocusId(null)}
-                      placeholder="0"
-                      style={{ width: 48, border: 'none', outline: 'none', background: 'transparent', fontFamily: FH, fontSize: 19, fontWeight: 600, letterSpacing: -0.4, color: T.ink, textAlign: 'right' }}
-                    />
-                    <span style={{ fontSize: 14, color: T.inkMuted, marginLeft: 2 }}>%</span>
-                  </div>
+                  <Input
+                    size="cellLg" suffix="%" alignRight fieldWidth={48}
+                    type="number" inputMode="decimal" min={0}
+                    value={percents[id] ?? ''}
+                    onChange={e => setPercent(id, stripNegative(e.target.value))}
+                    onFocus={() => setFocusId(id)} onBlur={() => setFocusId(null)}
+                    placeholder="0"
+                    style={{ minWidth: 88, justifyContent: 'flex-end' }}
+                  />
                 </>
               ) : (
                 <>
@@ -161,22 +138,15 @@ function DesktopSplitList({ s }: { s: AddExpenseFormState }) {
                     <div style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{shortName(m, youMemberId)}</div>
                     <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 1 }}>{pctOfTotal}% of total</div>
                   </div>
-                  <div style={{
-                    display: 'inline-flex', alignItems: 'baseline', gap: 2,
-                    padding: '8px 12px', borderRadius: 10, background: T.bg,
-                    boxShadow: isFocus ? `inset 0 0 0 1.5px ${T.sun}` : `inset 0 0 0 1px ${T.line}`,
-                    minWidth: 108, justifyContent: 'flex-end',
-                  }}>
-                    <span style={{ fontSize: 14, color: T.inkMuted }}>$</span>
-                    <input
-                      type="number" inputMode="decimal" min={0}
-                      value={exactAmounts[id] ?? ''}
-                      onChange={e => setExactAmount(id, stripNegative(e.target.value))}
-                      onFocus={() => setFocusId(id)} onBlur={() => setFocusId(null)}
-                      placeholder="0.00"
-                      style={{ width: 64, border: 'none', outline: 'none', background: 'transparent', fontFamily: FH, fontSize: 19, fontWeight: 600, letterSpacing: -0.4, color: T.ink, textAlign: 'right' }}
-                    />
-                  </div>
+                  <Input
+                    size="cellLg" prefix="$" alignRight fieldWidth={64}
+                    type="number" inputMode="decimal" min={0}
+                    value={exactAmounts[id] ?? ''}
+                    onChange={e => setExactAmount(id, stripNegative(e.target.value))}
+                    onFocus={() => setFocusId(id)} onBlur={() => setFocusId(null)}
+                    placeholder="0.00"
+                    style={{ minWidth: 108, justifyContent: 'flex-end' }}
+                  />
                 </>
               )}
             </div>
@@ -194,26 +164,18 @@ function PaidByChips({ members, paidById, onSelect, youMemberId }: {
   youMemberId?: string
 }) {
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {members.map((m, i) => {
-        const on = paidById === m.id
-        return (
-          <button
-            key={m.id} type="button" onClick={() => onSelect(m.id)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '4px 11px 4px 4px', borderRadius: 999,
-              background: on ? T.sunSoft : 'transparent',
-              color: on ? T.sunInk : T.ink,
-              boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
-              border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: F,
-            }}
-          >
-            <Avatar profile={avatarProfile(m)} slot={(i % 4) as 0|1|2|3} size={22} isYou={m.id === youMemberId} />
-            <span>{shortName(m, youMemberId)}</span>
-          </button>
-        )
-      })}
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '2px 0 6px' }}>
+      {members.map((m, i) => (
+        <PersonToken
+          key={m.id}
+          member={m}
+          slot={(i % 4) as 0 | 1 | 2 | 3}
+          selected={paidById === m.id}
+          onClick={() => onSelect(m.id)}
+          youMemberId={youMemberId}
+          size="sm"
+        />
+      ))}
     </div>
   )
 }
@@ -221,25 +183,17 @@ function PaidByChips({ members, paidById, onSelect, youMemberId }: {
 function CategoryChips({ category, onSelect }: { category: string; onSelect: (emoji: string) => void }) {
   return (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-      {CATEGORIES.map(cat => {
-        const on = category === cat.emoji
-        return (
-          <button
-            key={cat.emoji} type="button" onClick={() => onSelect(cat.emoji)}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              padding: '4px 10px 4px 8px', borderRadius: 999,
-              background: on ? T.sun : 'transparent',
-              color: on ? T.sunOn : T.ink,
-              boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
-              border: 'none', cursor: 'pointer', fontSize: 11.5, fontWeight: 600, fontFamily: F,
-            }}
-          >
-            <span style={{ fontSize: 12 }}>{cat.emoji}</span>
-            {cat.label}
-          </button>
-        )
-      })}
+      {CATEGORIES.map(cat => (
+        <Token
+          key={cat.emoji}
+          size="sm"
+          selected={category === cat.emoji}
+          onClick={() => onSelect(cat.emoji)}
+          leading={<span style={{ fontSize: 13, marginLeft: 4 }}>{cat.emoji}</span>}
+        >
+          {cat.label}
+        </Token>
+      ))}
     </div>
   )
 }
@@ -285,10 +239,7 @@ function SaveFooter({ onCancel, onSave, canSave, saveLabel, isPending, statusHin
           onClick={onSave} disabled={!canSave || isPending} variant="primary" size="md"
           style={{
             padding: '10px 20px', borderRadius: 10,
-            background: canSave ? T.sun : T.lineStrong,
-            color: canSave ? T.sunOn : T.inkFaint,
             fontSize: 14, letterSpacing: -0.2,
-            boxShadow: canSave ? '0 6px 16px rgba(242,192,74,0.32)' : 'none',
           }}
         >{saveLabel}</Btn>
       </div>
@@ -302,11 +253,11 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
     <div className="add-expense-panel add-expense-panel--desktop">
       <ModalHeader onClose={onCancel}>
         <SectionLabel size="sm">New expense · {s.groupLabel}</SectionLabel>
-        <div style={{ marginTop: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
+        <div style={{ marginTop: 8 }}>
+          <Input
+            size="title" fullWidth autoFocus
             value={s.description} onChange={e => s.setDescription(e.target.value)}
             placeholder="What was this for?"
-            style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: F, fontSize: 30, fontWeight: 600, letterSpacing: -0.8, color: T.ink }}
           />
         </div>
       </ModalHeader>
@@ -315,15 +266,13 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
         <div className="add-expense-desktop-left">
           <div>
             <SectionLabel size="sm">Amount</SectionLabel>
-            <div style={{ marginTop: 4, lineHeight: 1, display: 'flex', alignItems: 'baseline', gap: 2 }}>
-              <span style={{ fontFamily: FH, fontSize: 20, color: T.inkMuted, fontWeight: 500 }}>$</span>
-              <input
-                type="text" inputMode="decimal"
-                value={s.amount} onChange={e => s.setAmount(stripNegative(e.target.value))}
-                placeholder="0.00"
-                style={{ flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent', fontFamily: FH, fontSize: 38, fontWeight: 600, letterSpacing: -1.4, color: T.ink, overflow: 'hidden' }}
-              />
-            </div>
+            <Input
+              size="hero" fullWidth prefix="$"
+              type="text" inputMode="decimal"
+              value={s.amount} onChange={e => s.setAmount(stripNegative(e.target.value))}
+              placeholder="0.00"
+              style={{ marginTop: 6 }}
+            />
           </div>
 
           <div>
@@ -336,7 +285,7 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
             <CategoryChips category={s.category} onSelect={s.selectCategory} />
           </div>
 
-          <div className="border-2 h-full">
+          <div className="h-full">
             <SectionLabel size="sm" style={{ marginBottom: 8 }}>Date</SectionLabel>
             <DatePicker value={s.expenseDate} onChange={s.setExpenseDate} />
           </div>

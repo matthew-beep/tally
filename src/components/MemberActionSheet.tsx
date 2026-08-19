@@ -219,7 +219,7 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
             </div>
             <Btn
               onClick={handleSendInvite} disabled={inviteToSeat.isPending} variant="primary" size="lg" fullWidth
-              style={{ padding: '15px', borderRadius: T.r.lg, background: T.sun, color: T.sunOn, fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: inviteToSeat.isPending ? 0.7 : 1 }}
+              style={{ padding: '15px', borderRadius: T.r.lg, fontFamily: FH, fontSize: 15, fontWeight: 600, opacity: inviteToSeat.isPending ? 0.7 : 1 }}
             >
               {inviteToSeat.isPending ? 'Sending…' : 'Send invite'}
             </Btn>

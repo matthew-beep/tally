@@ -75,7 +75,7 @@ export function Checkbox({ on, onClick }: { on: boolean; onClick: () => void }) 
         background: on ? T.sun : 'transparent',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer', transition: 'all 0.14s',
-        fontSize: 11, fontWeight: 800, color: T.sunInk,
+        fontSize: 11, fontWeight: 800, color: T.sunOn,
       }}
     >{on ? '✓' : ''}</div>
   )

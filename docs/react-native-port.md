@@ -224,8 +224,28 @@ platform-specific (`boxShadow` vs RN `shadow*` / `elevation`).
 
 Inline `style={{}}` on web looks RN-like but uses CSS shorthands RN rejects
 (`padding: '12px 14px'`, `border: '1.5px solid …'`, `boxShadow`, `cursor`,
-`transition`, `textOverflow`). Primitives (`Btn`, `Card`, `Avatar`) are
-templates, not shareable components.
+`transition`, `textOverflow`). Primitives (`Btn`, `Card`, `Avatar`, and since
+2026-08-19 `Token`/`PersonToken`, `Input`, `Segmented`) are templates, not
+shareable components.
+
+**The tactile depth system is the hard part of this section.** Web expresses
+all four tiers as multi-layer `box-shadow` (see `design-system.md`), and RN has
+no equivalent — iOS gets a single `shadow*` set, Android only `elevation`, and
+**neither supports inset shadows at all**. So:
+
+- *Raised* ports approximately (one outer shadow, losing the inner light edge).
+- *Recessed* has no native equivalent — `Input`'s wells need a redesign for
+  native (a filled surface plus a border is the usual substitute), not a port.
+- The press interaction ports cleanly and is worth keeping: it's a
+  `translateY(1px)` plus a shadow swap, which maps to `Pressable` + a style
+  function.
+- The two web-only animation workarounds (equal-length shadow lists, gradients
+  that can't interpolate to solids) are CSS artifacts. Don't carry them over —
+  and don't delete them from web while porting, they're load-bearing there.
+
+The sidebar rail does not port: it's desktop-only, and its state deliberately
+lives in a pre-paint `data-sidebar` attribute + CSS rather than React (see
+`features.md` → "Sidebar rail"). Native's shell is `DockedTabBar`.
 
 ---
 
@@ -359,8 +379,9 @@ v1 if the code string + share link work.
 - **`react-native-web` of current components** — CSS vars, shorthands,
   portals, Vaul, Next Image, and the desktop shell will fight the whole way.
 - **Service role in the app** — that key must never ship.
-- **Sharing `Btn` / `Card` via a compatibility layer** — cheaper to rewrite
-  four primitives than to polyfill CSS.
+- **Sharing `Btn` / `Card` via a compatibility layer** — cheaper to rewrite the
+  primitives than to polyfill CSS, and more so now that they carry multi-layer
+  and inset shadows RN cannot express.
 - **Changing the query model for native** — do not add Realtime, polling on
   expense queries, or a stored balance. See `CLAUDE.md` sync strategy.
 

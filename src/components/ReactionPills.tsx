@@ -92,7 +92,7 @@ export function ReactionPills({ expenseId, groupId, mySeatId, canPost, size = 'r
   )
 
   return (
-    <>
+    <div>
       {label && <SectionLabel size="sm" style={{ marginBottom: 10, padding: '0 2px' }}>{label}</SectionLabel>}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -136,6 +136,6 @@ export function ReactionPills({ expenseId, groupId, mySeatId, canPost, size = 'r
         onClose={() => setPickerOpen(false)}
         onPick={react}
       />
-    </>
+    </div>
   )
 }

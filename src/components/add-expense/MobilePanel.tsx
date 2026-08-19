@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { T, FH, F, FMONO } from '@/design/tokens'
+import { T, FH, F, FMONO, well } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { SectionLabel } from '@/components/SectionLabel'
 import { avatarProfile } from '@/lib/memberDisplay'
@@ -10,6 +10,8 @@ import type { GroupMember } from '@/types'
 import { ALGORITHMS, algoLabel, type SplitMode, type LineItem } from './types'
 import { RemainderCounter, Hairline, Chevron, Checkbox, shortName, fmtPct } from './parts'
 import { Btn } from '@/components/Btn'
+import { Input } from '@/components/Input'
+import { PersonToken } from '@/components/PersonToken'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 function CollapsibleRow({ label, value, open, onClick }: {
@@ -35,27 +37,18 @@ function PayerPillRow({ members, slotById, paidById, onSelect, youMemberId }: {
 }) {
   return (
     <div style={{ paddingBottom: 14 }}>
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
-        {members.map(m => {
-          const sel = paidById === m.id
-          return (
-            <button
-              key={m.id} type="button" onClick={() => onSelect(m.id)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
-                padding: '7px 13px 7px 7px', borderRadius: 999,
-                border: `2px solid ${sel ? T.sun : T.line}`,
-                background: sel ? T.sunSoft : T.surface,
-                cursor: 'pointer', fontFamily: F, transition: 'all 0.15s',
-              }}
-            >
-              <Avatar profile={avatarProfile(m)} slot={slotById[m.id] ?? 0} size={24} isYou={m.id === youMemberId} />
-              <span style={{ fontSize: 13.5, fontWeight: 700, color: sel ? T.sunInk : T.ink, whiteSpace: 'nowrap' }}>
-                {shortName(m, youMemberId)}
-              </span>
-            </button>
-          )
-        })}
+      {/* Raised tokens need vertical room for their shadow, hence the padding. */}
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '4px 2px 8px' }}>
+        {members.map(m => (
+          <PersonToken
+            key={m.id}
+            member={m}
+            slot={slotById[m.id] ?? 0}
+            selected={paidById === m.id}
+            onClick={() => onSelect(m.id)}
+            youMemberId={youMemberId}
+          />
+        ))}
       </div>
     </div>
   )
@@ -176,28 +169,22 @@ function ExpenseBreakdown({ s, payerId }: { s: AddExpenseFormState; payerId: str
                 <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>paid</div>
               </div>
             ) : splitMode === 'exact' ? (
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: on ? T.surfaceAlt : 'transparent', padding: '6px 10px', borderRadius: 10, border: on ? `0.5px solid ${T.line}` : 'none' }}>
-                <span style={{ fontSize: 12, color: T.inkMuted, fontFamily: FH }}>$</span>
-                <input
-                  type="number" inputMode="decimal" min={0} disabled={!on}
-                  value={on ? (exactAmounts[id] ?? '') : ''}
-                  onChange={e => setExactAmount(id, stripNegative(e.target.value))}
-                  placeholder="0.00"
-                  style={{ border: 'none', background: 'none', width: 52, textAlign: 'right', fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: T.ink, outline: 'none', padding: 0 }}
-                />
-              </div>
+              <Input
+                size="cell" prefix="$" alignRight fieldWidth={52} disabled={!on}
+                type="number" inputMode="decimal" min={0}
+                value={on ? (exactAmounts[id] ?? '') : ''}
+                onChange={e => setExactAmount(id, stripNegative(e.target.value))}
+                placeholder="0.00"
+              />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: on ? T.surfaceAlt : 'transparent', padding: '5px 9px', borderRadius: 10, border: on ? `0.5px solid ${T.line}` : 'none' }}>
-                  <input
-                    type="number" inputMode="decimal" min={0} disabled={!on}
-                    value={on ? (percents[id] ?? '') : ''}
-                    onChange={e => setPercent(id, stripNegative(e.target.value))}
-                    placeholder="0"
-                    style={{ border: 'none', background: 'none', width: 34, textAlign: 'right', fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: T.ink, outline: 'none', padding: 0 }}
-                  />
-                  <span style={{ fontSize: 12, color: T.inkMuted }}>%</span>
-                </div>
+                <Input
+                  size="cell" suffix="%" alignRight fieldWidth={34} disabled={!on}
+                  type="number" inputMode="decimal" min={0}
+                  value={on ? (percents[id] ?? '') : ''}
+                  onChange={e => setPercent(id, stripNegative(e.target.value))}
+                  placeholder="0"
+                />
                 <span style={{ fontFamily: FMONO, fontSize: 10, color: T.inkFaint }}>{formatAmount(on ? total * pct / 100 : 0)}</span>
               </div>
             )}
@@ -236,15 +223,13 @@ function BreakdownItems({ s }: { s: AddExpenseFormState }) {
               value={it.name} onChange={e => renameItem(it.id, e.target.value)} placeholder="Item name"
               style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink, caretColor: T.sun, minWidth: 0 }}
             />
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: T.surfaceAlt, padding: '4px 9px', borderRadius: 9, border: `0.5px solid ${T.line}`, flexShrink: 0 }}>
-              <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: FH }}>$</span>
-              <input
-                type="number" inputMode="decimal" min={0} value={it.price || ''}
-                onChange={e => priceItem(it.id, Math.max(0, parseFloat(e.target.value) || 0))}
-                style={{ border: 'none', background: 'none', width: 44, textAlign: 'right', fontFamily: FMONO, fontSize: 13, fontWeight: 700, color: T.ink, outline: 'none', padding: 0 }}
-                placeholder="0.00"
-              />
-            </div>
+            <Input
+              size="cell" prefix="$" alignRight fieldWidth={44}
+              type="number" inputMode="decimal" min={0} value={it.price || ''}
+              onChange={e => priceItem(it.id, Math.max(0, parseFloat(e.target.value) || 0))}
+              placeholder="0.00"
+              style={{ flexShrink: 0 }}
+            />
             <button type="button" onClick={() => removeItem(it.id)} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', opacity: 0.3, flexShrink: 0 }}>
               <svg width={12} height={12} viewBox="0 0 14 14" fill="none">
                 <path d="M2 4h10M5 4V2.5h4V4M5.5 6v5M8.5 6v5M3 4l.8 7.5h6.4L11 4" stroke={T.ink} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -287,26 +272,24 @@ function BreakdownItems({ s }: { s: AddExpenseFormState }) {
         {rows.map(row => (
           <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0', borderBottom: `0.5px solid ${T.line}` }}>
             <span style={{ fontSize: 13, color: T.inkMuted, fontWeight: 500, flex: 1 }}>{row.label}</span>
-            <div style={{ display: 'flex', background: T.surfaceAlt, borderRadius: 999, padding: 2, gap: 1, border: `0.5px solid ${T.line}` }}>
+            <div style={{ display: 'flex', borderRadius: 999, padding: 2, gap: 1, ...well() }}>
               {(['percent', 'flat'] as const).map(opt => {
                 const sel = row.mode === opt
                 return (
                   <button
                     key={opt} type="button" onClick={() => row.setMode(opt)}
-                    style={{ padding: '2px 8px', borderRadius: 999, border: 'none', background: sel ? T.surface : 'none', fontSize: 11, fontWeight: sel ? 700 : 500, color: sel ? T.ink : T.inkMuted, cursor: 'pointer', fontFamily: F, boxShadow: sel ? '0 1px 2px rgba(0,0,0,0.06)' : 'none' }}
+                    style={{ padding: '2px 8px', borderRadius: 999, border: 'none', background: sel ? T.surface : 'none', fontSize: 11, fontWeight: sel ? 700 : 500, color: sel ? T.ink : T.inkMuted, cursor: 'pointer', fontFamily: F, boxShadow: sel ? T.shadowRaised : T.shadowNone }}
                   >{opt === 'percent' ? '%' : '$'}</button>
                 )
               })}
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 2, background: T.surfaceAlt, padding: '3px 8px', borderRadius: 8, border: `0.5px solid ${T.line}` }}>
-              {row.mode === 'flat' && <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: FH }}>$</span>}
-              <input
-                type="number" inputMode="decimal" min={0} value={row.val}
-                onChange={e => row.setVal(Math.max(0, parseFloat(e.target.value) || 0))}
-                style={{ border: 'none', background: 'none', width: 36, textAlign: 'right', fontFamily: FMONO, fontSize: 13, fontWeight: 600, color: T.ink, outline: 'none', padding: 0 }}
-              />
-              {row.mode === 'percent' && <span style={{ fontSize: 11, color: T.inkMuted }}>%</span>}
-            </div>
+            <Input
+              size="cell" alignRight fieldWidth={36}
+              prefix={row.mode === 'flat' ? '$' : undefined}
+              suffix={row.mode === 'percent' ? '%' : undefined}
+              type="number" inputMode="decimal" min={0} value={row.val}
+              onChange={e => row.setVal(Math.max(0, parseFloat(e.target.value) || 0))}
+            />
             <span style={{ fontFamily: FMONO, fontSize: 12, color: T.inkMuted, minWidth: 44, textAlign: 'right' }}>{formatAmount(row.amt)}</span>
           </div>
         ))}
@@ -339,27 +322,32 @@ export function MobilePanel({ s, onCancel }: { s: AddExpenseFormState; onCancel:
       </div>
 
       <div className="add-expense-scroll" style={{ display: 'flex', flexDirection: 'column' }}>
-        <input
+        <Input
+          size="title" fullWidth autoFocus
           type="text" value={s.description} onChange={e => s.setDescription(e.target.value)}
           placeholder="What was it for?"
-          style={{ background: 'none', border: 'none', outline: 'none', fontFamily: F, fontSize: 21, fontWeight: 700, letterSpacing: -0.5, color: T.ink, padding: '0 0 6px', caretColor: T.sun, width: '100%' }}
+          style={{ marginBottom: 10 }}
         />
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, paddingBottom: 18 }}>
-          <span style={{ fontFamily: FH, fontSize: 24, fontWeight: 500, color: T.inkMuted }}>$</span>
+        <div style={{ paddingBottom: 18 }}>
           {isItemized ? (
-            <span style={{ fontFamily: FH, fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: s.itemTotal > 0 ? T.ink : T.inkFaint }}>
-              {s.itemTotal > 0 ? s.itemTotal.toFixed(2) : '0.00'}
-            </span>
+            // Itemized totals are derived, not typed — a flat readout, not a well.
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 3 }}>
+              <span style={{ fontFamily: FH, fontSize: 24, fontWeight: 500, color: T.inkMuted }}>$</span>
+              <span style={{ fontFamily: FH, fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: s.itemTotal > 0 ? T.ink : T.inkFaint }}>
+                {s.itemTotal > 0 ? s.itemTotal.toFixed(2) : '0.00'}
+              </span>
+              <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 6, alignSelf: 'flex-end', paddingBottom: 5 }}>from receipt</span>
+            </div>
           ) : (
-            <input
-              type="number" inputMode="decimal" min={0} value={s.amount} onChange={e => s.setAmount(stripNegative(e.target.value))}
+            <Input
+              size="hero" fullWidth prefix="$"
+              type="number" inputMode="decimal" min={0}
+              value={s.amount} onChange={e => s.setAmount(stripNegative(e.target.value))}
               placeholder="0.00"
-              className="add-expense-amount-input"
-              style={{ background: 'none', border: 'none', outline: 'none', fontFamily: FH, fontSize: 38, fontWeight: 800, letterSpacing: -1.5, color: T.ink, width: '100%', caretColor: T.sun }}
+              inputClassName="add-expense-amount-input"
             />
           )}
-          {isItemized && <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 6, alignSelf: 'flex-end', paddingBottom: 5 }}>from receipt</span>}
         </div>
 
         <Hairline />
@@ -419,10 +407,8 @@ export function MobilePanel({ s, onCancel }: { s: AddExpenseFormState; onCancel:
         <Btn
           onClick={s.handleSave} disabled={!s.canSave || s.isPending} variant="primary" size="lg" fullWidth
           style={{
-            background: s.canSave ? T.sun : T.lineStrong, borderRadius: 14,
+            borderRadius: 14,
             padding: '17px', fontSize: 16,
-            color: s.canSave ? T.sunOn : T.inkFaint,
-            boxShadow: s.canSave ? '0 4px 16px rgba(242,192,74,0.28)' : 'none',
             fontFamily: FH, letterSpacing: -0.2,
           }}
         >{saveLabel}</Btn>

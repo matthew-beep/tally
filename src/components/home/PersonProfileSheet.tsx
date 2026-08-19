@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ModalOrSheet } from '@/components/modal'
 import { Btn } from '@/components/Btn'
@@ -12,13 +13,24 @@ import type { Profile, PersonPart } from '@/types'
 interface PersonProfileSheetProps {
   open: boolean
   onClose: () => void
-  profile: Profile
+  profile: Profile | null
   slot: 0 | 1 | 2 | 3
   parts: PersonPart[]
 }
 
-export function PersonProfileSheet({ open, onClose, profile, slot, parts }: PersonProfileSheetProps) {
+export function PersonProfileSheet({ open, onClose, profile: profileProp, slot: slotProp, parts: partsProp }: PersonProfileSheetProps) {
   const router = useRouter()
+
+  // Sticky copy of the last non-null person — ModalOrSheet stays mounted and
+  // animates out based on `open`, not on `profile` going null, so content
+  // must keep rendering from something that doesn't disappear on close.
+  const [display, setDisplay] = useState(profileProp ? { profile: profileProp, slot: slotProp, parts: partsProp } : null)
+  useEffect(() => {
+    if (profileProp) setDisplay({ profile: profileProp, slot: slotProp, parts: partsProp })
+  }, [profileProp, slotProp, partsProp])
+
+  if (!display) return null
+  const { profile, slot, parts } = display
   const name = profile.display_name ?? profile.name
   const firstName = getFirstName(name)
 
@@ -106,7 +118,7 @@ export function PersonProfileSheet({ open, onClose, profile, slot, parts }: Pers
             onClick={onClose} variant="outline" size="lg" fullWidth
             style={{
               padding: '14px 16px', borderRadius: 16,
-              background: T.surface, color: T.inkMuted, border: `1px solid ${T.lineStrong}`,
+              background: T.surface,
               fontFamily: 'inherit', fontSize: 14, textAlign: 'center',
             }}
           >

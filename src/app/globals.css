@@ -20,7 +20,9 @@
   --tally-sidebar-active-ink:  #3D2E07;
   --tally-sidebar-active-soft: #FAE7B0;
   --tally-shadow-sm:   0 1px 0 rgba(31,26,20,0.04);
-  --tally-shadow-float:0 8px 24px rgba(0,0,0,0.08);
+  /* FLOATING — modals, popovers, the sidebar panel. Warm-tinted with a hairline
+     ring, per the tactile guide: no gray shadows anywhere in the system. */
+  --tally-shadow-float:0 10px 34px rgba(31,26,20,0.12), inset 0 0 0 1px rgba(31,26,20,0.05);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.28);
   --tally-skeleton-a:  rgba(31,26,20,0.06);
   --tally-skeleton-b:  rgba(31,26,20,0.10);
@@ -42,6 +44,27 @@
   --tally-card-bg:     #FFFFFF;
   --tally-card-border: none;
   --tally-card-shadow: 0 2px 16px rgba(31,26,20,0.10), 0 1px 3px rgba(31,26,20,0.06);
+  /* Tactile depth — raised object (rest / hover-lift / press-sink) */
+  --tally-shadow-raised:       inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(31,26,20,0.06), 0 1px 2px rgba(31,26,20,0.10), 0 4px 10px rgba(31,26,20,0.09);
+  --tally-shadow-raised-hover: inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -1px 0 rgba(31,26,20,0.07), 0 2px 4px rgba(31,26,20,0.12), 0 8px 18px rgba(31,26,20,0.13);
+  /* The two trailing transparent layers are load-bearing: box-shadow only
+     animates between lists of equal length, so the pressed recipes must carry
+     the same 4 layers as raised/sun or the press snaps instead of easing. */
+  --tally-shadow-pressed:      inset 0 2px 5px rgba(31,26,20,0.16), inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 rgba(31,26,20,0), 0 0 0 rgba(31,26,20,0);
+  --tally-sun-hi: #F6C85A;
+  --tally-sun-lo: #E8B53E;
+  --tally-shadow-sun:         inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(31,26,20,0.13), 0 2px 4px rgba(31,26,20,0.14), 0 6px 14px rgba(226,178,60,0.34);
+  --tally-shadow-sun-hover:   inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(31,26,20,0.14), 0 3px 6px rgba(31,26,20,0.16), 0 10px 22px rgba(226,178,60,0.42);
+  --tally-shadow-sun-pressed: inset 0 2px 5px rgba(31,26,20,0.22), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 rgba(226,178,60,0), 0 0 0 rgba(226,178,60,0);
+  /* Tactile depth — recessed trough (inputs) and the flat information tier.
+     --tally-sink is deliberately a step darker than --tally-surface-alt so a
+     well reads as a hole, not a tint. */
+  --tally-sink:            #EBE1CF;
+  --tally-shadow-recessed: inset 0 0 0 1px rgba(31,26,20,0.09), inset 0 2px 6px rgba(31,26,20,0.11), inset 0 -1px 0 rgba(255,255,255,0.55);
+  --tally-shadow-hair:     inset 0 0 0 1px rgba(31,26,20,0.07);
+  --tally-focus-rim:       inset 0 0 0 1.5px #F2C144;
+  /* 4-layer no-op — animate to/from raised without a layer-count mismatch. */
+  --tally-shadow-none:     0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0);
   /* Page background — mesh gradient blobs.
      Temporarily flattened to a solid color to preview against the iOS
      Safari chrome mismatch — gradient kept below, commented out, not
@@ -76,7 +99,8 @@
   --tally-sidebar-active-ink:  #FAE7B0;
   --tally-sidebar-active-soft: rgba(245,203,102,0.20);
   --tally-shadow-sm:   0 1px 0 rgba(0,0,0,0.4);
-  --tally-shadow-float:0 8px 24px rgba(0,0,0,0.55);
+  /* See :root — same recipe, tuned for charcoal. */
+  --tally-shadow-float:0 10px 34px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(244,238,227,0.06);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.75);
   --tally-skeleton-a:  rgba(244,238,227,0.05);
   --tally-skeleton-b:  rgba(244,238,227,0.09);
@@ -98,6 +122,23 @@
   --tally-card-bg:     #2B241D;
   --tally-card-border: 0.5px solid rgba(244,238,227,0.10);
   --tally-card-shadow: 0 4px 18px rgba(0,0,0,0.55);
+  /* Tactile depth — raised object (rest / hover-lift / press-sink) */
+  --tally-shadow-raised:       inset 0 1px 0 rgba(255,255,255,0.08), inset 0 -1px 0 rgba(0,0,0,0.4), 0 1px 2px rgba(0,0,0,0.4), 0 4px 10px rgba(0,0,0,0.4);
+  --tally-shadow-raised-hover: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -1px 0 rgba(0,0,0,0.42), 0 2px 4px rgba(0,0,0,0.45), 0 8px 18px rgba(0,0,0,0.45);
+  /* See :root — trailing transparent layers keep the list length at 4. */
+  --tally-shadow-pressed:      inset 0 2px 5px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0);
+  --tally-sun-hi: #F7D170;
+  --tally-sun-lo: #E7B94A;
+  --tally-shadow-sun:         inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(31,26,20,0.13), 0 2px 4px rgba(31,26,20,0.14), 0 6px 14px rgba(0,0,0,0.45);
+  --tally-shadow-sun-hover:   inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(31,26,20,0.14), 0 3px 6px rgba(31,26,20,0.16), 0 10px 22px rgba(0,0,0,0.5);
+  --tally-shadow-sun-pressed: inset 0 2px 5px rgba(31,26,20,0.22), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0);
+  /* Tactile depth — recessed trough (inputs) and the flat information tier.
+     The design specifies rgba(0,0,0,0.34); pinned to the solid it resolves to
+     over --tally-surface so a well looks identical on surface and card-bg. */
+  --tally-sink:            #17130F;
+  --tally-shadow-recessed: inset 0 0 0 1px rgba(0,0,0,0.5), inset 0 2px 6px rgba(0,0,0,0.5), inset 0 -1px 0 rgba(255,255,255,0.04);
+  --tally-shadow-hair:     inset 0 0 0 1px rgba(244,238,227,0.08);
+  --tally-focus-rim:       inset 0 0 0 1.5px #F5CB66;
   /* Page background — mesh gradient blobs on warm charcoal.
      Temporarily flattened to a solid color, see :root above — gradient
      kept below, commented out, not deleted.
@@ -248,17 +289,21 @@ input[type="number"]::-webkit-outer-spin-button {
   margin: 0;
 }
 
+/* Tactile press — a tapped object sinks into the surface rather than shrinking,
+   matching Btn/PersonToken. Timing matches Btn's transform .09s. Note that any
+   element setting `transform` inline (the Sidebar rows pass `transform: none`)
+   opts out, since inline styles outrank this rule. */
 .ndtap,
 .wntap {
   -webkit-tap-highlight-color: transparent;
   outline: none;
   user-select: none;
-  transition: transform .12s ease, color .18s ease;
+  transition: transform .09s ease, color .18s ease;
 }
 
 .wntap:active,
 .ndtap:active {
-  transform: scale(0.94);
+  transform: translateY(1px);
 }
 
 .gp-pick-row {
@@ -311,6 +356,16 @@ a {
 @keyframes modal-pop-in {
   from { opacity: 0; transform: scale(0.96) translateY(8px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes modal-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+@keyframes modal-pop-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.96) translateY(8px); }
 }
 
 @keyframes tally-spin {

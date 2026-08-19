@@ -37,9 +37,20 @@ function ModalRoot({
   panelStyle,
 }: ModalProps) {
   const [mounted, setMounted] = useState(false)
+  const [render, setRender] = useState(open)
+  const [closing, setClosing] = useState(false)
 
   useEffect(() => setMounted(true), [])
-  useBodyScrollLock(open)
+  useBodyScrollLock(render)
+
+  useEffect(() => {
+    if (open) {
+      setClosing(false)
+      setRender(true)
+    } else if (render) {
+      setClosing(true)
+    }
+  }, [open, render])
 
   useEffect(() => {
     if (!open) return
@@ -50,12 +61,19 @@ function ModalRoot({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [open, onClose])
 
-  if (!open || !mounted) return null
+  if (!render || !mounted) return null
 
   return createPortal(
     <ModalContext.Provider value={{ onClose }}>
-      <ModalOverlay onClick={closeOnOverlayClick ? onClose : undefined} />
-      <ModalMenu maxWidth={maxWidth} className={sheet ? 'modal-sheet-menu' : undefined}>
+      <ModalOverlay onClick={closeOnOverlayClick ? onClose : undefined} closing={closing} />
+      <ModalMenu
+        maxWidth={maxWidth}
+        className={sheet ? 'modal-sheet-menu' : undefined}
+        closing={closing}
+        onAnimationEnd={() => {
+          if (closing) setRender(false)
+        }}
+      >
         <ModalPanel
           className={[sheet ? 'modal-sheet-panel' : undefined, panelClassName].filter(Boolean).join(' ') || undefined}
           style={panelStyle}

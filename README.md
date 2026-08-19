@@ -11,11 +11,11 @@ TanStack Query · Zustand · Vercel.
 
 | Doc | What's in it |
 |---|---|
-| [`docs/`](./docs/README.md) | **As-built docs** — schema, user flows, feature → code map |
+| [`docs/`](./docs/README.md) | **As-built docs** — schema, user flows, feature → code map, design tokens |
 | [`CLAUDE.md`](./CLAUDE.md) | Original design spec + AI session context (has drifted; `docs/` wins) |
 | [`TODO.md`](./TODO.md) | Active task list |
-| [`tally-roadmap.md`](./tally-roadmap.md) | Phase roadmap |
-| [`tally-style-guide.md`](./tally-style-guide.md) | Design system — tokens, type, color |
+| [`docs/design-system.md`](./docs/design-system.md) | Token palette, dark-mode schemes, tactile depth, fonts (authoritative for tokens) |
+| [`tally-style-guide.md`](./tally-style-guide.md) | Early design system v0.2 — superseded by `docs/design-system.md` for as-built tokens |
 | [`UX-SPEC.md`](./UX-SPEC.md) | Product/UX spec — principles, flows, screens |
 
 ## Development

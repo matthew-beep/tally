@@ -52,7 +52,7 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, settlements, 
           </div>
           <Btn
             onClick={() => router.push('/groups')} variant="soft" size="lg" fullWidth
-            style={{ padding: '15px', borderRadius: T.r.lg, fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginTop: 8, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
+            style={{ padding: '15px', borderRadius: T.r.lg, fontFamily: F, fontSize: 15, fontWeight: 700, color: T.ink, marginTop: 8 }}
           >
             Back to groups
           </Btn>
@@ -125,25 +125,22 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, settlements, 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <Btn
             onClick={async () => {
-              if (!confirmed || deleteGroup.isPending) return
               await deleteGroup.mutateAsync(groupId)
               setDeleted(true)
             }}
+            disabled={!confirmed || deleteGroup.isPending}
             variant="danger" size="lg" fullWidth
             style={{
               padding: '15px', borderRadius: T.r.lg,
-              background: confirmed ? T.coral : T.lineStrong, color: confirmed ? '#fff' : T.inkFaint,
-              cursor: confirmed ? 'pointer' : 'default',
               fontFamily: FH, fontSize: 16, letterSpacing: -0.2,
-              boxShadow: confirmed ? `0 8px 24px rgba(239,97,68,0.36)` : 'none',
-              transition: 'background 0.2s, box-shadow 0.2s', opacity: deleteGroup.isPending ? 0.6 : 1,
+              opacity: deleteGroup.isPending ? 0.6 : 1,
             }}
           >
             {deleteGroup.isPending ? 'Deleting…' : 'Delete group forever'}
           </Btn>
           <Btn
             onClick={onClose} variant="outline" size="lg" fullWidth
-            style={{ padding: '13px', borderRadius: T.r.lg, border: 0, fontFamily: F, fontSize: 15, color: T.inkMuted, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
+            style={{ padding: '13px', borderRadius: T.r.lg, fontFamily: F, fontSize: 15 }}
           >
             Cancel
           </Btn>

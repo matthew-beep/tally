@@ -66,7 +66,7 @@ function BalanceTableColumn({ column }: { column: BalanceColumn }) {
           )}
         </span>
         <span style={{ fontSize: 12, fontWeight: 700, color: accent, fontVariantNumeric: 'tabular-nums' }}>
-          {sign}${sum.toFixed(0)}
+          {sign}${sum.toFixed(2)}
         </span>
       </div>
 

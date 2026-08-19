@@ -210,9 +210,7 @@ export default function AddByCodePage() {
                 onClick={handleAdd} disabled={adding} variant="primary" size="lg"
                 style={{
                   flex: 1, padding: '14px 18px', borderRadius: 14,
-                  background: T.sun, color: T.sunOn,
                   fontFamily: FH, fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
-                  boxShadow: '0 8px 20px rgba(242,192,74,0.30)',
                   opacity: adding ? 0.7 : 1,
                 }}
               >

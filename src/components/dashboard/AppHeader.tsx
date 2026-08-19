@@ -1,7 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { T, F, FH } from '@/design/tokens'
+import { T, FH } from '@/design/tokens'
+import { Btn } from '@/components/Btn'
 import { SectionLabel } from '@/components/SectionLabel'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
@@ -57,14 +58,15 @@ export function AppHeader({ title, greeting = false, action }: AppHeaderProps) {
       </div>
 
       <div className="app-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button
+        <Btn
+          variant="primary"
+          size="sm"
           onClick={resolvedAction.onClick}
           className={resolvedAction.hideOnMobile ? 'app-header-action app-header-action--hide-mobile' : 'app-header-action'}
-          style={{ background: T.sun, border: 'none', borderRadius: T.r.md, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: T.sunOn, fontFamily: F, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
         >
           <span className="app-header-action-label">{resolvedAction.label}</span>
           <span className="app-header-action-icon">+</span>
-        </button>
+        </Btn>
         <NotificationBell size={34} onClick={notificationSheet.openList} />
       </div>
 

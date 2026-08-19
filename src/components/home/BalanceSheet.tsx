@@ -29,8 +29,16 @@ function allocationFor(part: PersonPart, amount: number): SettlementAllocation {
 interface BalanceSheetProps {
   open: boolean
   onClose: () => void
-  name: string
+  name: string | null
   profile?: Profile   // absent for guests — name-only member rows
+  slot: 0 | 1 | 2 | 3
+  net: number
+  parts: PersonPart[]
+}
+
+interface BalanceSheetDisplay {
+  name: string
+  profile?: Profile
   slot: 0 | 1 | 2 | 3
   net: number
   parts: PersonPart[]
@@ -180,11 +188,7 @@ function GroupSettleScreen({
           disabled={!canSettle} onClick={onSettle} variant="primary" size="lg" fullWidth
           style={{
             padding: 16, borderRadius: 18,
-            background: canSettle ? T.sun : T.surfaceAlt,
-            color: canSettle ? T.sunOn : T.inkFaint,
             fontFamily: 'inherit', fontSize: 16, letterSpacing: -0.2,
-            boxShadow: canSettle ? '0 8px 24px rgba(242,192,74,0.35)' : 'none',
-            transition: 'all 0.18s',
           }}
         >
           {canSettle ? `Settle ${formatAmount(amount)} in ${part.groupName}` : 'Enter an amount'}
@@ -194,12 +198,34 @@ function GroupSettleScreen({
   )
 }
 
-export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }: BalanceSheetProps) {
+export function BalanceSheet({ open, onClose, name: nameProp, profile: profileProp, slot: slotProp, net: netProp, parts: partsProp }: BalanceSheetProps) {
   const [screen, setScreen] = useState<Screen>('balance')
   const [groupPart, setGroupPart] = useState<PersonPart | null>(null)
   const [groupAmount, setGroupAmount] = useState(0)
   const [settled, setSettled] = useState<SettledSummary | null>(null)
   const createSettlements = useCreateSettlements()
+
+  // Sticky copy of the last non-null person — ModalOrSheet stays mounted and
+  // animates out based on `open`, not on `name` going null, so content must
+  // keep rendering from something that doesn't disappear on close.
+  const [display, setDisplay] = useState<BalanceSheetDisplay | null>(
+    nameProp ? { name: nameProp, profile: profileProp, slot: slotProp, net: netProp, parts: partsProp } : null,
+  )
+  useEffect(() => {
+    if (nameProp) setDisplay({ name: nameProp, profile: profileProp, slot: slotProp, net: netProp, parts: partsProp })
+  }, [nameProp, profileProp, slotProp, netProp, partsProp])
+
+  useEffect(() => {
+    if (open) {
+      setScreen('balance')
+      setGroupPart(null)
+      setGroupAmount(0)
+      setSettled(null)
+    }
+  }, [open])
+
+  if (!display) return null
+  const { name, profile, slot, net, parts } = display
 
   const owed = net > 0
   const amtColor  = owed ? T.mintInk  : T.coralInk
@@ -231,15 +257,6 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
   // and gross alone would imply $50 changes hands when $10 does. The gross
   // allocation is disclosed in the body above instead.
   const confirmLabel = netTransfer >= 0 ? 'Mark as settled' : 'Record payment'
-
-  useEffect(() => {
-    if (open) {
-      setScreen('balance')
-      setGroupPart(null)
-      setGroupAmount(0)
-      setSettled(null)
-    }
-  }, [open])
 
   function handleClose() {
     setScreen('balance')
@@ -381,11 +398,7 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
               disabled={!canSettleAll} onClick={handleSettleAll} variant="primary" size="lg" fullWidth
               style={{
                 padding: 16, borderRadius: 18,
-                background: canSettleAll ? T.sun : T.surfaceAlt,
-                color: canSettleAll ? T.sunOn : T.inkFaint,
                 fontFamily: 'inherit', fontSize: 16, letterSpacing: -0.2,
-                boxShadow: canSettleAll ? '0 8px 24px rgba(242,192,74,0.35)' : 'none',
-                transition: 'all 0.18s',
               }}
             >
               {confirmLabel} · {formatAmount(abs)}
@@ -457,9 +470,8 @@ export function BalanceSheet({ open, onClose, name, profile, slot, net, parts }:
             <Btn
               onClick={openConfirmAll} variant="primary" size="lg" fullWidth
               style={{
-                padding: 16, borderRadius: 18, background: T.sun, color: T.sunOn,
+                padding: 16, borderRadius: 18,
                 fontFamily: 'inherit', fontSize: 16, letterSpacing: -0.2,
-                boxShadow: '0 8px 24px rgba(242,192,74,0.35)',
               }}
             >
               Settle up with {firstName}

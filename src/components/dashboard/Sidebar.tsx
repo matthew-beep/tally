@@ -13,6 +13,7 @@ import { SectionLabel } from '@/components/SectionLabel'
 import { Avatar } from '@/components/Avatar'
 import { ProfileMenuPopover } from '@/components/dashboard/ProfileMenuPopover'
 import { SettingsModal } from '@/components/dashboard/SettingsModal'
+import { useSidebarRail } from '@/lib/sidebar'
 
 // 'Me' is deliberately not a sidebar nav destination — identity/settings
 // are reached via the profile menu at the bottom instead. See
@@ -43,12 +44,16 @@ function SidebarNavItem({
   active: boolean
   setRef: (id: string) => (el: HTMLElement | null) => void
 }) {
-  const ink = active ? T.sidebarActiveInk : T.sidebarNavInk
+  // Active items sit on the solid sun SliderPill, so they take `sunOn` — dark
+  // ink on sun in BOTH themes. `sidebarActiveInk` is for the group rows below,
+  // which sit on translucent `sidebarActiveSoft` and do flip with the theme.
+  const ink = active ? T.sunOn : T.sidebarNavInk
   return (
     <div ref={setRef(id)}>
       <Link
         href={href}
-        className="wntap"
+        className="wntap sidebar-nav-item"
+        title={label}
         style={{
           position: 'relative',
           zIndex: 1,
@@ -66,7 +71,7 @@ function SidebarNavItem({
         }}
       >
         <WebNavIcon name={icon} color={ink} fill={active} />
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <span className="sidebar-label" style={{ flex: 1, textOverflow: 'ellipsis' }}>
           {label}
         </span>
       </Link>
@@ -83,40 +88,58 @@ export function Sidebar() {
   const activeId = getPrimaryActive(pathname) ?? ''
   const { containerRef, setRef, box } = useSlider(activeId)
 
+  const { rail, toggle: toggleRail } = useSidebarRail()
   const [menuOpen, setMenuOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const profileFooterRef = useRef<HTMLDivElement | null>(null)
   const firstName = (profile ? profile.display_name ?? profile.name : 'You').trim().split(/\s+/)[0]
 
   return (
+    // A FLOATING panel — it sits above the app rather than being welded to the
+    // window edge. Height comes from the wrapper's flex stretch (see
+    // .dashboard-sidebar in dashboard.css, which supplies the inset), not from
+    // 100dvh, so the panel stays inside its own padding.
     <aside
-      className="dashboard-sidebar"
+      // width/padding live in CSS (.dashboard-sidebar-panel) so the rail can
+      // animate them without fighting an inline style.
+      className="dashboard-sidebar-panel"
       style={{
-        width: 270,
         flexShrink: 0,
-        height: '100dvh',
+        minHeight: 0,
         boxSizing: 'border-box',
-        padding: '22px 14px 14px',
         display: 'flex',
         flexDirection: 'column',
         background: T.sidebarBg,
-        borderRight: `0.5px solid ${T.line}`,
+        borderRadius: T.r.panel,
+        boxShadow: T.shadowFloat,
       }}
     >
-      <Link
-        href="/"
-        style={{
-          textDecoration: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 9,
-          padding: '2px 10px 18px',
-        }}
-      >
-        <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.7, fontFamily: FH, color: T.ink }}>
-          tally<span style={{ color: T.sun }}>.</span>
-        </span>
-      </Link>
+      <div className="sidebar-header">
+        <Link href="/" className="sidebar-logo" style={{ textDecoration: 'none', alignItems: 'center' }}>
+          {/* font-size lives in CSS so the rail can scale the wordmark down to
+              fit 64px without fighting an inline style. */}
+          <span className="sidebar-logo-mark" style={{ fontWeight: 800, letterSpacing: -0.7, fontFamily: FH, color: T.ink }}>
+            tally<span style={{ color: T.sun }}>.</span>
+          </span>
+        </Link>
+        <button
+          type="button"
+          onClick={toggleRail}
+          className="sidebar-icon-btn"
+          title={rail ? 'Expand sidebar (⌘\\)' : 'Collapse sidebar (⌘\\)'}
+          aria-label={rail ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!rail}
+          style={{
+            width: 26, height: 26, borderRadius: 7, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
+            <line x1="6.25" y1="2.75" x2="6.25" y2="13.25" stroke="currentColor" strokeWidth="1.4" />
+          </svg>
+        </button>
+      </div>
 
       <div
         ref={containerRef}
@@ -138,7 +161,7 @@ export function Sidebar() {
           ))}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 12px 6px' }}>
+        <div className="sidebar-groups" style={{ alignItems: 'center', justifyContent: 'space-between', padding: '24px 12px 6px' }}>
           <SectionLabel size="sm" color={T.sidebarHeaderInk} style={{ fontSize: 10.5, letterSpacing: 0.8, fontWeight: 800 }}>
             Your groups
           </SectionLabel>
@@ -164,7 +187,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, overflow: 'hidden', flex: 1, minHeight: 0 }}>
+        <div className="sidebar-groups" style={{ flexDirection: 'column', gap: 1, overflow: 'hidden', flex: 1, minHeight: 0 }}>
           {groups.length === 0 && (
             <div style={{ fontSize: 12, color: T.inkFaint, padding: '6px 12px' }}>No groups yet</div>
           )}
@@ -175,16 +198,16 @@ export function Sidebar() {
               <Link
                 key={group.id}
                 href={`/groups/${group.id}`}
-                className={active ? 'wntap' : 'wntap gp-pick-row'}
+                className={`wntap sidebar-nav-item${active ? '' : ' gp-pick-row'}`}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 11,
-                  padding: '8px 12px',
-                  borderRadius: 9,
+                  gap: 12,
+                  padding: '10px 12px',
+                  borderRadius: 10,
                   textDecoration: 'none',
                   color: active ? T.sidebarActiveInk : T.sidebarGroupInk,
-                  fontSize: 13.5,
+                  fontSize: 15,
                   fontWeight: active ? 700 : 500,
                   background: active ? T.sidebarActiveSoft : undefined,
                   transition: 'background .15s ease, color .15s ease',
@@ -192,7 +215,7 @@ export function Sidebar() {
                 }}
               >
                 <span style={{ fontSize: 15, width: 22, textAlign: 'center', flexShrink: 0 }}>{group.emoji}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span className="sidebar-label" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {group.name}
                 </span>
               </Link>
@@ -204,7 +227,8 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => setMenuOpen(o => !o)}
-          className="wntap gp-pick-row"
+          className="wntap gp-pick-row sidebar-profile-btn"
+          title={firstName}
           style={{
             width: '100%',
             display: 'flex',
@@ -220,12 +244,11 @@ export function Sidebar() {
         >
           <Avatar profile={profile ?? undefined} slot={0} size={34} isYou />
           <span
+            className="sidebar-label"
             style={{
               flex: 1,
               minWidth: 0,
-              overflow: 'hidden',
               textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
               fontSize: 13.5,
               fontWeight: 700,
               fontFamily: F,
@@ -234,7 +257,7 @@ export function Sidebar() {
           >
             {firstName}
           </span>
-          <svg width="13" height="13" viewBox="0 0 16 16" style={{ flexShrink: 0 }}>
+          <svg className="sidebar-chevron" width="13" height="13" viewBox="0 0 16 16" style={{ flexShrink: 0 }}>
             <path d="M4 10l4-4 4 4" fill="none" stroke={T.inkFaint} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>

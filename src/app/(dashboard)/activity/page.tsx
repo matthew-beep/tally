@@ -5,7 +5,7 @@ import { T, CONTENT_MAX_WIDTH } from '@/design/tokens'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
 import { AppHeader } from '@/components/dashboard/AppHeader'
 import { Card } from '@/components/Card'
-import { Btn } from '@/components/Btn'
+import { Token } from '@/components/PersonToken'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { toActivityCard } from '@/lib/feedCards'
 import { bucketActivity } from '@/lib/feed'
@@ -40,11 +40,11 @@ export default function ActivityPage() {
         )}
 
         {!isLoading && items.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
             {FILTERS.map(f => (
-              <Btn key={f.key} size="sm" variant={filter === f.key ? 'primary' : 'soft'} onClick={() => setFilter(f.key)}>
+              <Token key={f.key} size="sm" selected={filter === f.key} onClick={() => setFilter(f.key)}>
                 {f.label}
-              </Btn>
+              </Token>
             ))}
           </div>
         )}

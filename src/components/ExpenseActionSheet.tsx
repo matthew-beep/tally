@@ -7,6 +7,7 @@ import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent, ModalFooter } from '@/components/modal'
 import { Btn } from '@/components/Btn'
+import { PersonToken } from '@/components/PersonToken'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { formatAmount, stripNegative } from '@/lib/money'
 import { calcExpenseNets } from '@/lib/balance'
@@ -140,25 +141,16 @@ function ExpenseEditDrawer({
       <div>
         <SectionLabel size="sm" style={fieldLabelStyle}>Paid by {payerDirty && <DirtyDot />}</SectionLabel>
         <div style={{ ...fieldBox(payerDirty), padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {splitMembers.map(m => {
-            const on = paidBy === m.id
-            return (
-              <button
-                key={m.id} type="button" onClick={() => setPaidBy(m.id)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '4px 11px 4px 4px', borderRadius: 999,
-                  background: on ? T.ink : 'transparent', color: on ? T.bg : T.ink,
-                  boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
-                  border: 0, cursor: 'pointer', font: 'inherit',
-                  fontSize: 12.5, fontWeight: 600, transition: 'all 0.12s',
-                }}
-              >
-                <Avatar profile={avatarProfile(m)} slot={slotFor(members, m.id)} size={22} />
-                {firstName(displayName(m))}
-              </button>
-            )
-          })}
+          {splitMembers.map(m => (
+            <PersonToken
+              key={m.id}
+              member={m}
+              slot={slotFor(members, m.id)}
+              selected={paidBy === m.id}
+              onClick={() => setPaidBy(m.id)}
+              size="sm"
+            />
+          ))}
         </div>
       </div>
 
@@ -169,11 +161,18 @@ function ExpenseEditDrawer({
             const m = memberById[split.group_member_id]
             if (!m) return null
             return (
-              <div key={split.group_member_id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: T.surface, borderRadius: T.r.pill, padding: '4px 10px 4px 5px', boxShadow: `inset 0 0 0 1px ${T.line}` }}>
-                <Avatar profile={avatarProfile(m)} slot={slotFor(members, split.group_member_id)} size={22} />
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: T.ink }}>{firstName(displayName(m))}</span>
-                <span style={{ fontSize: 11, color: T.inkMuted, fontFamily: FMONO }}>{formatAmount(Number(split.owed_amount))}</span>
-              </div>
+              // Read-only, so it renders flat — a pill you can only look at.
+              <PersonToken
+                key={split.group_member_id}
+                member={m}
+                slot={slotFor(members, split.group_member_id)}
+                size="sm"
+                trailing={
+                  <span style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, marginLeft: 4 }}>
+                    {formatAmount(Number(split.owed_amount))}
+                  </span>
+                }
+              />
             )
           })}
         </div>

@@ -22,7 +22,7 @@ export function NotificationActionFooter({ secondary, primary, hint }: Props) {
       <div style={{ display: 'flex', gap: 10 }}>
         <Btn
           onClick={secondary.onClick} disabled={secondary.disabled} variant="outline" size="lg"
-          style={{ flex: 0.8, padding: '13px 0', borderRadius: 13, border: 0, fontFamily: F, fontSize: 14, boxShadow: `inset 0 0 0 1px ${T.lineStrong}` }}
+          style={{ flex: 0.8, padding: '13px 0', borderRadius: 13, fontFamily: F, fontSize: 14 }}
         >
           {secondary.label}
         </Btn>

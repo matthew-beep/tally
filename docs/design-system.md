@@ -174,6 +174,100 @@ currently load-bearing — every consumer reads `T.sunOn` via CSS-in-JS, none
 go through a Tailwind class — but add it there too if a `text-tally-sun-on`
 utility class is ever reached for.
 
+## Tactile depth — four tiers (2026-08-19)
+
+From the `Tactile Concepts` design pass. Depth carries meaning rather than
+decoration, and every shadow is built from warm ink — never gray, never gloss.
+
+| Tier | Means | Recipe |
+|---|---|---|
+| **Flat** | information you read | `--tally-shadow-hair` |
+| **Recessed** | somewhere you put a value | `--tally-sink` + `--tally-shadow-recessed` |
+| **Raised** | something you can act on | `--tally-shadow-raised` (`-hover`, `-pressed`) |
+| **Floating** | modal, popover, sidebar | `--tally-shadow-float` |
+
+Sun is the only accent, and the guide's rule is *one raised sun object per
+view* — that's why the segmented control's selected segment is a raised
+warm-white insert rather than sun (the primary action owns the sun).
+
+**Components that own a tier**, so call sites don't re-implement it:
+
+- `Btn` — raised; `primary` carries the sun gradient + `--tally-shadow-sun`.
+- `Token` / `PersonToken` (`components/PersonToken.tsx`) — the one selectable
+  pill shape. Renders **flat when it has no `onClick`**: a pill you can only
+  read is information.
+- `Segmented` — recessed track, raised insert.
+- `Input` — recessed well + the borderless field, sizes
+  `hero | title | md | cellLg | cell`.
+- `well(focused, rimColor)` (`design/tokens.ts`) — the recessed primitive, for
+  inputs whose well holds more than a value (`MemberCombobox`'s chips,
+  `HandleInput`'s validation pip) and for segmented-style tracks.
+
+### Two animation traps
+
+Both cause a visible *snap* instead of an ease, and both were live bugs:
+
+1. **`box-shadow` only interpolates between lists of equal length.** The
+   pressed recipes carry two trailing transparent layers purely to match
+   raised/sun's four. `--tally-shadow-none` exists as a 4-layer no-op for the
+   same reason. Don't "tidy" these away.
+2. **A gradient can't interpolate to a flat color.** `Btn`'s pressed sun and
+   `Token`'s unselected fill are both gradients for this reason, even where a
+   solid would look identical at rest.
+
+`well()` applies the same rule: the focus rim layer is always present,
+transparent when idle.
+
+### Floating tier — retuned 2026-08-19
+
+`--tally-shadow-float` was `0 8px 24px rgba(0,0,0,0.08)` — a neutral gray
+shadow, which the guide forbids outright. Now warm-tinted with the hairline
+ring the recipe calls for:
+
+```
+0 10px 34px rgba(31,26,20,0.12), inset 0 0 0 1px rgba(31,26,20,0.05)
+```
+
+Shared, so it lands on every genuinely floating surface at once: the sidebar
+panel, `TabBar`, `Toast`, `DatePicker`, `EmojiPopover`, the `MemberCombobox`
+dropdown, `ProfileMenuPopover` (which was hand-appending the ring — removed,
+the recipe includes it now).
+
+**`T.shadowFab` was deleted.** It was the only entry in `tokens.ts` holding a
+literal instead of a `var()`, and therefore the only one that couldn't respond
+to the theme — it painted a yellow halo on warm charcoal in dark mode. The FAB
+(`DockedTabBar`) and the active nav pill (`SliderPill`) now use the sun
+gradient + `--tally-shadow-sun` like every other sun object.
+
+### Open decision — flat information cards
+
+**Unresolved as of 2026-08-19.** The guide says *"keep info cards flat so depth
+stays meaningful"*, but `Card`'s `elevated` tone (white fill + drop shadow) is
+used on nearly every read-only surface, so today the whole app reads as
+actionable.
+
+`Card` has an opt-in `tone="flat"` and **nothing uses it yet**. Compare at
+`/devpreviewxyz/tactile-cards` (scratch route, delete before shipping).
+
+What makes it a real decision, not a cleanup:
+
+- Flat is `background: transparent` — on cream, an info card loses its white
+  fill entirely and becomes a hairline rectangle. The app sheds most of its
+  white; white becomes the material of touchable things.
+- Since the sidebar became a floating panel, desktop has two competing white
+  systems (nav panel + content cards) at similar elevation. Flattening the
+  content resolves that — arguably the strongest argument for it.
+- A **third option** nobody has evaluated: keep the white fill, drop the
+  shadow (`cardBg` + `shadowHair`). Separation without elevation.
+
+Scope if adopted: `Card.tsx:24` already computes `actionable = !!(onClick ||
+hoverable)`, so it's one branch, not an audit. Bespoke card surfaces that
+inline `T.cardShadow` need doing by hand — home balance hero
+(`(dashboard)/page.tsx:119`), all-square empty state (`:160`), desktop people
+ledger (`:268`). Also folds in `FeedCard`, which sets `tone="surface"`
+unconditionally while being only *conditionally* clickable
+(`FeedCard.tsx:42`), so tappable and dead feed rows look identical today.
+
 ## Fonts
 
 Two fonts as of 2026-08-13, down from three. `src/design/tokens.ts` exports

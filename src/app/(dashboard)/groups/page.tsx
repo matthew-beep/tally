@@ -42,7 +42,7 @@ export default function GroupsPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, height: '100%' }}>
       <AppHeader title="Groups" />
-      <DashboardPage>
+      <DashboardPage maxWidth={CONTENT_MAX_WIDTH}>
         {!isLoading && groups.length > 0 && (
           <GroupsSummary owed={owed} owe={owe} groupCount={groups.length} />
         )}
