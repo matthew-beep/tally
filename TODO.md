@@ -1214,15 +1214,25 @@ Both were marked `[x]` above previously. Matthew flagged both as still an
 issue in practice; re-verify before trusting the described fix and either
 confirm+re-close or diagnose the actual gap.
 
-- [ ] **Mobile navbar bottom color gap** 🟢 — doc claimed `.dashboard-mobile-nav`
-  gets `background: var(--tally-surface)` + `padding-bottom:
-  env(safe-area-inset-bottom)` in `src/styles/dashboard.css` (Safari
-  home-indicator gap fix). Reported still showing a gap. Reproduce on a
-  real device/simulator with a home indicator; check whether the rule ships
-  as described or something later overrides `background` on
-  `.dashboard-mobile-nav` (stacking/z-index), or whether the safe-area
-  padding is pushing a transparent strip below the colored area rather than
-  the color extending into it.
+- [x] **Mobile navbar bottom color gap** 🟢 — **fix attempted 2026-08-25, needs
+  device verification.** Matthew confirmed the gap is real and pointed at the
+  tell: Vaul's sheet (`position: fixed; bottom: 0` in `Sheet.tsx` /
+  `.tally-sheet-content`) always fills correctly to the true screen bottom;
+  `.dashboard-mobile-nav` doesn't, even though its `background` +
+  `padding-bottom: env(safe-area-inset-bottom)` looked right on paper. Root
+  cause: `.dashboard-layout` is sized off `height: 100dvh` (`(dashboard)/layout.tsx`),
+  and iOS Safari doesn't always recompute `dvh` live as its chrome
+  collapses/expands on scroll — the flex column can end up shorter than the
+  actual viewport for a stretch, exposing `--tally-page-bg` below the nav
+  instead of the nav's own `--tally-surface`. Matches the older "full
+  viewport background after scroll / Safari chrome collapse" bug noted
+  under punch-list item 8. Fix: added `.dashboard-safe-area-fill`, a
+  `position: fixed; bottom: 0` strip (same trick Vaul uses, decoupled from
+  the flex/dvh box) painted `var(--tally-surface)` at `env(safe-area-inset-
+  bottom)` height, mounted as a sibling in `(dashboard)/layout.tsx`. Purely
+  a color safety net — doesn't touch layout flow, so no per-page padding
+  changes needed. **Not yet confirmed on a real device/simulator with a
+  home indicator** — verify before closing.
 - [ ] **Edit individual group amount from dashboard** 🟢 — doc claimed shipped
   via `BalanceSheet.tsx` → `GroupBreakdown` rows → `GroupSettleScreen`
   (editable amount, Full/Half/Clear chips). Reported not working from the
@@ -1232,11 +1242,10 @@ confirm+re-close or diagnose the actual gap.
 
 ### Phase 1 — Nav decision (unblocks Phase 2)
 
-- [ ] **Change to floating nav** 🟡 — `DockedTabBar` is live in
-  `(dashboard)/layout.tsx`. Floating `TabBar.tsx` (pill + `SliderPill`) exists but is
-  unmounted. Documented as live A/B in `docs/feature-status.md` — **decision not made.**
-  Note: reverting to floating `TabBar` removes mobile's global Add entry point unless
-  FAB scoping / header actions are rebuilt. Decide this first — it blocks Phase 2.
+- [x] **Change to floating nav** 🟡 — **decided 2026-08-25: keep `DockedTabBar` for
+  now.** Floating `TabBar.tsx` (pill + `SliderPill`) stays unmounted, not deleted, in
+  case this gets revisited. `docs/feature-status.md` should be updated to drop the
+  "live A/B, undecided" framing. Unblocks Phase 2.
 
 ### Phase 2 — Mobile shell fixes (depends on Phase 1)
 
@@ -1249,9 +1258,17 @@ confirm+re-close or diagnose the actual gap.
   `(dashboard)/layout.tsx`, feed has 100px bottom padding on `.group-detail-right`) but
   `docs/responsive-qa.md` still unchecked: "Floating Add-expense CTA doesn't cover the
   last feed row." Verify on real device after FAB scoping work above.
-- [ ] **Move group name to center (mobile group detail)** 🟡 — mobile header is
-  `back | left-aligned name+emoji | settings` (`groups/[id]/page.tsx` ~197–224). No
-  centered title treatment in CSS or JSX yet.
+- [x] **Move group name to center (mobile group detail)** 🟡 — **done 2026-08-25**,
+  per claude.ai/design "splitter" project's `Group Page Social.html` (`GPHeader` in
+  `group-page-social.jsx`): back chevron and settings gear are now matched 34px
+  `T.surfaceAlt` circular pills (previously a transparent 36px back button vs. a
+  bordered/shadowed 36px settings button — mismatched widths meant the old
+  `flex: 1` title block wasn't actually centered even with `textAlign: 'center'`).
+  `groups/[id]/page.tsx` ~197–224. Verified visually via a throwaway devpreview
+  route (deleted after) rather than the real page, which needs an authenticated
+  session. Scope was header-only — the rest of that design file (fused
+  balance/leaderboard hero, reaction pills, social detail drawer) is a separate,
+  much larger item and wasn't touched.
 - [ ] **Mobile padding on group page** 🟡 — padding exists (`group-detail-right`:
   `16px 16px 100px`; header: `8px 14px 6px` inline in `groups/[id]/page.tsx`) but
   not tuned to final spec. The 100px bottom pad is a FAB workaround, not a finished

@@ -3,7 +3,7 @@
 import { useState, type CSSProperties } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
-import { Avatar, AvatarStack } from '@/components/Avatar'
+import { Avatar } from '@/components/Avatar'
 import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
 import { Btn } from '@/components/Btn'
@@ -193,18 +193,22 @@ export default function GroupDetailPage() {
         </div>
       </div>
 
-      {/* ── Mobile: header ── */}
-      <header className="group-detail-header" style={{ padding: '8px 14px 6px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      {/* ── Mobile: header — centered title between two matched circular
+          pills, per claude.ai/design "splitter" project's Group Page Social
+          (GPHeader): back chevron left, kebab-weight action right, both
+          34px surfaceAlt pills so the title band centers exactly between
+          them instead of being squeezed left by mismatched button widths. ── */}
+      <header className="group-detail-header" style={{ padding: '8px 14px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexShrink: 0 }}>
         <button
           onClick={() => router.push('/groups')}
-          style={{ width: 36, height: 36, borderRadius: T.r.md, background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          style={{ width: 34, height: 34, borderRadius: T.r.pill, background: T.surfaceAlt, border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-            <path d="M12 4l-6 6 6 6" stroke={T.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3l-5 5 5 5" stroke={T.ink} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <span style={{ fontSize: 20 }}>{group.emoji}</span>
             <span style={{ fontFamily: F, fontSize: 20, fontWeight: 700, letterSpacing: -0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.ink }}>
               {group.name}
@@ -217,29 +221,11 @@ export default function GroupDetailPage() {
         </div>
         <button
           onClick={() => router.push(`/groups/${groupId}/settings`)}
-          style={{ width: 36, height: 36, borderRadius: T.r.md, background: T.surface, border: `0.5px solid ${T.line}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: T.shadowSm }}
+          style={{ width: 34, height: 34, borderRadius: T.r.pill, background: T.surfaceAlt, border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
         >
-          <SettingsIcon size={17} color={T.inkMuted} />
+          <SettingsIcon size={16} color={T.ink} />
         </button>
       </header>
-
-      {/* ── Mobile: avatar strip ── */}
-      <div className="group-detail-mobile-strip" style={{ padding: '0 16px 12px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <AvatarStack
-          members={members.map((m, i) => ({
-            profile: avatarProfile(m),
-            slot: i % 4 as 0 | 1 | 2 | 3,
-            isYou: m.user_id === profile?.id,
-            dimmed: m.status === 'pending',
-          }))}
-          size={22}
-          max={8}
-          overlap={8 / 22}
-          ringColor={T.bg}
-        />
-      </div>
-
-
 
       {/* ── 2-column body ── */}
       <div className="group-detail-body">

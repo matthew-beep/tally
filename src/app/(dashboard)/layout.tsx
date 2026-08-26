@@ -22,6 +22,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="dashboard-mobile-nav">
         <DockedTabBar />
       </div>
+      <div className="dashboard-safe-area-fill" />
       <AddExpenseGroupPicker />
     </div>
   )

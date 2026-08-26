@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { T, F, FH, FMONO } from '@/design/tokens'
+import { T, F, FH, FMONO, well } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { MemberCombobox } from '@/components/MemberCombobox'
 import type { MemberEntry } from '@/components/MemberCombobox'
@@ -90,6 +90,90 @@ function Chevron() {
   )
 }
 
+// RAISED emoji tile — a physical object you press to open the picker, not a
+// flat icon button. Rest → hover lifts a hair → press sinks into the surface.
+function EmojiTile({ emoji, onClick, open, size }: { emoji: string; onClick: () => void; open: boolean; size: number }) {
+  const [hover, setHover] = useState(false)
+  const [press, setPress] = useState(false)
+  return (
+    <button
+      onClick={onClick}
+      onPointerEnter={() => setHover(true)}
+      onPointerLeave={() => { setHover(false); setPress(false) }}
+      onPointerDown={() => setPress(true)}
+      onPointerUp={() => setPress(false)}
+      style={{
+        position: 'relative', width: size, height: size, flexShrink: 0,
+        borderRadius: size * 0.28, border: 0, cursor: 'pointer',
+        background: T.surface, fontSize: size * 0.5,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: press || open ? T.shadowPressed : hover ? T.shadowRaisedHover : T.shadowRaised,
+        transform: press ? 'translateY(1px)' : hover ? 'translateY(-1px)' : 'none',
+        transition: 'transform .09s ease, box-shadow .12s ease',
+      }}
+    >
+      {emoji}
+      <span style={{
+        position: 'absolute', bottom: -3, right: -3,
+        width: size * 0.33, height: size * 0.33, borderRadius: '50%',
+        background: `linear-gradient(180deg, ${T.sunHi}, ${T.sun})`, color: T.sunOn,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: `0 0 0 3px ${T.bg}, inset 0 1px 0 rgba(255,255,255,0.45)`,
+      }}>
+        <svg width={size * 0.14} height={size * 0.14} viewBox="0 0 14 14" fill="none">
+          <path d="M9 2l3 3-7 7H2v-3l7-7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+        </svg>
+      </span>
+    </button>
+  )
+}
+
+// RAISED member token — a little object sitting on the surface. The host is
+// locked (badge, no remove); everyone else gets a recessed remove bead.
+function MemberToken({
+  name, avatarProfile: avatarSrc, slot, isYou, onRemove,
+}: {
+  name: string
+  avatarProfile: MemberAvatarProfile
+  slot: 0 | 1 | 2 | 3
+  isYou?: boolean
+  onRemove?: () => void
+}) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 8, borderRadius: 999,
+      padding: isYou ? '5px 12px 5px 5px' : '5px 5px 5px 5px',
+      background: T.surface, boxShadow: T.shadowRaised,
+    }}>
+      <Avatar profile={avatarSrc} slot={slot} size={28} isYou={isYou} />
+      <span style={{ fontSize: 13.5, fontWeight: 700, color: T.ink }}>{isYou ? 'You' : getFirstName(name)}</span>
+      {isYou ? (
+        <span style={{
+          fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase' as const,
+          color: T.sunOn, background: `linear-gradient(180deg, ${T.sunHi}, ${T.sun})`,
+          padding: '3px 8px', borderRadius: 999,
+        }}>
+          Host
+        </span>
+      ) : (
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${getFirstName(name)}`}
+          style={{
+            width: 22, height: 22, borderRadius: '50%', border: 0, cursor: 'pointer',
+            background: T.sink, boxShadow: T.shadowRecessed, color: T.inkMuted,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 2,
+          }}
+        >
+          <svg width="9" height="9" viewBox="0 0 10 10">
+            <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
+    </span>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────
 
 export default function NewGroupPage() {
@@ -103,6 +187,7 @@ export default function NewGroupPage() {
   const [mobileQuery, setMobileQuery] = useState('')
   const [mobileQueryDebounced, setMobileQueryDebounced] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
+  const [nameFocused, setNameFocused] = useState(false)
 
   const nameInputRef = useRef<HTMLInputElement>(null)
   const emojiPickerRef = useRef<HTMLDivElement>(null)
@@ -209,66 +294,25 @@ export default function NewGroupPage() {
         {/* Scrollable body */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 140 }}>
 
-          {/* Group header card */}
-          <div style={{ padding: '10px 16px 14px' }}>
+          {/* Identity — raised emoji tile + recessed name well, two separate tactile objects */}
+          <div style={{ padding: '10px 16px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div ref={emojiPickerRef} style={{ position: 'relative' }}>
-              <Card tone="surface" style={{ borderRadius: 20, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <button
-                  onClick={() => setShowEmojiPicker(v => !v)}
-                  style={{
-                    width: 58, height: 58, borderRadius: 17, flexShrink: 0,
-                    background: T.surfaceAlt, border: 0, cursor: 'pointer',
-                    fontSize: 30, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    position: 'relative',
-                  }}
-                >
-                  {emoji}
-                  {/* Sun bead, not ink — the edit affordance on a tactile tile. */}
-                  <span style={{
-                    position: 'absolute', bottom: -2, right: -2,
-                    width: 19, height: 19, borderRadius: '50%',
-                    background: `linear-gradient(180deg, ${T.sunHi}, ${T.sun})`, color: T.sunOn,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: `0 0 0 2px ${T.surface}, inset 0 1px 0 rgba(255,255,255,0.45)`,
-                  }}>
-                    <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                      <path d="M7 1.5l1.5 1.5-5.5 5.5H1.5V7L7 1.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                </button>
-
-                <input
-                  ref={nameInputRef}
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleCreate() }}
-                  placeholder="Group name"
-                  style={{
-                    flex: 1, fontFamily: FH, fontSize: 22, fontWeight: 700,
-                    letterSpacing: -0.6, lineHeight: 1.1,
-                    color: name ? T.ink : T.inkFaint,
-                    background: 'transparent', border: 'none', outline: 'none',
-                    padding: 0, caretColor: T.sun,
-                  }}
-                />
-              </Card>
+              <EmojiTile emoji={emoji} open={showEmojiPicker} size={58} onClick={() => setShowEmojiPicker(v => !v)} />
 
               {showEmojiPicker && (
                 <div style={{
                   position: 'absolute', top: 'calc(100% + 8px)', left: 0, zIndex: 100,
                   background: T.surface, borderRadius: 16, boxShadow: T.shadowModal,
                   padding: 10, display: 'flex', flexWrap: 'wrap', gap: 4, width: 212,
-                  border: `0.5px solid ${T.line}`,
                 }}>
                   {EMOJIS.map(e => (
                     <button
                       key={e}
                       onClick={() => { setEmoji(e); setShowEmojiPicker(false) }}
                       style={{
-                        width: 42, height: 42, borderRadius: 11, fontSize: 20,
-                        background: emoji === e ? T.surfaceAlt : 'transparent',
-                        border: `2px solid ${emoji === e ? T.lineStrong : 'transparent'}`,
-                        cursor: 'pointer',
+                        width: 42, height: 42, borderRadius: 11, fontSize: 20, border: 0, cursor: 'pointer',
+                        background: emoji === e ? T.sink : 'transparent',
+                        boxShadow: emoji === e ? T.shadowRecessed : 'none',
                       }}
                     >
                       {e}
@@ -277,79 +321,60 @@ export default function NewGroupPage() {
                 </div>
               )}
             </div>
+
+            <div style={{
+              flex: 1, minWidth: 0, borderRadius: T.r.lg, padding: '13px 16px',
+              ...well(nameFocused),
+            }}>
+              <input
+                ref={nameInputRef}
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onFocus={() => setNameFocused(true)}
+                onBlur={() => setNameFocused(false)}
+                onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleCreate() }}
+                placeholder="Group name"
+                style={{
+                  width: '100%', fontFamily: FH, fontSize: 22, fontWeight: 700,
+                  letterSpacing: -0.6, lineHeight: 1.1,
+                  color: name ? T.ink : T.inkFaint,
+                  background: 'transparent', border: 'none', outline: 'none',
+                  padding: 0, caretColor: T.sun,
+                }}
+              />
+            </div>
           </div>
 
-          {/* Selected strip */}
-          {members.length > 0 && (
-            <div style={{ padding: '0 16px 14px' }}>
-              <div className="tally-scroll-hidden" style={{
-                display: 'flex', gap: 10, overflowX: 'auto', padding: '2px 0 4px',
-              }}>
-                {members.map((entry, i) => {
-                  const p = entry.type === 'user'
-                    ? entry.profile
-                    : {
-                        id: entry.tempId,
-                        name: entry.name,
-                        display_name: null as string | null,
-                        avatar_url: null as string | null,
-                        add_code: null as string | null,
-                        handle: null as string | null,
-                      }
-                  const firstName = getFirstName(p.display_name ?? p.name)
-                  const key = entry.type === 'guest' ? entry.tempId : entry.profile.id
-                  return (
-                    <div key={key} style={{
-                      display: 'flex', flexDirection: 'column', alignItems: 'center',
-                      gap: 5, flexShrink: 0, width: 54,
-                    }}>
-                      <div style={{ position: 'relative' }}>
-                        <Avatar profile={p} slot={(i + 1) % 4 as 0 | 1 | 2 | 3} size={46} />
-                        <button
-                          onClick={() => setMembers(prev => prev.filter((_, j) => j !== i))}
-                          style={{
-                            // Recessed bead rather than solid ink: removing is a
-                            // quiet action, and it shouldn't out-weigh the sun.
-                            position: 'absolute', top: -3, right: -3,
-                            width: 19, height: 19, borderRadius: '50%',
-                            background: T.sink, color: T.inkMuted,
-                            border: `2px solid ${T.bg}`,
-                            boxShadow: T.shadowRecessed,
-                            cursor: 'pointer', padding: 0,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          }}
-                        >
-                          <svg width="7" height="7" viewBox="0 0 8 8">
-                            <path d="M1.5 1.5l5 5M6.5 1.5l-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                        </button>
-                      </div>
-                      <span style={{
-                        fontSize: 10.5, fontWeight: 600, fontFamily: F,
-                        color: T.inkMuted, whiteSpace: 'nowrap',
-                        overflow: 'hidden', textOverflow: 'ellipsis',
-                        maxWidth: 52, textAlign: 'center',
-                      }}>
-                        {firstName}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Search bar */}
+          {/* Members — raised tokens. Host is locked; everyone else can be removed. */}
           <div style={{ padding: '0 16px 14px' }}>
-            <Card
-              tone="surface"
-              style={{
-                borderRadius: 14, padding: '11px 14px',
-                display: 'flex', alignItems: 'center', gap: 10,
-                border: `1.5px solid ${searchFocused ? T.sun : T.line}`,
-                transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
-              }}
-            >
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {profile && <MemberToken name={profile.display_name ?? profile.name} avatarProfile={profile} slot={0} isYou />}
+              {members.map((entry, i) => {
+                const p = entry.type === 'user'
+                  ? entry.profile
+                  : avatarProfile({ name: entry.name })
+                const displayName = entry.type === 'user' ? (entry.profile.display_name ?? entry.profile.name) : entry.name
+                const key = entry.type === 'guest' ? entry.tempId : entry.profile.id
+                return (
+                  <MemberToken
+                    key={key}
+                    name={displayName}
+                    avatarProfile={p}
+                    slot={(i + 1) % 4 as 0 | 1 | 2 | 3}
+                    onRemove={() => setMembers(prev => prev.filter((_, j) => j !== i))}
+                  />
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Search bar — recessed well, matching the name field above */}
+          <div style={{ padding: '0 16px 14px' }}>
+            <div style={{
+              borderRadius: 14, padding: '11px 14px',
+              display: 'flex', alignItems: 'center', gap: 10,
+              ...well(searchFocused),
+            }}>
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.4 }}>
                 <circle cx="6.5" cy="6.5" r="4.5" stroke={T.ink} strokeWidth="1.5" />
                 <path d="M11 11l3.5 3.5" stroke={T.ink} strokeWidth="1.5" strokeLinecap="round" />
@@ -359,7 +384,7 @@ export default function NewGroupPage() {
                 onChange={e => setMobileQuery(e.target.value)}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder="Add people…"
+                placeholder="Add by name, @handle, or guest…"
                 style={{
                   flex: 1, background: 'none', border: 'none', outline: 'none',
                   fontSize: 15, fontFamily: F, color: T.ink,
@@ -370,7 +395,7 @@ export default function NewGroupPage() {
                   onClick={() => setMobileQuery('')}
                   style={{
                     width: 20, height: 20, borderRadius: '50%',
-                    background: T.surfaceAlt, border: 0, cursor: 'pointer',
+                    background: T.surface, boxShadow: T.shadowRaised, border: 0, cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                   }}
                 >
@@ -379,7 +404,7 @@ export default function NewGroupPage() {
                   </svg>
                 </button>
               )}
-            </Card>
+            </div>
           </div>
 
           {/* Section label */}
@@ -517,32 +542,9 @@ export default function NewGroupPage() {
             {/* Emoji + name row */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 18, marginBottom: 28 }}>
 
-              {/* Emoji button */}
+              {/* Emoji tile — raised */}
               <div ref={emojiPickerRef} style={{ position: 'relative', flexShrink: 0 }}>
-                <button
-                  onClick={() => setShowEmojiPicker(v => !v)}
-                  style={{
-                    width: 96, height: 96, borderRadius: 26, flexShrink: 0,
-                    background: T.surface, border: 0, cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 46, position: 'relative',
-                    boxShadow: `inset 0 0 0 1px ${T.lineStrong}`,
-                  }}
-                >
-                  {emoji}
-                  {/* Sun bead, not ink — see the mobile tile above. */}
-                  <span style={{
-                    position: 'absolute', bottom: -3, right: -3,
-                    width: 26, height: 26, borderRadius: '50%',
-                    background: `linear-gradient(180deg, ${T.sunHi}, ${T.sun})`, color: T.sunOn,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: `0 0 0 3px ${T.bg}, inset 0 1px 0 rgba(255,255,255,0.45)`,
-                  }}>
-                    <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
-                      <path d="M9 2l3 3-7 7H2v-3l7-7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                </button>
+                <EmojiTile emoji={emoji} open={showEmojiPicker} size={96} onClick={() => setShowEmojiPicker(v => !v)} />
 
                 {showEmojiPicker && (
                   <div style={{
@@ -555,10 +557,9 @@ export default function NewGroupPage() {
                         key={e}
                         onClick={() => { setEmoji(e); setShowEmojiPicker(false) }}
                         style={{
-                          width: 40, height: 40, borderRadius: 10, fontSize: 20,
-                          background: emoji === e ? T.surfaceAlt : 'transparent',
-                          border: `2px solid ${emoji === e ? T.lineStrong : 'transparent'}`,
-                          cursor: 'pointer',
+                          width: 40, height: 40, borderRadius: 10, fontSize: 20, border: 0, cursor: 'pointer',
+                          background: emoji === e ? T.sink : 'transparent',
+                          boxShadow: emoji === e ? T.shadowRecessed : 'none',
                         }}
                       >
                         {e}
@@ -568,23 +569,27 @@ export default function NewGroupPage() {
                 )}
               </div>
 
-              {/* Name */}
+              {/* Name — recessed well */}
               <div style={{ flex: 1, minWidth: 0, paddingTop: 6 }}>
-                <SectionLabel size="sm">Group name</SectionLabel>
-                <input
-                  ref={nameInputRef}
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleCreate() }}
-                  placeholder="Name your group"
-                  style={{
-                    width: '100%', marginTop: 6,
-                    fontFamily: FH, fontSize: 40, fontWeight: 600, letterSpacing: -1.2, lineHeight: 1.02,
-                    color: name ? T.ink : T.inkFaint,
-                    background: 'transparent', border: 'none', outline: 'none', padding: 0,
-                    caretColor: T.sun,
-                  }}
-                />
+                <SectionLabel size="sm" style={{ marginBottom: 8 }}>Group name</SectionLabel>
+                <div style={{ borderRadius: T.r.lg, padding: '10px 16px', ...well(nameFocused) }}>
+                  <input
+                    ref={nameInputRef}
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    onFocus={() => setNameFocused(true)}
+                    onBlur={() => setNameFocused(false)}
+                    onKeyDown={e => { if (e.key === 'Enter' && name.trim()) handleCreate() }}
+                    placeholder="Name your group"
+                    style={{
+                      width: '100%',
+                      fontFamily: FH, fontSize: 36, fontWeight: 600, letterSpacing: -1.1, lineHeight: 1.1,
+                      color: name ? T.ink : T.inkFaint,
+                      background: 'transparent', border: 'none', outline: 'none', padding: 0,
+                      caretColor: T.sun,
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
@@ -614,8 +619,8 @@ export default function NewGroupPage() {
               placeholder="Add by name…"
             />
 
-            {/* Members card */}
-            <Card tone="surface" style={{ borderRadius: 18, overflow: 'hidden', marginTop: 14 }}>
+            {/* Members card — FLAT: this is a review list, not something to act on */}
+            <Card tone="flat" style={{ borderRadius: 18, overflow: 'hidden', marginTop: 14 }}>
               <div style={{
                 padding: '14px 18px',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',

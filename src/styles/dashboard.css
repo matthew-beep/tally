@@ -124,6 +124,31 @@
     flex: 1;
     min-height: 0;
   }
+
+  /* Safety net for the same gap, independent of the flex/dvh box above.
+     `.dashboard-layout` is sized off `100dvh`, which iOS Safari doesn't
+     always recompute live as its chrome collapses/expands on scroll — the
+     flex column can end up shorter than the real viewport for a frame (or
+     longer), exposing `--tally-page-bg` below the nav bar. Vaul's sheet
+     never shows this because `position: fixed; bottom: 0` is pinned to the
+     true visual viewport regardless of any ancestor's measured height —
+     this filler uses the same trick purely for color, decoupled from
+     layout flow so it needs no page-level padding changes. */
+  .dashboard-safe-area-fill {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: env(safe-area-inset-bottom, 0px);
+    background: var(--tally-surface);
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+.dashboard-safe-area-fill {
+  display: none;
 }
 
 /* ── App header — persistent header shared by Home/Groups/Activity/Me ── */
@@ -607,10 +632,6 @@
 
   .group-detail-right {
     padding: 20px 28px 32px;
-  }
-
-  .group-detail-mobile-strip {
-    display: none !important;
   }
 
   .group-detail-balance-card {
