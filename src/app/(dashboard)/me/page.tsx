@@ -82,7 +82,7 @@ function ProfileSettings() {
       </div>
 
       <Btn
-        onClick={handleSave} disabled={!canSave} variant="dark" size="lg" fullWidth
+        onClick={handleSave} disabled={!canSave} variant="cocoa" size="lg" fullWidth
         style={{
           padding: '13px',
           fontFamily: FH, fontSize: 15,

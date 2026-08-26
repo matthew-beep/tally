@@ -62,7 +62,7 @@ export default function GroupsPage() {
             />
           </div>
           <Btn
-            onClick={() => router.push('/groups/new')} variant="dark" size="md"
+            onClick={() => router.push('/groups/new')} variant="cocoa" size="md"
             style={{ padding: '8px 16px', fontSize: 13, flexShrink: 0 }}
           >
             + New group
@@ -77,7 +77,7 @@ export default function GroupsPage() {
             <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No groups yet</div>
             <div style={{ fontSize: 13, color: T.inkMuted, marginBottom: 20 }}>Create a group and start splitting expenses with friends.</div>
             <Btn
-              onClick={() => router.push('/groups/new')} variant="dark" size="md"
+              onClick={() => router.push('/groups/new')} variant="cocoa" size="md"
               style={{ padding: '11px 24px', fontSize: 14 }}
             >
               Create your first group

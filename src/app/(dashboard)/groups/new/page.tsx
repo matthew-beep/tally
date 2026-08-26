@@ -223,15 +223,16 @@ export default function NewGroupPage() {
                   }}
                 >
                   {emoji}
+                  {/* Sun bead, not ink — the edit affordance on a tactile tile. */}
                   <span style={{
                     position: 'absolute', bottom: -2, right: -2,
                     width: 19, height: 19, borderRadius: '50%',
-                    background: T.ink, color: T.bg,
+                    background: `linear-gradient(180deg, ${T.sunHi}, ${T.sun})`, color: T.sunOn,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: `0 0 0 2px ${T.surface}`,
+                    boxShadow: `0 0 0 2px ${T.surface}, inset 0 1px 0 rgba(255,255,255,0.45)`,
                   }}>
                     <svg width="8" height="8" viewBox="0 0 10 10" fill="none">
-                      <path d="M7 1.5l1.5 1.5-5.5 5.5H1.5V7L7 1.5z" stroke={T.bg} strokeWidth="1.2" strokeLinejoin="round" />
+                      <path d="M7 1.5l1.5 1.5-5.5 5.5H1.5V7L7 1.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
                     </svg>
                   </span>
                 </button>
@@ -307,10 +308,13 @@ export default function NewGroupPage() {
                         <button
                           onClick={() => setMembers(prev => prev.filter((_, j) => j !== i))}
                           style={{
+                            // Recessed bead rather than solid ink: removing is a
+                            // quiet action, and it shouldn't out-weigh the sun.
                             position: 'absolute', top: -3, right: -3,
                             width: 19, height: 19, borderRadius: '50%',
-                            background: T.ink, color: T.bg,
+                            background: T.sink, color: T.inkMuted,
                             border: `2px solid ${T.bg}`,
+                            boxShadow: T.shadowRecessed,
                             cursor: 'pointer', padding: 0,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                           }}
@@ -526,15 +530,16 @@ export default function NewGroupPage() {
                   }}
                 >
                   {emoji}
+                  {/* Sun bead, not ink — see the mobile tile above. */}
                   <span style={{
                     position: 'absolute', bottom: -3, right: -3,
                     width: 26, height: 26, borderRadius: '50%',
-                    background: T.ink, color: T.bg,
+                    background: `linear-gradient(180deg, ${T.sunHi}, ${T.sun})`, color: T.sunOn,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: `0 0 0 3px ${T.bg}`,
+                    boxShadow: `0 0 0 3px ${T.bg}, inset 0 1px 0 rgba(255,255,255,0.45)`,
                   }}>
                     <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
-                      <path d="M9 2l3 3-7 7H2v-3l7-7z" stroke={T.bg} strokeWidth="1.5" strokeLinejoin="round" />
+                      <path d="M9 2l3 3-7 7H2v-3l7-7z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
                     </svg>
                   </span>
                 </button>

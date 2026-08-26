@@ -153,9 +153,14 @@ display.
   `src/components/ActivityRow.tsx` (55) — "(edited)" tag logic
 - [ ] `src/app/(dashboard)/groups/page.tsx` (85) — list + per-group balance
   chips
-- [ ] `src/components/dashboard/Sidebar.tsx` (220) +
+- [ ] `src/components/dashboard/Sidebar.tsx` (275) +
+  `src/lib/sidebar.ts` (48) + the `.dashboard-sidebar*` / `[data-sidebar]`
+  rules in `styles/dashboard.css` +
   `src/components/dashboard/DashboardPage.tsx` (12) — no badge slot yet
-  (bell badge pending)
+  (bell badge pending). Floating panel + collapsible rail: verify React never
+  owns the width (it's a pre-paint `data-sidebar` attribute + CSS, or the
+  sidebar flashes wide on every load), and that no sidebar child reintroduces
+  an inline `display`/`gap`/`padding` that outranks the rail rules
 - [ ] `src/components/TabBar.tsx` (119) + `src/components/nav/*` (~225) —
   `NAV_BADGES` hardcoded empty; slider mechanics
 - [ ] `src/components/ModeSheet.tsx` (113) + `src/store/ui.ts` (21) +
@@ -167,10 +172,23 @@ display.
 - [ ] `src/components/modal/*` (11 files, ~610) — one system or three?
   `ActionSheet` (235) vs `Modal` vs `Sheet` vs `ModalOrSheet`; which
   components bypass the system entirely (known: several)
-- [ ] `src/components/Avatar.tsx` (114, incl. `AvatarStack`),
-  `BalanceBadge.tsx` (51), `Btn.tsx` (72), `Card.tsx` (30) — design-system
+- [ ] `src/components/Avatar.tsx` (117, incl. `AvatarStack`),
+  `BalanceBadge.tsx` (50), `Btn.tsx` (111), `Card.tsx` (55) — design-system
   atoms; amount anatomy (always-signed, U+2212 minus) is currently inline
-  `toFixed(2)` everywhere, including the groups-list card's own copy
+  `toFixed(2)` everywhere, including the groups-list card's own copy.
+  `Card` gained an opt-in `tone="flat"` in the tactile pass that **nothing
+  uses yet** — see `design-system.md` "Open decision — flat information cards"
+- [ ] `src/components/PersonToken.tsx` (131, `Token` + `PersonToken`),
+  `Input.tsx` (104), `Segmented.tsx` (67) — tactile-pass primitives, all new
+  2026-08-19. Check the depth rules hold: `Token` must render flat without
+  `onClick`; `Input` must not swallow a caller's `onFocus`/`onBlur` (the
+  desktop split cells rely on both); and the transparent trailing shadow
+  layers in `globals.css` are load-bearing, not cruft (equal-length lists are
+  what make the press ease instead of snap)
+- [ ] `src/design/tokens.ts` (97) — `T` is a *pointer table into CSS*, not a
+  value store: every entry should be `var(--tally-*)` so it responds to theme.
+  `shadowFab` was the one literal and was deleted for exactly that reason.
+  Also holds `well()`, the recessed-input recipe
 - [ ] `src/components/dashboard/AppHeader.tsx` (76) — shared tab-page header;
   check that mounting a `NotificationsSheet` per header (plus Home's own, from
   its attention rail) is genuinely independent and not two sheets one tap apart

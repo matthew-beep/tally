@@ -121,7 +121,7 @@ export default function GroupSettingsPage() {
       <div style={{ padding: 28, fontFamily: F, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 }}>
         <div style={{ fontSize: 40 }}>💸</div>
         <div style={{ fontSize: 16, fontWeight: 600, color: T.ink }}>Group not found</div>
-        <Btn onClick={() => router.push('/groups')} variant="dark" size="md" style={{ marginTop: 4, padding: '10px 20px', fontSize: 14 }}>
+        <Btn onClick={() => router.push('/groups')} variant="cocoa" size="md" style={{ marginTop: 4, padding: '10px 20px', fontSize: 14 }}>
           Back to groups
         </Btn>
       </div>
@@ -228,7 +228,7 @@ export default function GroupSettingsPage() {
               <Btn
                 onClick={handleAddMembers}
                 disabled={!pendingMembers.length || adding}
-                variant="dark" size="md"
+                variant="cocoa" size="md"
                 style={{
                   padding: '8px 16px', fontSize: 13,
                 }}

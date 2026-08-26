@@ -20,6 +20,7 @@ export const T = {
   sunOn:    'var(--tally-sun-on)',
   mint:     'var(--tally-mint)', mintSoft:  'var(--tally-mint-soft)', mintInk:  'var(--tally-mint-ink)',
   coral:    'var(--tally-coral)',coralSoft: 'var(--tally-coral-soft)',coralInk: 'var(--tally-coral-ink)',
+  coralOn:  'var(--tally-coral-on)',
   lav:      'var(--tally-lav)', lavSoft:   'var(--tally-lav-soft)', lavInk:   'var(--tally-lav-ink)',
 
   r: {
@@ -53,6 +54,16 @@ export const T = {
   shadowSun:         'var(--tally-shadow-sun)',
   shadowSunHover:    'var(--tally-shadow-sun-hover)',
   shadowSunPressed:  'var(--tally-shadow-sun-pressed)',
+
+  // Tactile depth — cocoa, the secondary action. Sun is still the only accent;
+  // cocoa is a warm neutral fill that carries weight without competing with it.
+  cocoa:               'var(--tally-cocoa)',
+  cocoaHi:             'var(--tally-cocoa-hi)',
+  cocoaLo:             'var(--tally-cocoa-lo)',
+  cocoaOn:             'var(--tally-cocoa-on)',
+  shadowCocoa:         'var(--tally-shadow-cocoa)',
+  shadowCocoaHover:    'var(--tally-shadow-cocoa-hover)',
+  shadowCocoaPressed:  'var(--tally-shadow-cocoa-pressed)',
 
   // Tactile depth — recessed trough (inputs) + the flat information tier
   sink:            'var(--tally-sink)',

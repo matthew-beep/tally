@@ -104,7 +104,7 @@ export default function GroupsPreviewPage() {
             </svg>
             <span style={{ fontSize: 13.5, color: T.inkFaint }}>Search groups</span>
           </div>
-          <Btn variant="dark" size="md" style={{ padding: '8px 16px', fontSize: 13, flexShrink: 0 }}>+ New group</Btn>
+          <Btn variant="cocoa" size="md" style={{ padding: '8px 16px', fontSize: 13, flexShrink: 0 }}>+ New group</Btn>
         </div>
 
         <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: 0.7, textTransform: 'uppercase', color: T.inkFaint, margin: '4px 2px 10px' }}>

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react'
 import { T, F, FH } from '@/design/tokens'
 
-export type BtnVariant = 'primary' | 'dark' | 'outline' | 'danger' | 'dangerOutline' | 'soft'
+export type BtnVariant = 'primary' | 'cocoa' | 'outline' | 'danger' | 'dangerOutline' | 'soft'
 export type BtnSize = 'sm' | 'md' | 'lg'
 
 interface BtnProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'style'> {
@@ -24,7 +24,7 @@ const SIZE: Record<BtnSize, CSSProperties> = {
 // Variants with a solid fill are "raised" tactile objects — they get depth
 // shadow + press motion. Bordered/transparent variants (outline, dangerOutline)
 // stay flat — that's already the right read for quiet/secondary actions.
-const RAISED_VARIANTS: BtnVariant[] = ['primary', 'dark', 'soft', 'danger']
+const RAISED_VARIANTS: BtnVariant[] = ['primary', 'cocoa', 'soft', 'danger']
 
 function variantStyle(variant: BtnVariant, disabled: boolean, hover: boolean, press: boolean): CSSProperties {
   switch (variant) {
@@ -41,11 +41,20 @@ function variantStyle(variant: BtnVariant, disabled: boolean, hover: boolean, pr
         color: T.sunOn, border: 0,
         boxShadow: press ? T.shadowSunPressed : hover ? T.shadowSunHover : T.shadowSun,
       }
-    case 'dark':
+    case 'cocoa':
+      // The secondary action. Was solid ink — a stark black stab in an otherwise
+      // warm palette. Cocoa is a filled warm brown that carries the same
+      // "important, not primary" weight while staying in the cream family, and
+      // it doesn't compete with the semantic mint/coral/lavender.
       if (disabled) return { background: T.lineStrong, color: T.inkFaint, border: 0 }
       return {
-        background: T.ink, color: T.bg, border: 0,
-        boxShadow: press ? T.shadowPressed : hover ? T.shadowRaisedHover : T.shadowRaised,
+        // Gradient in every state, same reason as primary: CSS can't interpolate
+        // a gradient to a flat colour, so a solid pressed fill would snap.
+        background: press
+          ? `linear-gradient(180deg, ${T.cocoaLo} 0%, ${T.cocoaLo} 55%, ${T.cocoa} 100%)`
+          : `linear-gradient(180deg, ${T.cocoaHi} 0%, ${T.cocoa} 55%, ${T.cocoaLo} 100%)`,
+        color: T.cocoaOn, border: 0,
+        boxShadow: press ? T.shadowCocoaPressed : hover ? T.shadowCocoaHover : T.shadowCocoa,
       }
     case 'outline':
       // Inset ring rather than a real border — matches the design's flat "hair"
@@ -75,7 +84,10 @@ function variantStyle(variant: BtnVariant, disabled: boolean, hover: boolean, pr
 }
 
 // Shared CTA button — solid/outline/danger variants in sm/md/lg sizes.
-// Not for icon-only circular buttons or unstyled clickable rows/links — those stay bespoke.
+// Hierarchy: primary (sun) → cocoa → outline → danger/dangerOutline.
+// Icon-only circles are fine (override the box via `style`, as NotificationBell
+// does) — the point is that the raised tier lives here, not at the call site.
+// Unstyled clickable rows/links stay bespoke.
 export function Btn({
   variant = 'primary', size = 'md', fullWidth, icon, disabled, children, style, ...rest
 }: BtnProps) {

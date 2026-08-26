@@ -36,7 +36,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         <Btn
-          onClick={reset} variant="dark" size="lg"
+          onClick={reset} variant="cocoa" size="lg"
           style={{ padding: '11px 20px', borderRadius: T.r.lg, color: T.surface, fontFamily: F, fontSize: 14 }}
         >
           Try again

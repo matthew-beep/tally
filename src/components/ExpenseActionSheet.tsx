@@ -396,7 +396,7 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
               pins to the bottom while the detail above it scrolls. */}
           <ModalFooter style={{ justifyContent: 'stretch', gap: 9 }}>
             <Btn
-              onClick={() => setScreen('edit')} variant="dark" size="lg"
+              onClick={() => setScreen('edit')} variant="cocoa" size="lg"
               icon={
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                   <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>

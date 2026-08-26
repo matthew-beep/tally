@@ -64,7 +64,7 @@ export function SettingsModal({ open, onClose }: Props) {
           </div>
 
           <Btn
-            disabled variant="dark" size="lg" fullWidth
+            disabled variant="cocoa" size="lg" fullWidth
             style={{ padding: '13px', fontFamily: FH, fontSize: 15 }}
           >
             Save changes

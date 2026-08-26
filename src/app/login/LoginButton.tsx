@@ -139,7 +139,7 @@ function LoginButtonInner() {
                 ⚡ {devEmail}
               </button>
               <Btn
-                onClick={signIn} disabled={loading || !email || !password} variant="dark" size="md"
+                onClick={signIn} disabled={loading || !email || !password} variant="cocoa" size="md"
                 style={{ padding: '9px', fontSize: 13, opacity: loading || !email || !password ? 0.4 : 1 }}
               >
                 {loading ? 'Signing in…' : 'Sign in with email'}

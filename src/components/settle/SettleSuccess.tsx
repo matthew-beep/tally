@@ -102,7 +102,7 @@ export function SettleSuccess({
       </p>
 
       <Btn
-        onClick={onDone} variant="dark" size="lg" fullWidth
+        onClick={onDone} variant="cocoa" size="lg" fullWidth
         style={{ maxWidth: 320, marginTop: 22, padding: 15, borderRadius: 16, fontSize: 16, letterSpacing: -0.2 }}
       >
         Done

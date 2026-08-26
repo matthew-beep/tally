@@ -303,23 +303,43 @@ function BreakdownItems({ s }: { s: AddExpenseFormState }) {
 }
 
 // ── Mobile layout: title + amount, two collapsible rows, expense details ─────
-export function MobilePanel({ s, onCancel }: { s: AddExpenseFormState; onCancel: () => void }) {
+// `variant: 'route'` is used when this panel is the root of a full-screen page
+// (/groups/[id]/add) instead of the Vaul sheet — same body, a back-button nav
+// bar instead of the sheet's Cancel + centered group pill.
+export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseFormState; onCancel: () => void; variant?: 'sheet' | 'route' }) {
   const payer = s.paidById ? s.memberById[s.paidById] : undefined
   const isItemized = s.splitMode === 'itemized'
   const saveLabel = s.isPending ? 'Saving…' : isItemized ? 'Itemized — coming soon' : 'Save expense'
 
   return (
     <div className="add-expense-panel add-expense-panel--mobile">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 8px', flexShrink: 0 }}>
-        <button
-          type="button" onClick={onCancel}
-          style={{ background: 'transparent', border: 0, cursor: 'pointer', fontFamily: F, fontSize: 15, fontWeight: 600, color: T.inkMuted, padding: '6px 4px' }}
-        >Cancel</button>
-        <div style={{ fontSize: 12, fontWeight: 700, color: T.inkMuted, background: T.surfaceAlt, padding: '4px 12px', borderRadius: 999 }}>
-          {s.groupLabel}
+      {variant === 'route' ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 14px 8px', flexShrink: 0 }}>
+          <button
+            type="button" onClick={onCancel} aria-label="Back"
+            style={{ width: 36, height: 36, borderRadius: T.r.md, background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M12 4l-6 6 6 6" stroke={T.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <span style={{ flex: 1, fontFamily: F, fontSize: 15.5, fontWeight: 700, letterSpacing: -0.2, color: T.ink }}>Add expense</span>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.inkMuted, background: T.surfaceAlt, padding: '4px 12px', borderRadius: 999, flexShrink: 0 }}>
+            {s.groupLabel}
+          </div>
         </div>
-        <div style={{ width: 56 }} />
-      </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 8px', flexShrink: 0 }}>
+          <button
+            type="button" onClick={onCancel}
+            style={{ background: 'transparent', border: 0, cursor: 'pointer', fontFamily: F, fontSize: 15, fontWeight: 600, color: T.inkMuted, padding: '6px 4px' }}
+          >Cancel</button>
+          <div style={{ fontSize: 12, fontWeight: 700, color: T.inkMuted, background: T.surfaceAlt, padding: '4px 12px', borderRadius: 999 }}>
+            {s.groupLabel}
+          </div>
+          <div style={{ width: 56 }} />
+        </div>
+      )}
 
       <div className="add-expense-scroll" style={{ display: 'flex', flexDirection: 'column' }}>
         <Input

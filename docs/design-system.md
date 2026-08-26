@@ -193,6 +193,8 @@ warm-white insert rather than sun (the primary action owns the sun).
 **Components that own a tier**, so call sites don't re-implement it:
 
 - `Btn` — raised; `primary` carries the sun gradient + `--tally-shadow-sun`.
+- `NotificationBell` — raised, as `Btn variant="soft"` reshaped into the
+  header's circle. Its badge is a coral bead (see *Cocoa* below).
 - `Token` / `PersonToken` (`components/PersonToken.tsx`) — the one selectable
   pill shape. Renders **flat when it has no `onClick`**: a pill you can only
   read is information.
@@ -202,6 +204,33 @@ warm-white insert rather than sun (the primary action owns the sun).
 - `well(focused, rimColor)` (`design/tokens.ts`) — the recessed primitive, for
   inputs whose well holds more than a value (`MemberCombobox`'s chips,
   `HandleInput`'s validation pip) and for segmented-style tracks.
+
+### Cocoa — the secondary action (2026-08-24)
+
+From the `Tactile Concepts` canvas, § *Secondary action colour — cocoa, not
+black*. `Btn`'s `dark` variant (solid `T.ink`) **was removed, not deprecated** —
+a stark black stab in a warm cream palette, and every call site now passes
+`cocoa`. The hierarchy is:
+
+```
+primary (sun) → cocoa → outline → danger / dangerOutline
+```
+
+Cocoa is a filled warm brown built the same way sun is — `--tally-cocoa-hi/-lo`
+are the mid shaded ±10% so it lights from above, and `--tally-shadow-cocoa`
+(`-hover`, `-pressed`) mirror the sun triple with a brown glow. Light and dark
+use *different* mids (`#6B5140` / `#8A6A52`): charcoal needs the extra
+luminosity for cocoa to still read as a surface, and its glow goes to black
+since a brown halo on brown-black is invisible.
+
+Sun remains the only accent and the one-raised-sun-object rule is unchanged —
+cocoa is a warm neutral that carries weight without competing for it.
+
+The same pass retired the other solid-ink spots on `/groups/new`: the emoji tile's
+edit bead is now a sun bead, and the member-remove `×` is a recessed bead
+(removing is a quiet action). `--tally-coral-on` was added for text on solid
+coral — the sibling of `--tally-sun-on`, but unlike sun it flips per theme
+(deep coral takes white, dark's pale peach takes dark ink).
 
 ### Two animation traps
 

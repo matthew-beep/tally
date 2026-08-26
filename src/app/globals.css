@@ -37,6 +37,10 @@
   --tally-coral:       #EF6144;
   --tally-coral-soft:  #FCEAE7;
   --tally-coral-ink:   #862412;
+  /* Text drawn ON solid --tally-coral, the sibling of --tally-sun-on. Unlike
+     sun, coral flips between themes (deep coral vs. pale peach), so this one
+     does have to change with the theme. */
+  --tally-coral-on:    #FFFFFF;
   --tally-lav:         #9179EF;
   --tally-lav-soft:    #EDE9FD;
   --tally-lav-ink:     #3C2BA8;
@@ -56,6 +60,17 @@
   --tally-shadow-sun:         inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(31,26,20,0.13), 0 2px 4px rgba(31,26,20,0.14), 0 6px 14px rgba(226,178,60,0.34);
   --tally-shadow-sun-hover:   inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(31,26,20,0.14), 0 3px 6px rgba(31,26,20,0.16), 0 10px 22px rgba(226,178,60,0.42);
   --tally-shadow-sun-pressed: inset 0 2px 5px rgba(31,26,20,0.22), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 rgba(226,178,60,0), 0 0 0 rgba(226,178,60,0);
+  /* Tactile depth — COCOA, the secondary action (replaced solid ink/black).
+     Warm brown reads as part of the cream family; black read as Bootstrap
+     dropped into it. Hierarchy: sun → cocoa → outline → destructive.
+     hi/lo are the mid shaded ±10% so the fill lights from above like sun. */
+  --tally-cocoa-hi: #856B5A;
+  --tally-cocoa:    #6B5140;
+  --tally-cocoa-lo: #513726;
+  --tally-cocoa-on: #F6EFE4;
+  --tally-shadow-cocoa:         inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -2px 0 rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.14), 0 6px 14px rgba(107,81,64,0.34);
+  --tally-shadow-cocoa-hover:   inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -2px 0 rgba(0,0,0,0.24), 0 3px 6px rgba(0,0,0,0.16), 0 10px 22px rgba(107,81,64,0.34);
+  --tally-shadow-cocoa-pressed: inset 0 2px 5px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 rgba(107,81,64,0), 0 0 0 rgba(107,81,64,0);
   /* Tactile depth — recessed trough (inputs) and the flat information tier.
      --tally-sink is deliberately a step darker than --tally-surface-alt so a
      well reads as a hole, not a tint. */
@@ -115,6 +130,8 @@
   --tally-coral:       #F2A48A;
   --tally-coral-soft:  rgba(242,164,138,0.18);
   --tally-coral-ink:   #F7BBA6;
+  /* See :root — dark coral is a pale peach, so text on it goes dark. */
+  --tally-coral-on:    #4A1C0E;
   --tally-lav:         #C3B6EB;
   --tally-lav-soft:    rgba(195,182,235,0.18);
   --tally-lav-ink:     #F0EAFB;
@@ -132,6 +149,16 @@
   --tally-shadow-sun:         inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(31,26,20,0.13), 0 2px 4px rgba(31,26,20,0.14), 0 6px 14px rgba(0,0,0,0.45);
   --tally-shadow-sun-hover:   inset 0 1px 0 rgba(255,255,255,0.45), inset 0 -2px 0 rgba(31,26,20,0.14), 0 3px 6px rgba(31,26,20,0.16), 0 10px 22px rgba(0,0,0,0.5);
   --tally-shadow-sun-pressed: inset 0 2px 5px rgba(31,26,20,0.22), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0);
+  /* See :root — cocoa is lifted a step on charcoal so it still reads as a
+     surface rather than a hole, and the glow goes to black (a brown halo on
+     brown-black is invisible). */
+  --tally-cocoa-hi: #A4846C;
+  --tally-cocoa:    #8A6A52;
+  --tally-cocoa-lo: #705038;
+  --tally-cocoa-on: #F6EFE4;
+  --tally-shadow-cocoa:         inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -2px 0 rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.14), 0 6px 14px rgba(0,0,0,0.45);
+  --tally-shadow-cocoa-hover:   inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -2px 0 rgba(0,0,0,0.24), 0 3px 6px rgba(0,0,0,0.16), 0 10px 22px rgba(0,0,0,0.45);
+  --tally-shadow-cocoa-pressed: inset 0 2px 5px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0);
   /* Tactile depth — recessed trough (inputs) and the flat information tier.
      The design specifies rgba(0,0,0,0.34); pinned to the solid it resolves to
      over --tally-surface so a well looks identical on surface and card-bg. */

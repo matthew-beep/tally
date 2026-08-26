@@ -12,6 +12,7 @@ import { useGlobalBalances } from '@/queries/useGlobalBalances'
 import { avatarProfile, slotFor } from '@/lib/memberDisplay'
 import { formatAmount } from '@/lib/money'
 import { useUIStore } from '@/store/ui'
+import { useIsMobileSheet } from '@/hooks/useMediaQuery'
 import type { GroupMember } from '@/types'
 
 /**
@@ -26,6 +27,7 @@ import type { GroupMember } from '@/types'
 export function AddExpenseGroupPicker() {
   const { fabOpen, setFabOpen } = useUIStore()
   const router = useRouter()
+  const isMobile = useIsMobileSheet()
   const { data: groups = [], isLoading: groupsLoading } = useGroups()
   const { data: gb, isLoading: balancesLoading } = useGlobalBalances()
 
@@ -33,9 +35,10 @@ export function AddExpenseGroupPicker() {
     setFabOpen(false)
   }
 
+  // Mobile: the full-screen /add route. Desktop: unchanged — ?add=1 opens the modal.
   function goToGroup(groupId: string) {
     close()
-    router.push(`/groups/${groupId}?add=1`)
+    router.push(isMobile ? `/groups/${groupId}/add` : `/groups/${groupId}?add=1`)
   }
 
   function goToNewGroup() {

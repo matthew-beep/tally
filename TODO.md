@@ -1197,12 +1197,6 @@ the bottom; related gaps not on the original list are tracked separately.
 
 - [x] **Scroll design + input arrows** 🟢 — global thin scrollbars and number-input
   spinner removal in `src/app/globals.css` (`.tally-scroll-hidden` utility too).
-- [x] **Fix mobile navbar bottom color gap** 🟢 — `.dashboard-mobile-nav` gets
-  `background: var(--tally-surface)` + `padding-bottom: env(safe-area-inset-bottom)`
-  in `src/styles/dashboard.css` (Safari home-indicator gap).
-- [x] **Edit individual group amount from dashboard** 🟢 — `BalanceSheet.tsx` →
-  `GroupBreakdown` rows tap into `GroupSettleScreen` (editable amount, Full/Half/Clear
-  chips, single-group scope only).
 - [x] **Tactile depth design system** 🟢 — four-tier shadows, `well()` primitive,
   shared components `Input`, `Segmented`, `Token`/`PersonToken`, `Btn` tactile
   treatment. Documented in `docs/design-system.md` § Tactile depth; dev preview at
@@ -1214,27 +1208,108 @@ the bottom; related gaps not on the original list are tracked separately.
   rebuilt on `Input` / `Segmented` / `PersonToken` / `DatePicker`. Itemized tab
   and breakpoint QA still open (see below).
 
-### Open — polish / layout
+### Reopened 2026-08-25 — reported broken/missing live, doc said done
+
+Both were marked `[x]` above previously. Matthew flagged both as still an
+issue in practice; re-verify before trusting the described fix and either
+confirm+re-close or diagnose the actual gap.
+
+- [ ] **Mobile navbar bottom color gap** 🟢 — doc claimed `.dashboard-mobile-nav`
+  gets `background: var(--tally-surface)` + `padding-bottom:
+  env(safe-area-inset-bottom)` in `src/styles/dashboard.css` (Safari
+  home-indicator gap fix). Reported still showing a gap. Reproduce on a
+  real device/simulator with a home indicator; check whether the rule ships
+  as described or something later overrides `background` on
+  `.dashboard-mobile-nav` (stacking/z-index), or whether the safe-area
+  padding is pushing a transparent strip below the colored area rather than
+  the color extending into it.
+- [ ] **Edit individual group amount from dashboard** 🟢 — doc claimed shipped
+  via `BalanceSheet.tsx` → `GroupBreakdown` rows → `GroupSettleScreen`
+  (editable amount, Full/Half/Clear chips). Reported not working from the
+  dashboard. Confirm the tap target actually reaches that screen from the
+  dashboard (not just from the group page) and that the edit persists;
+  scope whether it's a wiring regression or the flow never fully shipped.
+
+### Phase 1 — Nav decision (unblocks Phase 2)
+
+- [ ] **Change to floating nav** 🟡 — `DockedTabBar` is live in
+  `(dashboard)/layout.tsx`. Floating `TabBar.tsx` (pill + `SliderPill`) exists but is
+  unmounted. Documented as live A/B in `docs/feature-status.md` — **decision not made.**
+  Note: reverting to floating `TabBar` removes mobile's global Add entry point unless
+  FAB scoping / header actions are rebuilt. Decide this first — it blocks Phase 2.
+
+### Phase 2 — Mobile shell fixes (depends on Phase 1)
+
+- [ ] **Global FAB scoping to current group (mobile)** 🟡 — FAB always opens
+  `AddExpenseGroupPicker` (all groups). `activeGroupId` in `store/ui.ts` is **never set
+  anywhere**. On `/groups/[id]`, FAB should skip the picker and go straight to
+  `?add=1` for that group. Wire `setActiveGroup(groupId)` on group detail mount /
+  clear on leave.
+- [ ] **Group page FAB overlap / clipping** 🟡 — structural mitigation exists (FAB in
+  `(dashboard)/layout.tsx`, feed has 100px bottom padding on `.group-detail-right`) but
+  `docs/responsive-qa.md` still unchecked: "Floating Add-expense CTA doesn't cover the
+  last feed row." Verify on real device after FAB scoping work above.
+- [ ] **Move group name to center (mobile group detail)** 🟡 — mobile header is
+  `back | left-aligned name+emoji | settings` (`groups/[id]/page.tsx` ~197–224). No
+  centered title treatment in CSS or JSX yet.
+- [ ] **Mobile padding on group page** 🟡 — padding exists (`group-detail-right`:
+  `16px 16px 100px`; header: `8px 14px 6px` inline in `groups/[id]/page.tsx`) but
+  not tuned to final spec. The 100px bottom pad is a FAB workaround, not a finished
+  layout pass.
+- [ ] **New group action on mobile header** 🟡 — `AppHeader` actions hide below 1024px
+  (`.app-header-action--hide-mobile`). "+ New group" only appears in Groups page body,
+  not header. Sidebar "+" is desktop-only. Pass `{ label: 'New group', onClick: …,
+  hideOnMobile: false }` on Groups tab, or equivalent.
+- [ ] **Remove search from group page** 🟡 — **scope-dependent:**
+  - Group **detail** (`/groups/[id]`) — no search UI ✅ (done if this is what was meant).
+  - Groups **list** (`/groups`) — search input still present (`groups/page.tsx` ~50–62).
+  - Group **settings** — `MemberCombobox` search for adding members remains (probably
+    keep). Decide which surfaces lose search before deleting.
+
+### Phase 3 — Add-expense mobile fixes
+
+- [ ] **Add-expense fixed-bottom footer drifts with keyboard** 🟡 *(new,
+  2026-08-25)* — mobile add-expense's fixed-bottom footer moves up as the
+  on-screen keyboard opens instead of staying put; wanted layout is
+  `justify-between` inside a height-stable container rather than
+  fixed-to-viewport-bottom. Root-cause likely `position: fixed` + viewport
+  units that shift when the mobile keyboard resizes the visual viewport —
+  check `MobilePanel.tsx`'s footer positioning and consider `dvh`/`env()`-
+  aware sizing instead.
+- [ ] **Date picker design — mobile parity** 🟡 — custom `DatePicker.tsx` wired on
+  desktop only (`DesktopPanel.tsx`). `MobilePanel.tsx` has no date field; expense date
+  silently defaults via `useAddExpenseForm`. Desktop picker itself may still need a
+  visual pass.
+- [ ] **Mobile category field on add-expense** 🟡 *(new, 2026-08-25)* — confirm
+  whether `CategoryChips` is actually missing from `MobilePanel.tsx` or just
+  differently placed, then add if genuinely missing. Bundle with the date
+  picker item above — do both together the same way **Now §6** already
+  suggests bundling category+date for the edit flow.
+- [ ] **Add expense on desktop — finish rework** 🟡 — panel refactor landed
+  (see Done above) but still open: itemized tab is "Coming soon", 768–1023px
+  mixed zone untested (mobile nav + desktop modal panel — see
+  `docs/responsive-qa.md`), design verification not done.
+
+### Phase 4 — Dashboard/home polish
+
+- [ ] **Dashboard hero card — rendering glitch** 🟡 *(new, 2026-08-25)* —
+  square artifact rendering on the right side of the home hero card. No
+  existing note anywhere; needs a screenshot/repro first. Likely suspect:
+  a stray shadow/border/overflow box from the tactile-depth shadow system
+  (`well()` primitive, `docs/design-system.md` § Tactile depth) landing on
+  the hero card.
+- [ ] **Sticky open balances on mobile** 🟡 *(new, 2026-08-25)* — make the
+  open-balances section stick to the hero on scroll. Needs a decision on
+  scroll container (page-level vs. a sticky wrapper) — check
+  `.home-topbar`'s existing sticky pattern in `dashboard.css` as precedent
+  before building a new one.
+
+### Phase 5 — Remaining polish (lower urgency, no blockers)
 
 - [ ] **Edit dark mode action button** 🟡 — `ExpenseActionSheet.tsx` Edit footer still
   uses `Btn variant="dark"` (`T.ink` bg / `T.bg` text). In dark mode that inverts to
   cream-on-charcoal — functional but not the intended footer treatment. Needs a
   theme-aware variant or sheet-footer override.
-- [ ] **Add expense on desktop — finish rework** 🟡 — panel refactor landed
-  (see Done above) but still open: itemized tab is "Coming soon", 768–1023px
-  mixed zone untested (mobile nav + desktop modal panel — see
-  `docs/responsive-qa.md`), design verification not done.
-- [ ] **Mobile padding on group page** 🟡 — padding exists (`group-detail-right`:
-  `16px 16px 100px`; header: `8px 14px 6px` inline in `groups/[id]/page.tsx`) but
-  not tuned to final spec. The 100px bottom pad is a FAB workaround, not a finished
-  layout pass.
-- [ ] **Move group name to center (mobile group detail)** 🟡 — mobile header is
-  `back | left-aligned name+emoji | settings` (`groups/[id]/page.tsx` ~197–224). No
-  centered title treatment in CSS or JSX yet.
-- [ ] **Date picker design — mobile parity** 🟡 — custom `DatePicker.tsx` wired on
-  desktop only (`DesktopPanel.tsx`). `MobilePanel.tsx` has no date field; expense date
-  silently defaults via `useAddExpenseForm`. Desktop picker itself may still need a
-  visual pass.
 - [ ] **Mobile drawer sheet close animation** 🟡 — sheets use Vaul globally via
   `Sheet.tsx`, not dashboard-only. Open/dismiss is Vaul's default; no custom close
   animation like desktop modals (`modal-fade-out`, `modal-pop-out` in
@@ -1255,34 +1330,18 @@ the bottom; related gaps not on the original list are tracked separately.
   on mobile) and is currently unused. Decide: adopt `ModalHeader` (or a sheet-aware
   wrapper) on all desktop modals? Add X to mobile sheets or keep swipe-only? Fold
   multi-screen back/cancel patterns into one rule?
-- [ ] **Group page FAB overlap / clipping** 🟡 — structural mitigation exists (FAB in
-  `(dashboard)/layout.tsx`, feed has 100px bottom padding on `.group-detail-right`) but
-  `docs/responsive-qa.md` still unchecked: "Floating Add-expense CTA doesn't cover the
-  last feed row." Verify on real device after FAB scoping work below.
-- [ ] **Remove search from group page** 🟡 — **scope-dependent:**
-  - Group **detail** (`/groups/[id]`) — no search UI ✅ (done if this is what was meant).
-  - Groups **list** (`/groups`) — search input still present (`groups/page.tsx` ~50–62).
-  - Group **settings** — `MemberCombobox` search for adding members remains (probably
-    keep). Decide which surfaces lose search before deleting.
-- [ ] **Change to floating nav** 🟡 — `DockedTabBar` is live in
-  `(dashboard)/layout.tsx`. Floating `TabBar.tsx` (pill + `SliderPill`) exists but is
-  unmounted. Documented as live A/B in `docs/feature-status.md` — **decision not made.**
-  Note: reverting to floating `TabBar` removes mobile's global Add entry point unless
-  FAB scoping / header actions are rebuilt.
-
-### Open — behavior / features
-
-- [ ] **Global FAB scoping to current group (mobile)** 🟡 — FAB always opens
-  `AddExpenseGroupPicker` (all groups). `activeGroupId` in `store/ui.ts` is **never set
-  anywhere**. On `/groups/[id]`, FAB should skip the picker and go straight to
-  `?add=1` for that group. Wire `setActiveGroup(groupId)` on group detail mount /
-  clear on leave.
-- [ ] **New group action on mobile header** 🟡 — `AppHeader` actions hide below 1024px
-  (`.app-header-action--hide-mobile`). "+ New group" only appears in Groups page body,
-  not header. Sidebar "+" is desktop-only. Pass `{ label: 'New group', onClick: …,
-  hideOnMobile: false }` on Groups tab, or equivalent.
 - [ ] **Randomize emoji for new group** 🟢 — `groups/new/page.tsx` defaults to `'💸'`.
   `EMOJIS` array is picker vocabulary only. Pick random from list on mount.
+
+### Phase 6 — Sign-in page
+
+- [ ] **Finish sign-in page** 🟡 *(new, 2026-08-25)* — nothing scoped yet
+  beyond "needs finishing." Needs a follow-up conversation to pin down
+  whether that means visual polish or missing states (error/loading/redirect
+  edge cases) on `login/page.tsx` + `LoginButton.tsx` before it's actionable.
+
+### Phase 7 — Larger epics (separate projects, not polish-pass work)
+
 - [ ] **Upload group photo** 🟡 — no `image_url` (or similar) on `groups` in schema;
   groups are emoji-only today. Needs migration + Supabase storage + UI in create/settings.
 - [ ] **Implement itemized mode** 🟡 — **feature epic, not just UI.** UI shell only:
@@ -1291,6 +1350,9 @@ the bottom; related gaps not on the original list are tracked separately.
   (`docs/schema.md`) — what's missing is the client save path and builders, plus
   OCR hookup (`/api/ocr` Phase 3). Split into: save path → mobile/desktop builders
   → receipt scan pre-fill.
+
+### Not phased — tracked but independent of this sequence
+
 - [ ] **Optional note on add-expense modal** 🟡 — `expenses` has no `note` column today
   (`note` exists on `settlements` only). Add optional comment field to add-expense on
   desktop (`DesktopPanel.tsx`) and mobile (`MobilePanel.tsx`); wire through
@@ -1306,15 +1368,28 @@ the bottom; related gaps not on the original list are tracked separately.
   `CategoryChips` + `DatePicker` in the edit drawer. Category alone also tracked under
   **Now §6** below — do both together.
 
-### Suggested priority (this pass)
+### Suggested priority (this pass) — revised 2026-08-25
 
-1. **Nav decision** (floating vs docked) — unlocks FAB scoping design.
-2. **FAB scoping + centered group title + mobile padding** — group page feels broken
-   without these.
-3. **Dark mode Edit button** — quick polish win.
-4. **Remove groups list search** (if intended) + **mobile header "New group"**.
-5. **Desktop add-expense QA** at all breakpoints + mobile date picker.
-6. **Itemized mode** — separate epic; don't block the polish pass on it.
+Verify-before-build, then decisions-before-dependent-work, then cheap fixes,
+then epics last:
+
+1. **Phase 0 — re-verify the two reopened items** (navbar color, dashboard
+   group-amount edit). If actually broken, that's a regression and jumps
+   the queue over everything else.
+2. **Phase 1 — nav decision** (floating vs docked) — unlocks Phase 2.
+3. **Phase 2 — FAB scoping + centered group title + mobile padding +
+   header "New group" + search removal** — group page feels broken
+   without these, all depend on the nav decision landing first.
+4. **Phase 3 — add-expense mobile** (keyboard-drift footer, date picker,
+   category field, desktop rework finish).
+5. **Phase 4 — dashboard/home polish** (hero rendering glitch, sticky
+   balances).
+6. **Phase 5 — remaining polish** (dark mode Edit button, drawer close
+   animation, modal header consistency, randomize emoji) — no blockers,
+   lowest urgency.
+7. **Phase 6 — sign-in page** — needs scoping conversation first.
+8. **Phase 7 — itemized mode + group photo upload** — separate epics; don't
+   block the polish pass on either.
 
 ### Related gaps (not on the original list)
 
