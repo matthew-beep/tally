@@ -108,7 +108,7 @@ export function CommentsList({ expenseId, groupId, members, mySeatId, canPost }:
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
               placeholder="Add a comment…"
               maxLength={MAX_LEN}
-              style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', fontSize: 13, color: T.ink, fontFamily: F, padding: '8px 0' }}
+              style={{ flex: 1, minWidth: 0, border: 0, outline: 0, background: 'transparent', fontSize: 16, color: T.ink, fontFamily: F, padding: '8px 0' }}
             />
             <button
               onClick={send}

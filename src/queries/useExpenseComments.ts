@@ -1,8 +1,26 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase'
 import type { ExpenseComment } from '@/types'
+
+/**
+ * Plain insert, no hook — used by useAddComment's mutationFn below, and
+ * reused directly by add-expense's handleSave to post a note as the first
+ * comment right after the expense itself saves. That call site can't use the
+ * useAddComment hook: it only learns the real expense id after the expense
+ * mutation resolves, inside an event handler, where hooks can't run.
+ */
+export async function insertExpenseComment(
+  supabase: SupabaseClient,
+  { expenseId, groupId, seatId, body }: { expenseId: string; groupId: string; seatId: string; body: string }
+) {
+  const { error } = await supabase
+    .from('expense_comments')
+    .insert({ expense_id: expenseId, group_id: groupId, group_member_id: seatId, body })
+  if (error) throw error
+}
 
 // Own key, fetched lazily by the detail drawer — not joined into
 // expensesQueryOptions, which useAllGroupData fans out across every group for
@@ -45,12 +63,8 @@ export function useAddComment(expenseId: string, groupId: string) {
   const key = expenseCommentsQueryOptions(expenseId).queryKey
 
   return useMutation({
-    mutationFn: async ({ body, seatId }: { body: string; seatId: string }) => {
-      const { error } = await supabase
-        .from('expense_comments')
-        .insert({ expense_id: expenseId, group_id: groupId, group_member_id: seatId, body })
-      if (error) throw error
-    },
+    mutationFn: async ({ body, seatId }: { body: string; seatId: string }) =>
+      insertExpenseComment(supabase, { expenseId, groupId, seatId, body }),
 
     onMutate: async ({ body, seatId }: { body: string; seatId: string }) => {
       await qc.cancelQueries({ queryKey: key })

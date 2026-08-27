@@ -1,12 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { ArrowUpRight } from 'lucide-react'
 import { ModalOrSheet } from '@/components/modal'
 import { Btn } from '@/components/Btn'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile, firstName as getFirstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
-import { formatAmount, stripNegative, round2, splitAmount } from '@/lib/money'
+import { AmountInput } from '@/components/AmountInput'
+import { formatAmount, round2, parseNum, splitAmount } from '@/lib/money'
 import { useCreateSettlements } from '@/queries/useSettlements'
 import { SettleSuccess } from '@/components/settle/SettleSuccess'
 import type { SettlementAllocation } from '@/lib/settlements'
@@ -24,6 +27,11 @@ function allocationFor(part: PersonPart, amount: number): SettlementAllocation {
     amount: Math.abs(amount),
     direction: part.amount > 0 ? 'owed' : 'owe',
   }
+}
+
+/** Settling more than the group's balance would just flip it the other way. */
+function clampToBalance(v: number, full: number): number {
+  return Math.max(0, Math.min(full, round2(v)))
 }
 
 interface BalanceSheetProps {
@@ -109,22 +117,23 @@ function GroupBreakdown({
 // Editable amount scoped to just this one group; settling here never
 // touches the person's other groups (it writes a batch of one).
 function GroupSettleScreen({
-  part, amount, firstName, isPending, onChangeAmount, onSettle, onBack,
+  part, amount, firstName, isPending, onChangeAmount, onSettle, onBack, onOpenGroup,
 }: {
   part: PersonPart
-  amount: number
+  /** Raw field text, not a number — see the input below. */
+  amount: string
   firstName: string
   isPending: boolean
-  onChangeAmount: (v: number) => void
+  onChangeAmount: (v: string) => void
   onSettle: () => void
   onBack: () => void
+  onOpenGroup: (groupId: string) => void
 }) {
   const full = Math.abs(part.amount)
   const partOwed = part.amount > 0
-  const amtColor = partOwed ? T.mintInk : T.coralInk
-  const clamp = (v: number) => Math.max(0, Math.min(full, Math.round(v * 100) / 100))
-  const partial = amount > 0.005 && amount < full - 0.005
-  const canSettle = amount >= 0.005 && !isPending
+  const amt = clampToBalance(parseNum(amount), full)
+  const partial = amt > 0.005 && amt < full - 0.005
+  const canSettle = amt >= 0.005 && !isPending
 
   return (
     <div style={{ overflowY: 'auto', paddingBottom: 44 }}>
@@ -137,48 +146,39 @@ function GroupSettleScreen({
             <path d="M9 2L3 7l6 5" fill="none" stroke={T.ink} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
-        <span style={{ fontSize: 18 }}>{part.groupEmoji}</span>
-        <span style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.3, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {part.groupName}
-        </span>
+        <button
+          type="button"
+          onClick={() => onOpenGroup(part.groupId)}
+          aria-label={`Open ${part.groupName}`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flex: 1,
+            border: 0, background: 'none', padding: 0, cursor: 'pointer', font: 'inherit',
+          }}
+        >
+          <span style={{ fontSize: 18, flexShrink: 0 }}>{part.groupEmoji}</span>
+          <span style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.3, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {part.groupName}
+          </span>
+          <ArrowUpRight size={14} color={T.inkFaint} style={{ flexShrink: 0 }} />
+        </button>
       </div>
 
       <div style={{ padding: '10px 20px 4px' }}>
         <SectionLabel>{partOwed ? `${firstName} owes you here` : `You owe ${firstName} here`}</SectionLabel>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginTop: 6 }}>
-          <span style={{ fontSize: 24, fontWeight: 500, color: T.inkMuted, fontFamily: FH }}>$</span>
-          <input
-            type="number" inputMode="decimal" min={0} max={full} step="0.01"
-            value={amount.toFixed(2)}
-            onChange={e => onChangeAmount(clamp(parseFloat(stripNegative(e.target.value)) || 0))}
-            style={{ border: 0, outline: 0, background: 'transparent', padding: 0, width: 180, fontFamily: FH, fontSize: 42, fontWeight: 700, letterSpacing: -1.4, color: amtColor }}
-          />
+        {/* Same contract as add-expense's amount: the field holds raw text and
+            is only parsed downstream. Formatting or clamping per keystroke
+            fights the keyboard — a re-rendered `.00` tail can't be
+            backspaced through, and a second digit lands past the decimal. */}
+        <div style={{ marginTop: 8 }}>
+          <AmountInput value={amount} onChange={onChangeAmount} max={full} />
         </div>
-        <div style={{ fontSize: 12.5, fontWeight: 600, color: partial ? T.sunInk : T.inkMuted, marginTop: 4 }}>
-          {partial ? `Partial · ${formatAmount(full - amount)} stays open` : 'Full balance'}
+        <div style={{ fontSize: 12.5, fontWeight: 600, color: partial ? T.sunInk : T.inkMuted, marginTop: 8 }}>
+          {partial ? `Partial · ${formatAmount(full - amt)} stays open` : `Full balance · ${formatAmount(full)}`}
         </div>
       </div>
 
-      <div style={{ padding: '16px 20px 8px' }}>
-        <div style={{ display: 'flex', gap: 7 }}>
-          {([['Full', full], ['Half', full / 2], ['Clear', 0]] as [string, number][]).map(([label, v]) => {
-            const on = Math.abs(amount - v) < 0.005
-            return (
-              <button
-                key={label} type="button" onClick={() => onChangeAmount(clamp(v))}
-                style={{
-                  flex: 1, border: 0, cursor: 'pointer', font: 'inherit', padding: '11px 0', borderRadius: 11,
-                  background: on ? T.ink : 'transparent', color: on ? T.bg : T.ink,
-                  boxShadow: on ? 'none' : `inset 0 0 0 1px ${T.lineStrong}`,
-                  fontSize: 13.5, fontWeight: 700,
-                }}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
-        <p style={{ fontSize: 11.5, lineHeight: 1.5, color: T.inkFaint, padding: '14px 4px 0', margin: 0 }}>
+      <div style={{ padding: '14px 20px 0' }}>
+        <p style={{ fontSize: 11.5, lineHeight: 1.5, color: T.inkFaint, padding: '0 4px', margin: 0 }}>
           This only settles {part.groupName} — your other groups with {firstName} aren&apos;t touched.
         </p>
       </div>
@@ -191,7 +191,7 @@ function GroupSettleScreen({
             fontFamily: 'inherit', fontSize: 16, letterSpacing: -0.2,
           }}
         >
-          {canSettle ? `Settle ${formatAmount(amount)} in ${part.groupName}` : 'Enter an amount'}
+          {canSettle ? `Settle ${formatAmount(amt)} in ${part.groupName}` : 'Enter an amount'}
         </Btn>
       </div>
     </div>
@@ -199,9 +199,11 @@ function GroupSettleScreen({
 }
 
 export function BalanceSheet({ open, onClose, name: nameProp, profile: profileProp, slot: slotProp, net: netProp, parts: partsProp }: BalanceSheetProps) {
+  const router = useRouter()
   const [screen, setScreen] = useState<Screen>('balance')
   const [groupPart, setGroupPart] = useState<PersonPart | null>(null)
-  const [groupAmount, setGroupAmount] = useState(0)
+  // Field text, not a number — parsed at the write, clamped on blur.
+  const [groupAmount, setGroupAmount] = useState('')
   const [settled, setSettled] = useState<SettledSummary | null>(null)
   const createSettlements = useCreateSettlements()
 
@@ -219,7 +221,7 @@ export function BalanceSheet({ open, onClose, name: nameProp, profile: profilePr
     if (open) {
       setScreen('balance')
       setGroupPart(null)
-      setGroupAmount(0)
+      setGroupAmount('')
       setSettled(null)
     }
   }, [open])
@@ -264,11 +266,16 @@ export function BalanceSheet({ open, onClose, name: nameProp, profile: profilePr
     onClose()
   }
 
+  function handleOpenGroup(groupId: string) {
+    handleClose()
+    router.push(`/groups/${groupId}`)
+  }
+
   // Tapping a row drills into that group's own editable settle screen, in
   // place — no navigating away from the sheet.
   function openGroupScreen(part: PersonPart) {
     setGroupPart(part)
-    setGroupAmount(Math.abs(part.amount))
+    setGroupAmount(Math.abs(part.amount).toFixed(2))
     setScreen('group')
   }
 
@@ -294,11 +301,15 @@ export function BalanceSheet({ open, onClose, name: nameProp, profile: profilePr
   // Drill-down: a single group, at whatever amount the user set. Never touches
   // their other groups — a batch of one.
   async function handleSettleGroup() {
-    if (!groupPart || groupAmount < 0.005) return
+    if (!groupPart) return
+    // Re-clamp here rather than trusting the field: a tap on the CTA doesn't
+    // reliably blur the input first on mobile.
+    const amount = clampToBalance(parseNum(groupAmount), Math.abs(groupPart.amount))
+    if (amount < 0.005) return
     const rows = await createSettlements.mutateAsync({
-      allocations: [allocationFor(groupPart, groupAmount)],
+      allocations: [allocationFor(groupPart, amount)],
     })
-    setSettled({ amount: groupAmount, status: rows[0].status, groupCount: rows.length })
+    setSettled({ amount, status: rows[0].status, groupCount: rows.length })
     setScreen('success')
   }
 
@@ -331,6 +342,7 @@ export function BalanceSheet({ open, onClose, name: nameProp, profile: profilePr
           onChangeAmount={setGroupAmount}
           onSettle={handleSettleGroup}
           onBack={() => setScreen('balance')}
+          onOpenGroup={handleOpenGroup}
         />
       ) : screen === 'confirm' ? (
         <div style={{ overflowY: 'auto', paddingBottom: 44 }}>

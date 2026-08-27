@@ -1,20 +1,29 @@
 'use client'
 
 import type { ReactNode } from 'react'
+import { format, parseISO } from 'date-fns'
 import { T, FH, F, FMONO, well } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { SectionLabel } from '@/components/SectionLabel'
+import { ModalOrSheet, ModalHeader, ModalContent } from '@/components/modal'
 import { avatarProfile } from '@/lib/memberDisplay'
 import { formatAmount, round2, stripNegative, parseNum } from '@/lib/money'
+import { CATEGORIES } from '@/lib/categories'
 import type { GroupMember } from '@/types'
 import { ALGORITHMS, algoLabel, type SplitMode, type LineItem } from './types'
 import { RemainderCounter, Hairline, Chevron, Checkbox, shortName, fmtPct } from './parts'
 import { Btn } from '@/components/Btn'
 import { Input } from '@/components/Input'
-import { PersonToken } from '@/components/PersonToken'
+import { AmountInput } from '@/components/AmountInput'
+import { PayerSheetContent } from './PayerSheetContent'
+import { DateSheetContent } from './DateSheetContent'
+import { CategorySheetContent } from './CategorySheetContent'
+import { NoteSheetContent } from './NoteSheetContent'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
-function CollapsibleRow({ label, value, open, onClick }: {
+// A tappable summary row — label left, value + chevron right. Opens a picker
+// sheet on tap; `open` means "that sheet is currently open," not "expanded inline."
+function SummaryRow({ label, value, open, onClick }: {
   label: string; value: ReactNode; open: boolean; onClick: () => void
 }) {
   return (
@@ -28,29 +37,6 @@ function CollapsibleRow({ label, value, open, onClick }: {
         <Chevron open={open} />
       </div>
     </button>
-  )
-}
-
-function PayerPillRow({ members, slotById, paidById, onSelect, youMemberId }: {
-  members: GroupMember[]; slotById: Record<string, 0|1|2|3>
-  paidById: string | null; onSelect: (id: string) => void; youMemberId?: string
-}) {
-  return (
-    <div style={{ paddingBottom: 14 }}>
-      {/* Raised tokens need vertical room for their shadow, hence the padding. */}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '4px 2px 8px' }}>
-        {members.map(m => (
-          <PersonToken
-            key={m.id}
-            member={m}
-            slot={slotById[m.id] ?? 0}
-            selected={paidById === m.id}
-            onClick={() => onSelect(m.id)}
-            youMemberId={youMemberId}
-          />
-        ))}
-      </div>
-    </div>
   )
 }
 
@@ -221,7 +207,7 @@ function BreakdownItems({ s }: { s: AddExpenseFormState }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <input
               value={it.name} onChange={e => renameItem(it.id, e.target.value)} placeholder="Item name"
-              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontFamily: F, fontSize: 14, fontWeight: 600, color: T.ink, caretColor: T.sun, minWidth: 0 }}
+              style={{ flex: 1, background: 'none', border: 'none', outline: 'none', fontFamily: F, fontSize: 16, fontWeight: 600, color: T.ink, caretColor: T.sun, minWidth: 0 }}
             />
             <Input
               size="cell" prefix="$" alignRight fieldWidth={44}
@@ -360,11 +346,8 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
               <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 6, alignSelf: 'flex-end', paddingBottom: 5 }}>from receipt</span>
             </div>
           ) : (
-            <Input
-              size="hero" fullWidth prefix="$"
-              type="number" inputMode="decimal" min={0}
-              value={s.amount} onChange={e => s.setAmount(stripNegative(e.target.value))}
-              placeholder="0.00"
+            <AmountInput
+              value={s.amount} onChange={s.setAmount}
               inputClassName="add-expense-amount-input"
             />
           )}
@@ -372,9 +355,9 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
 
         <Hairline />
 
-        <CollapsibleRow
+        <SummaryRow
           label="Paid by" open={s.openPanel === 'payer'}
-          onClick={() => s.setOpenPanel(s.openPanel === 'payer' ? null : 'payer')}
+          onClick={() => s.setOpenPanel('payer')}
           value={
             <>
               <Avatar profile={payer ? avatarProfile(payer) : undefined} slot={s.paidById ? (s.slotById[s.paidById] ?? 0) : 0} size={22} isYou={s.paidById === s.youMemberId} />
@@ -384,29 +367,57 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
             </>
           }
         />
-        {s.openPanel === 'payer' && (
-          <PayerPillRow
-            members={s.members} slotById={s.slotById}
-            paidById={s.paidById} onSelect={s.setPaidById} youMemberId={s.youMemberId}
-          />
-        )}
 
         <Hairline />
 
-        <CollapsibleRow
+        <SummaryRow
           label="Split" open={s.openPanel === 'split'}
-          onClick={() => s.setOpenPanel(s.openPanel === 'split' ? null : 'split')}
+          onClick={() => s.setOpenPanel('split')}
           value={
             <span style={{ fontSize: 15, fontWeight: 500, color: s.openPanel === 'split' ? T.sun : T.inkMuted }}>
               {algoLabel(s.splitMode)}
             </span>
           }
         />
-        {s.openPanel === 'split' && (
-          <div style={{ paddingBottom: 10 }}>
-            <AlgorithmRadios splitMode={s.splitMode} onSelect={m => { s.setSplitMode(m); s.setOpenPanel(null) }} />
-          </div>
-        )}
+
+        <Hairline />
+
+        <div style={{ padding: '14px 0 2px' }}>
+          <SectionLabel size="sm" color={T.inkFaint} style={{ marginBottom: 2 }}>Details</SectionLabel>
+
+          <SummaryRow
+            label="Date" open={s.openPanel === 'date'}
+            onClick={() => s.setOpenPanel('date')}
+            value={
+              <span style={{ fontSize: 15, fontWeight: 500, color: s.openPanel === 'date' ? T.sun : T.inkMuted }}>
+                {format(parseISO(s.expenseDate), 'MMM d, yyyy')}
+              </span>
+            }
+          />
+          <Hairline />
+          <SummaryRow
+            label="Category" open={s.openPanel === 'category'}
+            onClick={() => s.setOpenPanel('category')}
+            value={
+              <>
+                <span style={{ fontSize: 16 }}>{s.category}</span>
+                <span style={{ fontSize: 15, fontWeight: 500, color: s.openPanel === 'category' ? T.sun : T.inkMuted }}>
+                  {CATEGORIES.find(c => c.emoji === s.category)?.label ?? 'Other'}
+                </span>
+              </>
+            }
+          />
+          <Hairline />
+          <SummaryRow
+            label="Note" open={s.openPanel === 'note'}
+            onClick={() => s.setOpenPanel('note')}
+            value={
+              <span style={{ fontSize: 15, fontWeight: 500, color: s.note ? (s.openPanel === 'note' ? T.sun : T.inkMuted) : T.inkFaint }}>
+                {s.note ? (s.note.length > 28 ? s.note.slice(0, 28) + '…' : s.note) : 'Add a note'}
+              </span>
+            }
+          />
+        </div>
 
         <Hairline />
 
@@ -433,6 +444,44 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
           }}
         >{saveLabel}</Btn>
       </div>
+
+      <ModalOrSheet open={s.openPanel === 'payer'} onClose={() => s.setOpenPanel(null)} title="Paid by">
+        <ModalHeader title="Paid by" onClose={() => s.setOpenPanel(null)} />
+        <ModalContent>
+          <PayerSheetContent
+            members={s.members} slotById={s.slotById} paidById={s.paidById} youMemberId={s.youMemberId}
+            onSelect={id => { s.setPaidById(id); s.setOpenPanel(null) }}
+          />
+        </ModalContent>
+      </ModalOrSheet>
+
+      <ModalOrSheet open={s.openPanel === 'split'} onClose={() => s.setOpenPanel(null)} title="Split">
+        <ModalHeader title="Split" onClose={() => s.setOpenPanel(null)} />
+        <ModalContent>
+          <AlgorithmRadios splitMode={s.splitMode} onSelect={m => { s.setSplitMode(m); s.setOpenPanel(null) }} />
+        </ModalContent>
+      </ModalOrSheet>
+
+      <ModalOrSheet open={s.openPanel === 'date'} onClose={() => s.setOpenPanel(null)} title="Date">
+        <ModalHeader title="Date" onClose={() => s.setOpenPanel(null)} />
+        <ModalContent>
+          <DateSheetContent value={s.expenseDate} onSelect={d => { s.setExpenseDate(d); s.setOpenPanel(null) }} />
+        </ModalContent>
+      </ModalOrSheet>
+
+      <ModalOrSheet open={s.openPanel === 'category'} onClose={() => s.setOpenPanel(null)} title="Category">
+        <ModalHeader title="Category" onClose={() => s.setOpenPanel(null)} />
+        <ModalContent>
+          <CategorySheetContent category={s.category} onSelect={emoji => { s.selectCategory(emoji); s.setOpenPanel(null) }} />
+        </ModalContent>
+      </ModalOrSheet>
+
+      <ModalOrSheet open={s.openPanel === 'note'} onClose={() => s.setOpenPanel(null)} title="Note">
+        <ModalHeader title="Note" onClose={() => s.setOpenPanel(null)} />
+        <ModalContent>
+          <NoteSheetContent value={s.note} onChange={s.setNote} />
+        </ModalContent>
+      </ModalOrSheet>
     </div>
   )
 }

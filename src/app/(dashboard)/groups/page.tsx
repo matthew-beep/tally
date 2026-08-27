@@ -58,7 +58,7 @@ export default function GroupsPage() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search groups"
-              style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', font: 'inherit', fontSize: 13.5, fontWeight: 500, color: T.ink }}
+              style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', font: 'inherit', fontSize: 16, fontWeight: 500, color: T.ink }}
             />
           </div>
           <Btn

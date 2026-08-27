@@ -87,7 +87,7 @@ function RecordPaymentDrawer({
           <input
             value={note} onChange={e => setNote(e.target.value)}
             placeholder="Venmo, cash, etc."
-            style={{ width: '100%', border: 0, outline: 0, background: 'transparent', fontSize: 14, fontWeight: 500, color: T.ink, fontFamily: 'inherit' }}
+            style={{ width: '100%', border: 0, outline: 0, background: 'transparent', fontSize: 16, fontWeight: 500, color: T.ink, fontFamily: 'inherit' }}
           />
         </div>
       </div>

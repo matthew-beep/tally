@@ -146,7 +146,7 @@ export function MemberCombobox({ value, onChange, excludeIds = [], placeholder =
           placeholder={value.length === 0 ? placeholder : ''}
           style={{
             flex: 1, minWidth: 100, background: 'none', border: 'none', outline: 'none',
-            fontSize: 14, color: T.ink, fontFamily: F,
+            fontSize: 16, color: T.ink, fontFamily: F,
           }}
         />
       </div>

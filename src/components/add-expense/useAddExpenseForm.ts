@@ -4,12 +4,15 @@ import { useState, useEffect, useRef } from 'react'
 import { useGroup, useGroupMembers } from '@/queries/useGroups'
 import { useAddExpense } from '@/queries/useExpenses'
 import { useCurrentProfile } from '@/queries/useProfile'
+import { insertExpenseComment } from '@/queries/useExpenseComments'
 import { detectCategory } from '@/lib/categories'
 import { makeEqualSplits, makePercentSplits, makeExactSplits } from '@/lib/splits'
 import { round2, parseNum } from '@/lib/money'
 import { slotFor } from '@/lib/memberDisplay'
+import { createClient } from '@/lib/supabase'
+import { useUIStore } from '@/store/ui'
 import type { GroupMember } from '@/types'
-import type { SplitMode, LineItem } from './types'
+import type { SplitMode, LineItem, OpenPanel } from './types'
 
 /**
  * Even shares that sum *exactly* to the total. Naive `total / n` rounded per row
@@ -38,6 +41,8 @@ export interface AddExpenseFormState {
   amt: number
   description: string
   setDescription: (v: string) => void
+  note: string
+  setNote: (v: string) => void
   category: string
   selectCategory: (emoji: string) => void
   expenseDate: string
@@ -64,8 +69,8 @@ export interface AddExpenseFormState {
 
   focusId: string | null
   setFocusId: (id: string | null) => void
-  openPanel: 'payer' | 'split' | null
-  setOpenPanel: (p: 'payer' | 'split' | null) => void
+  openPanel: OpenPanel
+  setOpenPanel: (p: OpenPanel) => void
 
   items: LineItem[]
   addItem: () => void
@@ -112,9 +117,11 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
   const { data: members = [] } = useGroupMembers(groupId)
   const { data: profile }      = useCurrentProfile()
   const addExpense             = useAddExpense(groupId)
+  const pushToast              = useUIStore(s => s.pushToast)
 
   const [amount,         setAmount]         = useState('')
   const [description,    setDescription]    = useState('')
+  const [note,           setNote]           = useState('')
   const [category,       setCategory]       = useState('💸')
   const [manualCategory, setManualCategory] = useState(false)
   const [splitMode,      setSplitMode]      = useState<SplitMode>('equal')
@@ -124,7 +131,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
   const [percents,       setPercents]       = useState<Record<string, string>>({})
   const [exactAmounts,   setExactAmounts]   = useState<Record<string, string>>({})
   const [focusId,        setFocusId]        = useState<string | null>(null)
-  const [openPanel,      setOpenPanel]      = useState<'payer' | 'split' | null>(null)
+  const [openPanel,      setOpenPanel]      = useState<OpenPanel>(null)
 
   // Once the user edits a field by hand we stop re-deriving even shares for
   // that mode — their numbers are intent, not a placeholder.
@@ -295,7 +302,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
       splitType = 'exact'
     }
 
-    await addExpense.mutateAsync({
+    const newExpense = await addExpense.mutateAsync({
       description: description.trim(),
       amount: roundedAmt,
       paid_by: paidById,
@@ -304,6 +311,22 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
       category,
       expense_date: expenseDate,
     })
+
+    // Note is ephemeral form state, not a column on expenses — post it as the
+    // expense's first comment via the existing comments feature. Best-effort:
+    // the expense already saved, so a failure here only surfaces a toast and
+    // never blocks navigation.
+    const trimmedNote = note.trim()
+    if (trimmedNote && youMemberId) {
+      try {
+        await insertExpenseComment(createClient(), {
+          expenseId: newExpense.id, groupId, seatId: youMemberId, body: trimmedNote,
+        })
+      } catch {
+        pushToast("Expense saved, but the note didn't post")
+      }
+    }
+
     onSuccess()
   }
 
@@ -314,6 +337,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
 
     amount, setAmount, amt,
     description, setDescription,
+    note, setNote,
     category, selectCategory,
     expenseDate, setExpenseDate,
     splitMode, setSplitMode,

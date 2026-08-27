@@ -108,7 +108,7 @@ export function DeleteGroupSheet({ open, onClose, group, expenses, settlements, 
               onChange={e => setTyped(e.target.value)}
               placeholder="DELETE"
               disabled={!canDelete}
-              style={{ width: '100%', padding: '13px 14px', borderRadius: T.r.md, boxSizing: 'border-box', background: T.surfaceAlt, border: confirmed ? `1.5px solid ${T.coral}` : `1px solid ${T.lineStrong}`, fontFamily: FMONO, fontSize: 15, fontWeight: 700, color: confirmed ? T.coralInk : T.ink, letterSpacing: confirmed ? 2 : 0.5, outline: 'none', transition: 'border 0.15s, color 0.15s', opacity: canDelete ? 1 : 0.5 }}
+              style={{ width: '100%', padding: '13px 14px', borderRadius: T.r.md, boxSizing: 'border-box', background: T.surfaceAlt, border: confirmed ? `1.5px solid ${T.coral}` : `1px solid ${T.lineStrong}`, fontFamily: FMONO, fontSize: 16, fontWeight: 700, color: confirmed ? T.coralInk : T.ink, letterSpacing: confirmed ? 2 : 0.5, outline: 'none', transition: 'border 0.15s, color 0.15s', opacity: canDelete ? 1 : 0.5 }}
             />
             {confirmed && (
               <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)' }}>

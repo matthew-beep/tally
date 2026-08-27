@@ -25,16 +25,18 @@ const EMOJIS = ['💸', '🏖️', '🍕', '✈️', '🏠', '🎉', '🛒', '�
 type MemberAvatarProfile = Pick<Profile, 'name' | 'display_name' | 'avatar_url'>
 
 function MemberRow({
-  displayName, handle, avatarProfile: avatarSrc, slot, isYou, isLast, onRemove,
+  displayName, handle, avatarProfile: avatarSrc, slot, isYou, isGuest, isLast, onRemove,
 }: {
   displayName: string
   handle?: string | null
   avatarProfile: MemberAvatarProfile
   slot: 0 | 1 | 2 | 3
   isYou?: boolean
+  isGuest?: boolean
   isLast: boolean
   onRemove?: () => void
 }) {
+  const badgeLabel = isYou ? 'Organizer' : isGuest ? 'Guest' : 'Pending'
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 14,
@@ -46,9 +48,13 @@ function MemberRow({
         <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {isYou ? 'You' : displayName}
         </div>
-        {handle && (
+        {handle ? (
           <div style={{ fontFamily: FMONO, fontSize: 11, color: T.inkMuted, marginTop: 2, fontWeight: 500, letterSpacing: 0.2 }}>
             @{handle}
+          </div>
+        ) : isGuest && (
+          <div style={{ fontSize: 11, color: T.inkFaint, marginTop: 2, fontWeight: 500 }}>
+            No Tally account
           </div>
         )}
       </div>
@@ -57,11 +63,15 @@ function MemberRow({
         padding: '4px 10px', borderRadius: 999,
         fontSize: 10.5, fontWeight: 700, letterSpacing: 0.4,
         textTransform: 'uppercase' as const,
-        background: isYou ? T.sunSoft : T.surfaceAlt,
+        // Guest gets a dashed-outline neutral badge — same "no account" language as
+        // the guest chip/add-row elsewhere — instead of the solid Pending fill,
+        // since guests never go through an invite/accept flow to resolve.
+        background: isYou ? T.sunSoft : isGuest ? 'transparent' : T.surfaceAlt,
+        boxShadow: isGuest ? `inset 0 0 0 1px ${T.lineStrong}` : 'none',
         color: isYou ? T.sunInk : T.inkMuted,
         flexShrink: 0,
       }}>
-        {isYou ? 'Organizer' : 'Pending'}
+        {badgeLabel}
       </span>
       {!isYou && onRemove && (
         <button
@@ -387,7 +397,7 @@ export default function NewGroupPage() {
                 placeholder="Add by name, @handle, or guest…"
                 style={{
                   flex: 1, background: 'none', border: 'none', outline: 'none',
-                  fontSize: 15, fontFamily: F, color: T.ink,
+                  fontSize: 16, fontFamily: F, color: T.ink,
                 }}
               />
               {mobileQuery.length > 0 && (
@@ -668,6 +678,7 @@ export default function NewGroupPage() {
                     displayName={entry.name}
                     avatarProfile={avatarProfile({ name: entry.name })}
                     slot={(i + 1) % 4 as 0 | 1 | 2 | 3}
+                    isGuest
                     isLast={isLast}
                     onRemove={() => setMembers(prev => prev.filter((_, j) => j !== i))}
                   />

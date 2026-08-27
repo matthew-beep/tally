@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useParams } from 'next/navigation'
 import { T, F } from '@/design/tokens'
 import { WebNavIcon } from '@/components/nav/WebNavIcon'
 import { NAV_TABS, pathnameToTab, type TabId } from '@/components/nav/navTabs'
@@ -16,8 +16,19 @@ import { useUIStore } from '@/store/ui'
 export function DockedTabBar() {
   const router = useRouter()
   const pathname = usePathname()
+  const params = useParams()
   const setFabOpen = useUIStore(s => s.setFabOpen)
   const active = pathnameToTab(pathname)
+
+  // Already inside a group's context (/groups/[id], /groups/[id]/settings,
+  // ...) — skip the "which group?" picker and go straight to its add-expense
+  // route. `id` is only used by the groups route, so no other page's params
+  // can collide here.
+  const groupId = typeof params.id === 'string' ? params.id : undefined
+  function onAddExpense() {
+    if (groupId) { router.push(`/groups/${groupId}/add`); return }
+    setFabOpen(true)
+  }
 
   const left = NAV_TABS.slice(0, 2)
   const right = NAV_TABS.slice(2)
@@ -64,7 +75,7 @@ export function DockedTabBar() {
     >
       <button
         type="button"
-        onClick={() => setFabOpen(true)}
+        onClick={onAddExpense}
         title="Add expense"
         style={{
           position: 'absolute',

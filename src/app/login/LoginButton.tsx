@@ -22,7 +22,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: T.r.md,
   border: `1.5px solid ${T.lineStrong}`,
   background: T.surfaceAlt,
-  fontSize: 14,
+  fontSize: 16,
   fontFamily: F,
   color: T.ink,
   outline: 'none',

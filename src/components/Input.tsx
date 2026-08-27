@@ -29,9 +29,9 @@ const SIZE: Record<InputSize, {
 }> = {
   hero:  { padding: '14px 16px', fontSize: 38, fontFamily: FH, fontWeight: 800, letterSpacing: -1.5, radius: 16, gap: 12, affix: 22 },
   title: { padding: '12px 14px', fontSize: 21, fontFamily: F,  fontWeight: 700, letterSpacing: -0.5, radius: 14, gap: 8,  affix: 16 },
-  md:    { padding: '11px 14px', fontSize: 15, fontFamily: F,  fontWeight: 600, letterSpacing: 0,    radius: 12, gap: 6,  affix: 13 },
+  md:    { padding: '11px 14px', fontSize: 16, fontFamily: F,  fontWeight: 600, letterSpacing: 0,    radius: 12, gap: 6,  affix: 13 },
   cellLg:{ padding: '8px 12px',  fontSize: 19, fontFamily: FH, fontWeight: 600, letterSpacing: -0.4, radius: 10, gap: 2,  affix: 14 },
-  cell:  { padding: '6px 10px',  fontSize: 14, fontFamily: F,  fontWeight: 700, letterSpacing: 0,    radius: 10, gap: 2,  affix: 12 },
+  cell:  { padding: '6px 10px',  fontSize: 16, fontFamily: F,  fontWeight: 700, letterSpacing: 0,    radius: 10, gap: 2,  affix: 12 },
 }
 
 /**

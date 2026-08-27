@@ -101,7 +101,6 @@
 }
 
 @media (max-width: 1023px) {
-  /* Switch to vertical column so tab bar is a real flex child, not a fixed overlay */
   .dashboard-layout {
     flex-direction: column;
   }
@@ -110,45 +109,33 @@
     display: none;
   }
 
+  /* Same pin as Vaul's sheet. Must not live inside `.dashboard-layout`
+     — that shell is overflow:hidden + 100dvh, and iOS Safari's stale dvh
+     would clip a fixed bar that extends past it (the cream gap). */
   .dashboard-mobile-nav {
     display: block;
-    flex-shrink: 0;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    width: 100%;
     background: var(--tally-surface);
-    /* Safe-area inset for iPhone home indicator — background must match
-       DockedTabBar's own surface color or this padding shows page bg
-       instead, so the nav color visibly stops short of Safari's chrome. */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .dashboard-main {
     flex: 1;
     min-height: 0;
+    /* 92px = DockedTabBar height. Keeps scroll content above the overlay. */
+    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Safety net for the same gap, independent of the flex/dvh box above.
-     `.dashboard-layout` is sized off `100dvh`, which iOS Safari doesn't
-     always recompute live as its chrome collapses/expands on scroll — the
-     flex column can end up shorter than the real viewport for a frame (or
-     longer), exposing `--tally-page-bg` below the nav bar. Vaul's sheet
-     never shows this because `position: fixed; bottom: 0` is pinned to the
-     true visual viewport regardless of any ancestor's measured height —
-     this filler uses the same trick purely for color, decoupled from
-     layout flow so it needs no page-level padding changes. */
-  .dashboard-safe-area-fill {
-    display: block;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: env(safe-area-inset-bottom, 0px);
-    background: var(--tally-surface);
-    pointer-events: none;
-    z-index: 1;
+  /* Routes that hide the tab bar (e.g. the full-screen add-expense route)
+     don't need the 92px reserved for it — just the safe-area itself. */
+  .dashboard-main.dashboard-main--no-tabbar {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
-}
-
-.dashboard-safe-area-fill {
-  display: none;
 }
 
 /* ── App header — persistent header shared by Home/Groups/Activity/Me ── */

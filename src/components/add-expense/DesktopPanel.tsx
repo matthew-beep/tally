@@ -10,6 +10,7 @@ import { formatAmount, round2, stripNegative, parseNum } from '@/lib/money'
 import { ModalHeader } from '@/components/modal'
 import { Btn } from '@/components/Btn'
 import { Input } from '@/components/Input'
+import { AmountInput } from '@/components/AmountInput'
 import { Segmented } from '@/components/Segmented'
 import { PersonToken, Token } from '@/components/PersonToken'
 import { DatePicker } from '@/components/DatePicker'
@@ -266,13 +267,9 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
         <div className="add-expense-desktop-left">
           <div>
             <SectionLabel size="sm">Amount</SectionLabel>
-            <Input
-              size="hero" fullWidth prefix="$"
-              type="text" inputMode="decimal"
-              value={s.amount} onChange={e => s.setAmount(stripNegative(e.target.value))}
-              placeholder="0.00"
-              style={{ marginTop: 6 }}
-            />
+            <div style={{ marginTop: 6 }}>
+              <AmountInput value={s.amount} onChange={s.setAmount} />
+            </div>
           </div>
 
           <div>

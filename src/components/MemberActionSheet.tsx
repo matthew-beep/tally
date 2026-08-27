@@ -173,7 +173,7 @@ export function MemberActionSheet({ member, groupId, members, balance, slot, can
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 placeholder="Search name, @handle, or add code"
-                style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', font: 'inherit', fontSize: 14, fontWeight: 500, color: T.ink }}
+                style={{ flex: 1, border: 0, outline: 'none', background: 'transparent', font: 'inherit', fontSize: 16, fontWeight: 500, color: T.ink }}
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 260, overflowY: 'auto' }}>

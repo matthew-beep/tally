@@ -1249,15 +1249,22 @@ confirm+re-close or diagnose the actual gap.
 
 ### Phase 2 — Mobile shell fixes (depends on Phase 1)
 
-- [ ] **Global FAB scoping to current group (mobile)** 🟡 — FAB always opens
-  `AddExpenseGroupPicker` (all groups). `activeGroupId` in `store/ui.ts` is **never set
-  anywhere**. On `/groups/[id]`, FAB should skip the picker and go straight to
-  `?add=1` for that group. Wire `setActiveGroup(groupId)` on group detail mount /
-  clear on leave.
-- [ ] **Group page FAB overlap / clipping** 🟡 — structural mitigation exists (FAB in
+- [x] **Global FAB scoping to current group (mobile)** 🟡 — **done 2026-08-26.**
+  Built simpler than planned: `activeGroupId`/`setActiveGroup` in `store/ui.ts`
+  are still never called anywhere — no mount/unmount wiring needed. Instead
+  `DockedTabBar.tsx` reads `useParams().id` directly (it's the only route in
+  the app using an `[id]` segment, confirmed via `find`, so no collision risk)
+  and routes straight there on tap, falling back to `setFabOpen(true)`
+  (the picker) everywhere without a group in the URL. Also supersedes the
+  `?add=1` destination this bullet named — the FAB now goes to
+  `/groups/${id}/add`, the new full-screen route (see Phase 3 below), not
+  the sheet.
+- [ ] **Group page FAB overlap / clipping** 🟡 — **confirmed still broken 2026-08-26**
+  (Matthew, real device, post FAB-scoping work — not just the unchecked
+  `docs/responsive-qa.md` line anymore). Structural mitigation exists (FAB in
   `(dashboard)/layout.tsx`, feed has 100px bottom padding on `.group-detail-right`) but
-  `docs/responsive-qa.md` still unchecked: "Floating Add-expense CTA doesn't cover the
-  last feed row." Verify on real device after FAB scoping work above.
+  isn't sufficient — the FAB still clips/overlaps the last feed row. Needs an actual
+  fix (bigger bottom pad, or FAB-aware scroll-end spacer), not more verification.
 - [x] **Move group name to center (mobile group detail)** 🟡 — **done 2026-08-25**,
   per claude.ai/design "splitter" project's `Group Page Social.html` (`GPHeader` in
   `group-page-social.jsx`): back chevron and settings gear are now matched 34px
@@ -1273,15 +1280,14 @@ confirm+re-close or diagnose the actual gap.
   `16px 16px 100px`; header: `8px 14px 6px` inline in `groups/[id]/page.tsx`) but
   not tuned to final spec. The 100px bottom pad is a FAB workaround, not a finished
   layout pass.
-- [ ] **New group action on mobile header** 🟡 — `AppHeader` actions hide below 1024px
-  (`.app-header-action--hide-mobile`). "+ New group" only appears in Groups page body,
-  not header. Sidebar "+" is desktop-only. Pass `{ label: 'New group', onClick: …,
-  hideOnMobile: false }` on Groups tab, or equivalent.
-- [ ] **Remove search from group page** 🟡 — **scope-dependent:**
-  - Group **detail** (`/groups/[id]`) — no search UI ✅ (done if this is what was meant).
-  - Groups **list** (`/groups`) — search input still present (`groups/page.tsx` ~50–62).
-  - Group **settings** — `MemberCombobox` search for adding members remains (probably
-    keep). Decide which surfaces lose search before deleting.
+- [x] **New group action on mobile header** 🟡 — **closed 2026-08-26, won't-fix.**
+  `AppHeader` actions still hide below 1024px (`.app-header-action--hide-mobile`) and
+  "+ New group" still only lives in the Groups page body, not the header — decided
+  that's sufficient, no header action needed on mobile.
+- [x] **Remove search from group page** 🟡 — **closed 2026-08-26.** Group **detail**
+  (`/groups/[id]`) has no search UI, which was the actual scope. Groups **list** search
+  (`groups/page.tsx` ~50–62) and group **settings**' `MemberCombobox` member search are
+  separate, intentional, and stay.
 
 ### Phase 3 — Add-expense mobile fixes
 
@@ -1293,15 +1299,66 @@ confirm+re-close or diagnose the actual gap.
   units that shift when the mobile keyboard resizes the visual viewport —
   check `MobilePanel.tsx`'s footer positioning and consider `dvh`/`env()`-
   aware sizing instead.
-- [ ] **Date picker design — mobile parity** 🟡 — custom `DatePicker.tsx` wired on
-  desktop only (`DesktopPanel.tsx`). `MobilePanel.tsx` has no date field; expense date
-  silently defaults via `useAddExpenseForm`. Desktop picker itself may still need a
-  visual pass.
-- [ ] **Mobile category field on add-expense** 🟡 *(new, 2026-08-25)* — confirm
-  whether `CategoryChips` is actually missing from `MobilePanel.tsx` or just
-  differently placed, then add if genuinely missing. Bundle with the date
-  picker item above — do both together the same way **Now §6** already
-  suggests bundling category+date for the edit flow.
+- [x] **Date picker design — mobile parity** 🟡 — **done 2026-08-26.**
+  `MobilePanel.tsx` now has a Date row opening a sheet (`DateSheetContent.tsx`)
+  with Today/Yesterday quick chips + a full calendar. The day-grid itself was
+  extracted out of `DatePicker.tsx` into a shared `src/components/CalendarGrid.tsx`
+  so desktop's popover and mobile's sheet render the identical grid instead of
+  two copies of `DayButtonImpl`/`ChevronImpl`/`styles`. Desktop picker's own
+  visual pass is still open, untouched here.
+- [x] **Mobile category field on add-expense** 🟡 *(new, 2026-08-25)* —
+  **done 2026-08-26.** Confirmed genuinely missing (not just differently
+  placed) and added: `MobilePanel.tsx` now has a Category row opening
+  `CategorySheetContent.tsx`, a 3-across grid over the same `CATEGORIES`
+  desktop's `CategoryChips` already uses. Bundled with the date picker item
+  above as suggested.
+- [x] **Mobile add-expense: full-screen route, not a sheet** 🟡 *(landed
+  2026-08-26)* — new work, not previously scoped in this doc. Design source:
+  same `splitter` claude.ai/design project as items 7/8 above
+  (`36d6382c-156c-422e-afd2-063025ff0a0f`), `Mobile Add Expense.html`'s
+  "Committed direction" section (`tactile-add-route.jsx`) — route on mobile,
+  modal on desktop; wells kept on title/amount, deliberately diverging from
+  the mockup's bare-input hero.
+  - **`/groups/[id]/add/page.tsx`** — was a legacy `router.replace` stub to
+    `?add=1`; now the real route on mobile (`useIsMobileSheet()` still
+    redirects desktop visitors to `?add=1`, so the modal path is untouched).
+    Renders `MobilePanel` with a new `variant: 'sheet' | 'route'` prop that
+    only swaps the header (back-chevron nav bar vs. the sheet's Cancel+pill) —
+    body/footer are identical in both contexts.
+  - **The legacy sheet is kept, not deleted** — still reachable via
+    `/groups/[id]?add=1` (desktop's only path; mobile only via old/bookmarked
+    links now that the FAB routes elsewhere, see the FAB item above).
+    Explicit decision: don't build `Drawer.NestedRoot` support for the new
+    sub-sheets on that legacy path since it's no longer primary — they still
+    work there, just as two independent stacked drawers instead of a
+    properly nested/pushed-back pair.
+  - **Paid by / Split converted from inline-expand to sheets** — previously
+    `CollapsibleRow` (renamed `SummaryRow`) expanded a member-pill row /
+    radio list directly in the scrolling body. Now both, plus the new
+    Date/Category/Note rows, open via `ModalOrSheet` + `ModalHeader` +
+    `ModalContent` — the same primitive `AddExpenseGroupPicker`/
+    `ExpenseActionSheet`/etc. already use, not a bespoke wrapper (one was
+    drafted, then dropped for consistency with the existing pattern).
+    `openPanel`'s type widened to `'payer' | 'split' | 'date' | 'category' |
+    'note' | null` (`add-expense/types.ts`).
+  - **Tab bar hidden on the route** — `(dashboard)/layout.tsx` now checks
+    `usePathname()` against `/groups/[id]/add` and skips rendering
+    `DockedTabBar`, with a new `.dashboard-main--no-tabbar` CSS rule dropping
+    the 92px padding normally reserved for it (`dashboard.css`) so the pinned
+    Save button sits at the true screen bottom instead of leaving a gap.
+  - **Bug found + fixed same session:** the route's root wrapper originally
+    used `minHeight: '100dvh'`, overflowing `.dashboard-main`'s actual budget
+    (`100dvh` minus the tab bar's reserved padding) and clipping the Save
+    button behind the tab bar. Fixed to the same `flex: 1, minHeight: 0`
+    pattern `/groups/new` and `/groups/[id]/settings` already use.
+  - **New files:** `PayerSheetContent.tsx`, `DateSheetContent.tsx`,
+    `CategorySheetContent.tsx`, `NoteSheetContent.tsx` (all under
+    `add-expense/`), `CalendarGrid.tsx` (`components/`, shared with
+    `DatePicker.tsx` — see date-picker item above).
+  - **Not yet verified live** — no browser driver in the build sandbox and
+    both routes sit behind Supabase auth, so this landed typecheck-clean but
+    needs an in-browser pass (both entry points, light + dark, the FAB from
+    a non-group page still opening the picker).
 - [ ] **Add expense on desktop — finish rework** 🟡 — panel refactor landed
   (see Done above) but still open: itemized tab is "Coming soon", 768–1023px
   mixed zone untested (mobile nav + desktop modal panel — see
@@ -1370,12 +1427,22 @@ confirm+re-close or diagnose the actual gap.
 
 ### Not phased — tracked but independent of this sequence
 
-- [ ] **Optional note on add-expense modal** 🟡 — `expenses` has no `note` column today
-  (`note` exists on `settlements` only). Add optional comment field to add-expense on
-  desktop (`DesktopPanel.tsx`) and mobile (`MobilePanel.tsx`); wire through
-  `useAddExpenseForm` → `useAddExpense` insert. Needs migration (`expenses.note text`),
-  types update, and a decision on where it surfaces read-only (detail sheet, feed card,
-  edit drawer). Collapsible "Add a note" row on mobile is the likely pattern.
+- [x] **Optional note on add-expense modal** 🟡 — **done 2026-08-26 on mobile,
+  differently than scoped.** No `expenses.note` migration written — instead
+  the note is ephemeral form state (`note`/`setNote` in `useAddExpenseForm.ts`)
+  posted as the new expense's *first comment* via the already-shipped
+  `expense_comments` table/`useAddComment` (this bullet predates realizing
+  the comments feature already covers the same need). `useExpenseComments.ts`
+  gained a plain exported `insertExpenseComment` helper, used by both the
+  existing hook and this new call site — `handleSave` can't call the
+  `useAddComment` hook directly since it only learns the real expense id
+  after the expense mutation resolves, inside an event handler. Posts
+  best-effort after the expense insert succeeds (toast on failure, never
+  blocks navigation — the expense itself already saved by then). Surfaces
+  read-only via the existing comment thread in
+  `ExpenseActionSheet`/`CommentsList` — no new read UI needed. **Desktop
+  (`DesktopPanel.tsx`) still has no note field** — this landed mobile-only,
+  as part of the mobile add-expense route work below.
 - [ ] **Category + date editing on expenses** 🟡 — add-expense sets both (`category` via
   `CategoryChips` / `detectCategory`, `expense_date` via `DatePicker` on desktop only).
   Edit flow (`ExpenseActionSheet.tsx` → `ExpenseEditDrawer`) only edits
@@ -1420,8 +1487,9 @@ Track elsewhere but will block polish or ship if ignored:
   likely broken (stale joins).
 - **Edit history viewer** — `expense_history` captured, zero UI.
 - **Split editing + category/date editing** in expense edit drawer (`TODO.md` § Now step 6).
-- **Expense note field** — optional comment on add/edit; needs `expenses.note` migration
-  (UI/design pass backlog 2026-08-18).
+- **Expense note field on EDIT** — add (mobile) shipped 2026-08-26 via
+  `expense_comments`, no migration needed (see Phase 3 above). Edit flow and
+  desktop add still have no note field.
 - **Cancel pending invite**; invite link regenerate in group settings (show/copy shipped).
 - **Home 3-column desktop layout**; **group settings desktop layout** (still mobile
   card at all widths).

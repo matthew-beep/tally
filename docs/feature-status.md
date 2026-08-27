@@ -16,7 +16,7 @@ priority order.
 | Group detail (feed, balances, members)         | ✅       | ✅      | ✅ 2-col | Avatar tap → person sheet on group page still blocked on global data prefetch                 |
 | Add members (search, invite link, QR, guests)  | ✅       | ✅      | ✅       | Cancel pending invite; invite-link regenerate                                                |
 | Invite accept / decline → guest conversion     | ✅       | ✅      | ✅       | —                                                                                            |
-| Add expense (equal / exact / percentage)       | ✅       | ✅      | ✅       | Desktop panel rework landed 2026-08-19 (`Input`, `Segmented`, `PersonToken`); itemized tab still "Coming soon"; mobile has no date picker |
+| Add expense (equal / exact / percentage)       | ✅       | ✅      | ✅       | Mobile rebuilt as a full-screen route 2026-08-26 (`/groups/[id]/add`, sheet kept as fallback) with Date/Category/Note sheets added; itemized tab still "Coming soon" on desktop; desktop still has no note field |
 | Edit / delete expense (audited, soft delete)   | ✅       | ✅      | ✅       | Split editing, category/date editing, edit-history viewer, optional note field               |
 | Balances + per-person breakdown                | ✅       | ✅      | ⚠️      | Home balance-card expand + per-group settle drill-down shipped; home 3-column desktop layout still open |
 | Settle up + confirm / deny                     | ✅       | ✅      | ✅       | Cross-group settle-all + per-group drill-down shipped in `BalanceSheet`; delete-settlement UI still missing |
@@ -111,9 +111,12 @@ and sidebar profile card (desktop). Sidebar profile card opens
 Me via bottom profile card; inline "+" for group creation.
 
 **Global "Add expense" shipped 2026-08-13** (`AppHeader` + `DockedTabBar`):
-desktop header button and mobile center FAB → `AddExpenseGroupPicker`. Still
-open: `activeGroupId` never set — FAB on group detail doesn't skip the picker
-(`TODO.md` UI pass).
+desktop header button and mobile center FAB → `AddExpenseGroupPicker`.
+**FAB scoping shipped 2026-08-26** — `DockedTabBar` reads `useParams().id`
+directly (not `activeGroupId`, which is still never set anywhere) and routes
+straight to `/groups/[id]/add` when already on a group's pages, falling back
+to the picker elsewhere. See `TODO.md` UI pass Phase 3 for the full
+mobile add-expense route writeup.
 
 **Mobile nav — docked bar live, floating pill kept for A/B** (`DockedTabBar.tsx`
 mounted; `TabBar.tsx` unmounted but preserved). Decision not made.

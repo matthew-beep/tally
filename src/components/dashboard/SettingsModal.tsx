@@ -44,7 +44,7 @@ export function SettingsModal({ open, onClose }: Props) {
               style={{
                 width: '100%', padding: '12px 14px',
                 borderRadius: T.r.md, border: `1.5px solid ${T.lineStrong}`,
-                background: T.surfaceAlt, fontSize: 15, fontFamily: F,
+                background: T.surfaceAlt, fontSize: 16, fontFamily: F,
                 color: T.ink, outline: 'none',
               }}
             />
@@ -57,7 +57,7 @@ export function SettingsModal({ open, onClose }: Props) {
               style={{
                 width: '100%', padding: '12px 14px',
                 borderRadius: T.r.md, border: `1.5px solid ${T.lineStrong}`,
-                background: T.surfaceAlt, fontSize: 15, fontFamily: F,
+                background: T.surfaceAlt, fontSize: 16, fontFamily: F,
                 color: T.ink, outline: 'none',
               }}
             />

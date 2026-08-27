@@ -133,7 +133,7 @@ function ExpenseEditDrawer({
           <span style={{ fontSize: 16 }}>{expense.category ?? '💸'}</span>
           <input
             value={description} onChange={e => setDescription(e.target.value)}
-            style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 14, fontWeight: 600, color: T.ink, fontFamily: 'inherit' }}
+            style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 16, fontWeight: 600, color: T.ink, fontFamily: 'inherit' }}
           />
         </div>
       </div>
