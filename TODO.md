@@ -11,6 +11,31 @@ a design reference.
 
 ---
 
+## Doc drift — stale file names (audited 2026-08-26)
+
+Several components this doc names by filename were deleted or renamed in the
+notifications/nav redesigns. The *decisions* recorded against them still
+stand; only the pointers are wrong. Translate while reading:
+
+| Named in this doc | Actual today | Went away in |
+|---|---|---|
+| `SettlementConfirmCard.tsx` | `notifications/SettlementReview.tsx` (batch-aware) | `2da109e` |
+| `GroupInviteCard.tsx` | `notifications/InviteReview.tsx` | `2da109e` |
+| `ModeSheet.tsx` | `AddExpenseGroupPicker.tsx` (on `ModalOrSheet`, as item 7 specified) | `6c6bc36` |
+| `useCreateSettlement` (singular) | `useCreateSettlements` (plural only — the singular was deliberately replaced, not kept alongside) | — |
+| `ExpenseEditDrawer`, `CategoryChips` | never standalone files; both live inside `ExpenseActionSheet.tsx` / `add-expense/` | — |
+
+`TabBar.tsx` and `AddExpenseForm.tsx` **do** still exist — `TabBar` is the
+unmounted floating-nav variant kept per the Phase 1 nav decision, so
+references to its `NAV_BADGES` describe dead code, not a live gap.
+
+**Health baseline, same audit:** `npm run typecheck` clean; `vitest`
+**138/138 passing across 8 files** (this doc's most recent figure, 45/45, is
+from the 2026-08-02 `simplifyDebts` deletion — the suite has roughly tripled
+since).
+
+---
+
 ## Pre-ship punch list (2026-07-26 planning session)
 
 Matthew's list of what's left before shipping, in his priority order. Supersedes/pulls forward the overlapping items below (settle-up UX, desktop responsiveness, expense reactions) — this section is the source of truth for sequencing; the sections below still hold the implementation detail.
@@ -714,13 +739,17 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      - Denied batches group correctly and fall back to `notifications.amount`
        with `net: null` — the case the originally-planned join through
        `settlement_id` could not have handled.
-     - [ ] **Still open — the card itself.** `SettlementConfirmCard` acts on
-       the full batch but still renders the single-settlement layout. The batch
-       card (net transfer headline, one line per group, offsetting rows marked)
-       is deliberately deferred to item 12 phase B so it gets written once, in
-       the notification center, rather than reshaped here and immediately
-       relocated. Unreachable until step 3 wires the CTAs, so nothing renders
-       wrongly in the meantime.
+     - [x] ~~**Still open — the card itself.**~~ **Done — verified
+       2026-08-26.** This was written against `SettlementConfirmCard`, which
+       **no longer exists** (deleted in `2da109e`, "redesigned notifications
+       flow"). The batch card landed exactly where the sequencing plan wanted
+       it — written once, in the notification center, never reshaped then
+       relocated: `src/components/notifications/SettlementReview.tsx` takes a
+       `NotificationBatch`, headlines `batch.amount`, captions "Across N
+       groups", renders one `groupRows` line per group, and confirms/denies
+       the whole batch via `batchSettlementIds`/`batchNotificationIds`/
+       `batchGroupIds`. The (d) no-partial-confirm rule holds by
+       construction. Reached through `NotificationsSheet` → `SettlementReview`.
    - [ ] **Unread count query** — doesn't exist yet (`useProfile.ts:120-124`
      says so in a comment). Must count **distinct batches**, not rows, so
      write it after `batch_id` lands rather than retrofitting it. Gated on
@@ -1236,9 +1265,34 @@ confirm+re-close or diagnose the actual gap.
 - [ ] **Edit individual group amount from dashboard** 🟢 — doc claimed shipped
   via `BalanceSheet.tsx` → `GroupBreakdown` rows → `GroupSettleScreen`
   (editable amount, Full/Half/Clear chips). Reported not working from the
-  dashboard. Confirm the tap target actually reaches that screen from the
-  dashboard (not just from the group page) and that the edit persists;
-  scope whether it's a wiring regression or the flow never fully shipped.
+  dashboard.
+  - **Code-traced 2026-08-26 — the drill-down path is fully wired; no wiring
+    regression found.** Chain verified end to end: `(dashboard)/page.tsx:465`
+    `onRowTap={p => setBalancePerson(p)}` → `<BalanceSheet parts>` (`:486`) →
+    balance screen renders `<GroupBreakdown parts={visibleParts}
+    onPartTap={openGroupScreen} />` (`BalanceSheet.tsx:476`) →
+    `openGroupScreen` sets `screen='group'` → `GroupSettleScreen` (`:119`)
+    with a live `AmountInput` → `handleSettleGroup` (`:303`) re-clamps and
+    writes a batch of one via `useCreateSettlements`. The *other*
+    `GroupBreakdown` render (`:396`, no `onPartTap`) is the settle-all
+    confirm screen, where read-only rows are correct — not the bug.
+    Both mobile (`PersonRow`) and desktop (`BalanceTable` via `personToRow`)
+    pass `onRowTap`.
+  - **[bug] found instead — dead avatar tap on guest rows, and it eats the
+    row tap.** `onAvatarTap` is gated (`:464`): `if (p.userType === 'user')
+    setProfilePerson(p)`. But `personToRow` (desktop) and `PersonRow`
+    (mobile) both wire `onAvatarClick` *unconditionally* and both
+    `e.stopPropagation()` before calling it (`BalanceTable.tsx:96`,
+    `PersonRow` ~`:17`). So on a **guest** row, tapping the avatar
+    stop-propagates the row tap and then calls a no-op — the tap does
+    nothing at all, and the `BalanceSheet` that a row tap *would* have
+    opened never appears. Plausible source of the "not working from the
+    dashboard" report: the avatar is the most obvious tap target on the row.
+    Fix: only attach `onAvatarClick`/the pointer cursor when the person is a
+    real user, so the tap falls through to the row handler for guests.
+  - **Still worth a live check** of whether the edited amount *persists*
+    (the write path is `useCreateSettlements`, exercised by settle-all which
+    is verified) — but that's now the only unverified half.
 
 ### Phase 1 — Nav decision (unblocks Phase 2)
 
@@ -1451,6 +1505,11 @@ confirm+re-close or diagnose the actual gap.
   `useUpdateExpense` to accept `category` + `expense_date`; reuse add-expense's
   `CategoryChips` + `DatePicker` in the edit drawer. Category alone also tracked under
   **Now §6** below — do both together.
+- [ ] **Me / settings page — editing pass** 🟡 *(new, 2026-08-26)* — `me/page.tsx` and
+  `SettingsModal.tsx` need an editing/functionality pass (mid the broader tactile
+  redesign, both currently touched per git status). Not yet scoped beyond that — pin
+  down what's actually missing or broken (which fields are read-only vs. editable,
+  whether it's a visual-only pass or new save paths) before picking this up.
 
 ### Suggested priority (this pass) — revised 2026-08-25
 
@@ -1844,6 +1903,19 @@ still has no frontend reader at all.
   vitest suite or a production build, just typecheck — worth widening.
 - [x] **`import 'server-only'` in `src/lib/supabase-server.ts`** 🟢 — **done,
   verified 2026-08-16.**
+- [ ] 🟢 **Delete the `/devpreviewxyz` routes before shipping — and note they
+  are publicly reachable** *(promoted to a tracked item 2026-08-26; the
+  "delete before shipping" note previously only existed as a clause inside
+  the "Tactile depth design system" done-bullet, where it was easy to miss).*
+  Four routes exist: `devpreviewxyz/page.tsx`, `groups/`, `profile-popover/`,
+  `tactile-cards/`. **`/devpreviewxyz` is explicitly allow-listed as public
+  in the auth guard** (`src/proxy.ts:38`, alongside `/login`, `/invite`,
+  `/claim`, `/expense`, `/auth`) — so they are unauthenticated on prod,
+  protected only by an unguessable path. They render design previews rather
+  than real user data, so this is dead surface area rather than a data leak,
+  but both the routes *and* the `proxy.ts` allow-list entry should go
+  together. Removing the entry without the routes would leave them
+  auth-walled rather than gone.
 
 ### Polish / small fixes
 
@@ -1886,6 +1958,14 @@ still has no frontend reader at all.
   `(dashboard)/page.tsx:143`. `BalanceBadge.tsx`'s net total correctly shows
   both whole + cents — the fix just hasn't propagated to the ledger table or
   home's gross figures.
+  **Re-audited 2026-08-26 — one of the three is fixed, two remain.**
+  `BalanceTable.tsx:69` now renders `{sign}${sum.toFixed(2)}`, so the
+  column header no longer rounds and **the header-exceeds-its-own-rows case
+  is gone** — that was the worst symptom. Left: `BalanceTable.tsx:90`
+  (`Math.floor(Math.abs(amount)).toLocaleString()` on the row) and
+  `(dashboard)/page.tsx:143` (`{s}${val.toFixed(0)}` on home's gross
+  figures). Both are display-only truncation with the correct value
+  underneath, so this is now a two-line cleanup, not a coherence bug.
 
 ### Desktop / web layout — remaining
 
@@ -1959,6 +2039,11 @@ Group detail 2-column layout (§19) shipped.
   - **`hashSlot` half: still 3 copies** — `(dashboard)/page.tsx:26`,
     `MemberCombobox.tsx:23`, `SuggestedMembers.tsx`. Two of the original 5 went
     away with `AddMemberModal`/`BalanceBreakdownModal`, not by migration.
+    **Re-verified 2026-08-26 — still exactly 3, unchanged:**
+    `(dashboard)/page.tsx:31`, `SuggestedMembers.tsx:9`,
+    `MemberCombobox.tsx:23` (the dashboard copy drifted 26 → 31; the other
+    two line numbers still hold). Not getting worse, unlike `displayName`
+    below.
   - **Why they can't just be merged:** `slotFor(members, id)` needs a member
     array to take a position in. The remaining `hashSlot` sites don't have one —
     `MemberCombobox:52,178` and `SuggestedMembers:57,119` render *search results
@@ -1978,6 +2063,11 @@ Group detail 2-column layout (§19) shipped.
   `displayName()` — e.g. `me/page.tsx`, `Avatar.tsx`, `MemberCombobox.tsx`,
   `MemberActionSheet.tsx`, `Sidebar.tsx`, `groups/new/page.tsx` (×5). Getting
   worse, not better, as new screens get built.
+  **Re-counted 2026-08-26 — holding at 17 files.** Stopped climbing (10 → 17
+  → 17) across a redesign that added a dozen components, so the trend called
+  out above has flattened. Still the single largest mechanical cleanup in the
+  doc, and still 🟢 — `displayName()` is already exported from
+  `lib/memberDisplay.ts`; this is a find-and-replace with a typecheck.
 - [ ] 🟢 **Invalidation key lists** — **note: item 5 phase 2's own text
   (above) already calls this entry stale** — the described 5-key block no
   longer exists (activity/global-balances derive from per-group caches with
@@ -2049,10 +2139,33 @@ consumer.
   `expense_splits` — neither has a resolvable FK path for PostgREST to embed,
   so the fetch almost certainly errors, `{ data: expense }` comes back
   `null`, and every share link renders "This link is invalid or has
-  expired." Not verified live yet. Fix: route both joins through
+  expired." Fix: route both joins through
   `group_members` (and its own `profiles` relationship), narrow columns
   (never `profiles(*)` — service role bypasses RLS), filter
   `deleted_at IS NULL`. Detail in `docs/audit-fix-plan.md` Phase 6.
+  - **Confirmed broken by inspection 2026-08-26** (was "not verified live
+    yet"). The query is one line —
+    `src/app/expense/[share_token]/page.tsx:11` — and both embeds are
+    unresolvable against the baseline schema, which was checked directly:
+    `expenses_paid_by_member_id_fkey` FKs `group_members(id)`
+    (`20260721000000_baseline_schema.sql:584`) so `payer:profiles!paid_by(*)`
+    names a constraint that doesn't exist, and `expense_splits` has only
+    `expense_splits_group_member_id_fkey` → `group_members` (`:574`) with no
+    `profiles` relationship at all, so `profile:profiles(*)` can't embed
+    either. `.single()` then yields `data: null` and the page short-circuits
+    to the invalid-link branch (`:15`). **Every share link is dead**, and has
+    been since the seat-key migration.
+  - **Two more defects in the same line, fix together:** no
+    `.is('deleted_at', null)` — a soft-deleted expense stays publicly
+    shareable (violates the soft-delete invariant, and this is the one
+    unauthenticated surface in the app); and `profiles(*)` under the
+    **service-role** client selects every column including `email`, which
+    CLAUDE.md says must never reach a client. Narrow to
+    `id, name, display_name, avatar_url`.
+  - Confirmed by sweep to be the **only** `from('expenses')` read in `src/`
+    missing a `deleted_at` filter — the two other unfiltered hits
+    (`useExpenses.ts:77`, `:119`) are an UPDATE-by-id and an INSERT, which
+    correctly don't need one.
 - ~~Guest claim flow (`claim_token`, email match, manual link)~~ — **done,
   verified 2026-08-16.** `src/app/claim/[token]/page.tsx` implements the
   full RPC-based flow (`get_seat_by_claim_token`, `claim_seat`), handling
