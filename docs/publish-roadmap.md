@@ -182,8 +182,10 @@ Two threads from the original item stay open, both smaller than the item was:
 - ~~**The 30s poll** from `CLAUDE.md`~~ — **shipped 2026-08-16.**
   `useNotifications` sets `refetchInterval: 30_000,
   refetchIntervalInBackground: false`.
-- **Option A's tab badge** — `TabBar.tsx`'s `NAV_BADGES` is still a hardcoded
-  empty object, and `Sidebar.tsx` has no badge slot. Not redundant with the
+- **Option A's tab badge** — the live nav (`FloatingTabBar.tsx`) has no badge
+  slot; the `NAV_BADGES`/`WebNavBadge` wiring is in the superseded
+  `TabBar.tsx` and would need porting across. `Sidebar.tsx` has no badge slot
+  either. Not redundant with the
   bell: the badge is what you see with a sheet or another page's chrome in
   front of the header.
 

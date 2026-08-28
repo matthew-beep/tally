@@ -250,8 +250,12 @@ also appear in the list — CLAUDE.md invariant.
 - Dead code: unused `CONTENT_MAX_WIDTH` import in `groups/page.tsx` (it's
   genuinely used elsewhere, e.g. `activity/page.tsx` — just drop the stale
   import there), `.add-expense-mobile-*` CSS, unused `TabBar.tsx` (confirmed
-  — not imported anywhere; the tab bar actually mounted is `DockedTabBar.tsx`,
-  a different component; safe to delete).
+  — not imported anywhere; a different component from the bar that was
+  actually mounted; safe to delete).
+  **Update 2026-08-28 — `DockedTabBar.tsx` joined it.** The mounted nav is now
+  `FloatingTabBar.tsx`; both older bars are unreferenced and tracked for
+  deletion in `TODO.md` Phase 1, `DockedTabBar` held back only until the new
+  one clears a device pass.
   **Correction 2026-08-16 — `EmojiTile` is not dead code, do not delete it.**
   It's actively imported and rendered in `groups/[id]/page.tsx`,
   `components/feed/FeedCard.tsx`, `components/AddExpenseGroupPicker.tsx`, and

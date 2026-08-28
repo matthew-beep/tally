@@ -3,6 +3,7 @@ export const T = {
   surface:    'var(--tally-surface)',
   surfaceAlt: 'var(--tally-surface-alt)',
   surfaceHov: 'var(--tally-surface-hov)',
+  navVeil:    'var(--tally-nav-veil)',
   ink:        'var(--tally-ink)',
   inkMuted:   'var(--tally-ink-muted)',
   inkFaint:   'var(--tally-ink-faint)',
@@ -37,6 +38,7 @@ export const T = {
   },
 
   shadowSm:    'var(--tally-shadow-sm)',
+  shadowNav:   'var(--tally-shadow-nav)',
   shadowFloat: 'var(--tally-shadow-float)',
   shadowModal: 'var(--tally-shadow-modal)',
   shadow:      'var(--tally-shadow-sm)',

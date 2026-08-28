@@ -1260,8 +1260,19 @@ confirm+re-close or diagnose the actual gap.
   the flex/dvh box) painted `var(--tally-surface)` at `env(safe-area-inset-
   bottom)` height, mounted as a sibling in `(dashboard)/layout.tsx`. Purely
   a color safety net — doesn't touch layout flow, so no per-page padding
-  changes needed. **Not yet confirmed on a real device/simulator with a
-  home indicator** — verify before closing.
+  changes needed.
+  - **Closed 2026-08-28 — the bug class is gone rather than fixed.** The seam
+    only ever existed because the docked bar painted `--tally-surface` against
+    a `--tally-page-bg` page, so a stale-`dvh` shortfall exposed a *colour
+    change* beneath it. `FloatingTabBar` (see Phase 1) is an inset pill with
+    page bg on every side, so the same shortfall now exposes more of the
+    colour that was already there. Nothing to seam against.
+  - **The described fix was never actually live.** The `<div
+    className="dashboard-safe-area-fill">` was dropped from
+    `(dashboard)/layout.tsx` during the 2026-08-27 in-flow rework while its
+    two CSS blocks were left behind — so the strip sat orphaned in
+    `dashboard.css` and there was never anything on device to verify. Both
+    blocks deleted 2026-08-28.
 - [ ] **Edit individual group amount from dashboard** 🟢 — doc claimed shipped
   via `BalanceSheet.tsx` → `GroupBreakdown` rows → `GroupSettleScreen`
   (editable amount, Full/Half/Clear chips). Reported not working from the
@@ -1278,18 +1289,33 @@ confirm+re-close or diagnose the actual gap.
     confirm screen, where read-only rows are correct — not the bug.
     Both mobile (`PersonRow`) and desktop (`BalanceTable` via `personToRow`)
     pass `onRowTap`.
-  - **[bug] found instead — dead avatar tap on guest rows, and it eats the
-    row tap.** `onAvatarTap` is gated (`:464`): `if (p.userType === 'user')
-    setProfilePerson(p)`. But `personToRow` (desktop) and `PersonRow`
-    (mobile) both wire `onAvatarClick` *unconditionally* and both
-    `e.stopPropagation()` before calling it (`BalanceTable.tsx:96`,
-    `PersonRow` ~`:17`). So on a **guest** row, tapping the avatar
-    stop-propagates the row tap and then calls a no-op — the tap does
-    nothing at all, and the `BalanceSheet` that a row tap *would* have
-    opened never appears. Plausible source of the "not working from the
-    dashboard" report: the avatar is the most obvious tap target on the row.
+  - **[bug] found instead — dead avatar tap on guest rows.** `onAvatarTap`
+    is gated (`:464`): `if (p.userType === 'user') setProfilePerson(p)`. But
+    `personToRow` (desktop) and `PersonRow` (mobile) both wire
+    `onAvatarClick` *unconditionally* and both `e.stopPropagation()` before
+    calling it (`BalanceTable.tsx:96`, `page.tsx:196`). So on a **guest**
+    row the avatar is a dead zone: it stops the row tap, then calls a no-op.
     Fix: only attach `onAvatarClick`/the pointer cursor when the person is a
     real user, so the tap falls through to the row handler for guests.
+    - **Scope corrected 2026-08-27 (Matthew) — this is NOT the reported
+      bug.** An earlier note here claimed the guest `BalanceSheet` "never
+      appears" and floated this as the source of the "not working from the
+      dashboard" report. Wrong: only the avatar is dead. Tapping anywhere
+      else on a guest row opens `BalanceSheet` normally, which Matthew
+      confirmed live. What a guest row loses is the *`PersonProfileSheet`*
+      an active member's avatar opens — and that gate is correct in intent:
+      `userType` is derived as `profile ? 'user' : 'guest'` (`page.tsx:98`),
+      so a guest genuinely has no profile for that sheet to render.
+    - **So the open question is what a guest avatar tap *should* do**, not
+      how to unbreak it: (a) fall through to the row tap (one-line fix,
+      avatar behaves like the rest of the row), or (b) give
+      `PersonProfileSheet` a guest state — name, slot, `parts`, and probably
+      a "claim this guest" affordance — so the target isn't inconsistent
+      between row types. (a) is the cheap correct-now answer; (b) is a real
+      design decision and shouldn't be smuggled in under a bug fix.
+    - **The actual "edit group amount doesn't work" report is still
+      unexplained** — the drill-down traced clean above, and this isn't it.
+      Next step is the live check in the bullet below, not more tracing.
   - **Still worth a live check** of whether the edited amount *persists*
     (the write path is `useCreateSettlements`, exercised by settle-all which
     is verified) — but that's now the only unverified half.
@@ -1300,6 +1326,40 @@ confirm+re-close or diagnose the actual gap.
   now.** Floating `TabBar.tsx` (pill + `SliderPill`) stays unmounted, not deleted, in
   case this gets revisited. `docs/feature-status.md` should be updated to drop the
   "live A/B, undecided" framing. Unblocks Phase 2.
+  - **Superseded 2026-08-28 — floating shipped, as design D2.** Built
+    `src/components/FloatingTabBar.tsx` from the claude.ai/design splitter
+    project (`Floating Navbar - D Raised.html` → `NrvCircle` in
+    `nav-raised-variations.jsx`): an inset pill (14px sides, 24px float,
+    radius 27) on `--tally-nav-veil` + `blur(20px) saturate(1.4)`, tabs split
+    2 | + | 2 around a 60px round sun key that rises 26px through the bar's
+    top edge on a 6px ring of bar colour. Note that *neither* bar this
+    decision was choosing between won: `TabBar.tsx`'s pill is a different
+    design (`SliderPill` active indicator, no raised key) and is now dead code
+    alongside `DockedTabBar.tsx`.
+  - **Went back to `position: fixed`, deliberately.** `DockedTabBar` was moved
+    *out* of fixed on 2026-08-27 to stop overscroll chaining rubber-banding
+    it; `FloatingTabBar` is fixed again, but pinned to the real viewport
+    rather than to the `100dvh` shell (the pin Vaul's sheet uses). The pull
+    gesture item in Phase 2 is still what stops the bar drifting on an
+    overscroll flick — with a floating pill that drift is cosmetic rather than
+    a colour seam, which is why it wasn't treated as a blocker for this.
+  - **Scroll clearance is now derived, not per-page.** `--tally-nav-clearance`
+    (`dashboard.css`) is `calc(120px + env(safe-area-inset-bottom))` below
+    1024px and `0px` above it, computed from the bar's own geometry (24px
+    float + 62px bar + 26px key rise + air). `.home-main`, `.page-scroll`,
+    `.group-detail-right`, and `groups/new`'s CTA + scroll body all consume
+    it. The one number left to tune by eye is the 24px float in
+    `.dashboard-mobile-nav` — the mock measured it in a frame with no home
+    indicator.
+- [ ] **Nav cleanup — delete `DockedTabBar.tsx` and `TabBar.tsx`** 🟢 *(new,
+  2026-08-28)* — both are unreferenced. `DockedTabBar` is left on disk on
+  purpose so reverting D2 is a one-line import swap in
+  `(dashboard)/layout.tsx`; delete it once D2 survives a device pass.
+  Deleting `TabBar.tsx` also orphans `nav/SliderPill.tsx` and
+  `nav/useSlider.ts`, and retires `NAV_BADGES` — which several docs still
+  name as the home for the future unread badge, so re-point those at
+  `FloatingTabBar` before removing it. `nav/navTabs.ts`, `WebNavIcon`, and
+  `WebNavBadge` all stay either way.
 
 ### Phase 2 — Mobile shell fixes (depends on Phase 1)
 
@@ -1319,6 +1379,21 @@ confirm+re-close or diagnose the actual gap.
   `(dashboard)/layout.tsx`, feed has 100px bottom padding on `.group-detail-right`) but
   isn't sufficient — the FAB still clips/overlaps the last feed row. Needs an actual
   fix (bigger bottom pad, or FAB-aware scroll-end spacer), not more verification.
+  - **Reported fixed 2026-08-27 (Matthew, "i think 2. is fixed right now")** —
+    believed resolved as a side effect of the same-day mobile nav rework
+    (`.dashboard-mobile-nav` moved from `position: fixed` back to an in-flow
+    `flex-shrink: 0` child of `.dashboard-main`, `dashboard-main--no-tabbar`
+    and its 92px reservation deleted). Left unchecked deliberately: that
+    rework is **still uncommitted** and the fix was incidental rather than
+    aimed, so close this only after a device pass that also re-checks the
+    100px `.group-detail-right` pad is still the right number now that the
+    bar takes up real layout space.
+  - **Fixed for real 2026-08-28, and the magic number is gone.** That 100px
+    was hand-tuned against the old docked FAB. `.group-detail-right` now takes
+    `--tally-nav-clearance` like every other mobile scroller — one value
+    derived from the floating bar's geometry rather than guessed per page, so
+    it can't drift out of sync with the bar again. Still worth the device pass
+    above, but there is no longer a number to re-check.
 - [x] **Move group name to center (mobile group detail)** 🟡 — **done 2026-08-25**,
   per claude.ai/design "splitter" project's `Group Page Social.html` (`GPHeader` in
   `group-page-social.jsx`): back chevron and settings gear are now matched 34px
@@ -1334,6 +1409,10 @@ confirm+re-close or diagnose the actual gap.
   `16px 16px 100px`; header: `8px 14px 6px` inline in `groups/[id]/page.tsx`) but
   not tuned to final spec. The 100px bottom pad is a FAB workaround, not a finished
   layout pass.
+  - **Bottom edge settled 2026-08-28** — the 100px became
+    `var(--tally-nav-clearance)` with the floating nav (see Phase 1), so what
+    is left here is the *horizontal* and header padding, which is still
+    untuned. Scope narrowed accordingly.
 - [x] **New group action on mobile header** 🟡 — **closed 2026-08-26, won't-fix.**
   `AppHeader` actions still hide below 1024px (`.app-header-action--hide-mobile`) and
   "+ New group" still only lives in the Groups page body, not the header — decided
@@ -1342,17 +1421,130 @@ confirm+re-close or diagnose the actual gap.
   (`/groups/[id]`) has no search UI, which was the actual scope. Groups **list** search
   (`groups/page.tsx` ~50–62) and group **settings**' `MemberCombobox` member search are
   separate, intentional, and stay.
+- [ ] **Own the pull gesture — kill native PTR, build Tally's pull-to-refresh** 🟡
+  *(new, 2026-08-27)* — the tab bar is *already* isolated from ordinary scrolling
+  (it's a sibling of the scroller, not inside it — see structure below), so the only
+  thing that still moves it is **overscroll chaining**: flick past the top of any
+  scroller and Safari hands the leftover gesture to the document, which rubber-bands
+  the whole `100dvh` shell, docked bar included. Nothing in the codebase sets
+  `overscroll-behavior` today. Decision (Matthew, 2026-08-27): don't just suppress it —
+  take the gesture over and give it a real job, which is also what `CLAUDE.md`'s sync
+  strategy already calls for ("pull-to-refresh → manual `invalidateQueries` for the
+  'I just got a text, let me check' moment").
+  - **Current scroll structure** (identical on every page — fixed shell → non-scrolling
+    box → one inner scroller; the tab bar is a sibling of all of it):
+
+    | page | non-scrolling box | scroller | bottom pad |
+    |---|---|---|---|
+    | group detail | `.group-detail-body` | `.group-detail-right` | `var(--tally-nav-clearance)` |
+    | home | `.home-scroll` | `.home-main` | `var(--tally-nav-clearance)` |
+    | groups / activity / me | shell `div` in `(dashboard)/layout.tsx` | `.page-scroll` (`DashboardPage.tsx`) | `var(--tally-nav-clearance)` |
+
+    *(Bottom pads were 100px / 32px / 32px when this was written; all three
+    became the shared clearance var with the floating nav, 2026-08-28. The
+    non-scrolling boxes and the scrollers themselves are unchanged, so the
+    plan below still applies as written.)*
+
+  - **Gesture split (Matthew, 2026-08-27): body owns ours, header keeps the browser's.**
+    A drag starting in the scroll body runs Tally's refresh (native suppressed).
+    A drag starting on the header is left completely alone — Safari/Chrome do their
+    own rubber-band/PTR there. This falls out of scoping `overscroll-behavior` to the
+    scrollers rather than `html, body`: the header isn't a scroll container, so a drag
+    on it still chains to the document and the browser handles it as before.
+    **Accepted tradeoff:** native document overscroll translates the whole page, so a
+    header drag *will* carry the docked tab bar with it. "Bar never moves" and "header
+    keeps native behavior" are mutually exclusive; the header case is fine per Matthew.
+  - **What has to happen:**
+    1. `overscroll-behavior-y: contain` on each scroller — stops the chain reaching
+       the document. Scoped to the scrollers, **not** `html, body`: that would also
+       kill the header's native behavior (which we're deliberately keeping), and the
+       public pages (`/login`, `/invite`, `/expense`, `/claim`, `/onboarding`) use
+       `minHeight: 100dvh` and do want a normally-scrolling document.
+    2. Non-passive `touchmove` listener **on the scroller only** (never the header)
+       calling `preventDefault()` while `scrollTop === 0` and the drag is downward.
+       This is what actually cancels Safari's native PTR; `overscroll-behavior` alone
+       isn't reliable across iOS versions. Must be `addEventListener(..., { passive:
+       false })` on a ref — React's `onTouchMove` can't be trusted to be cancelable.
+    3. Indicator + threshold: track finger with resistance (~0.5), arm at ~64px, cap
+       ~100px, arrow flips at the threshold, spinner while working, minimum spin time
+       (~450ms) so a warm cache doesn't flash.
+    4. Refresh action: `queryClient.refetchQueries({ type: 'active' })` refetches
+       exactly what's mounted — no per-page key wiring needed. Per-page `onRefresh`
+       override available if a screen needs more.
+  - **Shape:** a `PullToRefresh` component that *is* the scroll container (takes the
+    scroller's own `className`/`style`), so pages swap `<div className="home-main">`
+    → `<PullToRefresh className="home-main">` with no extra layout box. Indicator is
+    absolutely positioned and out of flow — important, because `.home-main` is a flex
+    parent on desktop (`.home-content` is `flex: 1` inside it) and an in-flow wrapper
+    would break that. Only the indicator moves; content stays put.
+  - **Open question:** content-drag vs indicator-only. Indicator-only is zero-risk to
+    the existing desktop layouts; dragging the content down is more tactile and more
+    in keeping with the design system. Start indicator-only, revisit.
+  - Supersedes the `overscroll-behavior` half of the shell work. The
+    `.dashboard-safe-area-fill` colour strip this bullet used to set aside as a
+    separate concern is **gone** — deleted 2026-08-28 with the move to a
+    floating bar, which removed the seam it was meant to cover (see Reopened
+    section).
+  - **Still the outstanding item after D2 (2026-08-28).** `FloatingTabBar` is
+    `position: fixed` again, so an overscroll flick still translates it with
+    the document. That is now a cosmetic drift rather than a colour seam,
+    which is why the nav work didn't wait on this — but this is the thing that
+    actually ends it, and the header-vs-body gesture split above is unchanged
+    by the swap.
 
 ### Phase 3 — Add-expense mobile fixes
 
-- [ ] **Add-expense fixed-bottom footer drifts with keyboard** 🟡 *(new,
-  2026-08-25)* — mobile add-expense's fixed-bottom footer moves up as the
-  on-screen keyboard opens instead of staying put; wanted layout is
-  `justify-between` inside a height-stable container rather than
-  fixed-to-viewport-bottom. Root-cause likely `position: fixed` + viewport
-  units that shift when the mobile keyboard resizes the visual viewport —
-  check `MobilePanel.tsx`'s footer positioning and consider `dvh`/`env()`-
-  aware sizing instead.
+- [x] **Add-expense footer drifts with keyboard** 🟡 *(new, 2026-08-25)* —
+  **fixed 2026-08-27 by moving Save into the scroll body.**
+  - **The root cause guessed above was wrong** — there was no `position:
+    fixed` anywhere in `MobilePanel.tsx`. The footer was already an in-flow
+    `flex-shrink: 0` child of a `justify-between`-shaped flex column
+    (`.add-expense-panel`, `globals.css:494`). The bad part was the
+    *container height*, one level up: `100dvh` on the route
+    (`.dashboard-main` → `.dashboard-layout`) and `calc(100dvh - 40px)` on
+    the sheet (`globals.css:458`). **iOS Safari does not shrink `dvh` for
+    the software keyboard** — the layout viewport stays full height while
+    the visual viewport shrinks, so the footer stayed pinned to the bottom
+    of a box now partly behind the keyboard, and Safari's scroll-into-view
+    on the focused input dragged the whole panel (footer included) upward.
+    No amount of `env()` tuning fixes that; the box was the wrong height.
+  - **Chosen fix (Matthew, 2026-08-27): let Save scroll with the body.**
+    The `Btn` moved inside `.add-expense-scroll` as its last child, with
+    `paddingBottom: max(12px, env(safe-area-inset-bottom))`. Nothing tracks
+    the keyboard anymore because nothing is anchored to the viewport.
+  - **Two alternatives considered and not taken**, recorded in case the
+    always-visible CTA is wanted back in the pass below: (1) a
+    `window.visualViewport` resize hook writing a `--tally-vvh` var for the
+    panel to size on — the reliable cross-browser fix, and reusable for the
+    "settle sheet height jumps" bug in `docs/review-todo.md`; (2)
+    `interactive-widget=resizes-content` on the `Viewport` export
+    (`src/app/layout.tsx:25`) — one line, but Chrome-Android-first and not
+    dependable on iOS Safari, so only worth layering under (1).
+- [x] **Note sheet zoomed the viewport on focus** 🟢 *(found 2026-08-27)* —
+  `NoteSheetContent.tsx`'s `<textarea>` was `fontSize: 15`, under iOS
+  Safari's 16px auto-zoom threshold. It's a raw `<textarea>`, so the
+  2026-08-26 zoom sweep (`ab00f0c`) missed it — that pass fixed `Input.tsx`'s
+  `md`/`cell` sizes and other call sites, but only ones going through the
+  shared component. Bumped to 16 with a comment saying why it's a floor, not
+  a design value. **Swept the rest at the same time: this was the last
+  sub-16px focusable field in `src/`** (17 files contain a raw
+  `<input>`/`<textarea>`; every other one is already ≥16 or routes through
+  `Input`).
+- [ ] **Add-expense mobile — another full pass** 🟡 *(new, 2026-08-27)* —
+  the flow has been changed in pieces across several sessions (full-screen
+  route, five sub-sheets, date/category rows, scrolling Save) and has never
+  been walked end-to-end on a device as a whole. Wants a single
+  design+interaction pass rather than more spot fixes. Known inputs:
+  - **Does a scrolling Save actually feel right?** It's the tradeoff
+    accepted above — on a long form (many members, exact/percentage splits)
+    the CTA is now well below the fold. If it doesn't hold up, the
+    `visualViewport` option above is the way back to a pinned footer.
+  - **`autoFocus` on the title input** (`MobilePanel.tsx:332`) means the
+    keyboard is up on entry, so the first thing you see is a form already
+    scrolled/compressed. Worth questioning.
+  - Both entry points still need the live pass they never got (see the
+    full-screen route item below) — now more so, since the nav shell was
+    rewritten underneath them on 2026-08-27.
 - [x] **Date picker design — mobile parity** 🟡 — **done 2026-08-26.**
   `MobilePanel.tsx` now has a Date row opening a sheet (`DateSheetContent.tsx`)
   with Today/Yesterday quick chips + a full calendar. The day-grid itself was
@@ -1519,10 +1711,17 @@ then epics last:
 1. **Phase 0 — re-verify the two reopened items** (navbar color, dashboard
    group-amount edit). If actually broken, that's a regression and jumps
    the queue over everything else.
+   *(Updated 2026-08-28: navbar colour is closed — the floating nav removed
+   the seam. The group-amount edit is still unexplained and is now the only
+   Phase 0 item.)*
 2. **Phase 1 — nav decision** (floating vs docked) — unlocks Phase 2.
+   *(Settled 2026-08-28: floating, design D2. What's left under Phase 1 is
+   the device pass and the dead-nav cleanup.)*
 3. **Phase 2 — FAB scoping + centered group title + mobile padding +
    header "New group" + search removal** — group page feels broken
    without these, all depend on the nav decision landing first.
+   *(Unblocked. FAB overlap and the group page's bottom pad both fell out of
+   the nav swap; the pull-gesture item is the substantial one remaining.)*
 4. **Phase 3 — add-expense mobile** (keyboard-drift footer, date picker,
    category field, desktop rework finish).
 5. **Phase 4 — dashboard/home polish** (hero rendering glitch, sticky

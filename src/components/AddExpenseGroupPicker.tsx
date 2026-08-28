@@ -18,7 +18,7 @@ import type { GroupMember } from '@/types'
 /**
  * Global "Add expense" entry point for non-group pages (Home, Groups,
  * Activity, Me) — reached from AppHeader's "Add expense" button and
- * DockedTabBar's center FAB. Lists every group so the user can jump
+ * FloatingTabBar's center FAB. Lists every group so the user can jump
  * straight into that group's existing add-expense flow
  * (`/groups/:id?add=1`) without navigating through the Groups list first.
  * Styled after the "Header & Sidebar Variants" design exploration's

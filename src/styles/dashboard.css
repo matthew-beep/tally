@@ -96,6 +96,13 @@
   }
 }
 
+/* Space every mobile scroller must leave clear at its bottom edge so the
+   floating nav never covers the last row. Zero on desktop — the nav is a
+   mobile-only object and the sidebar reserves its own width in flow. */
+:root {
+  --tally-nav-clearance: 0px;
+}
+
 .dashboard-mobile-nav {
   display: none;
 }
@@ -109,9 +116,12 @@
     display: none;
   }
 
-  /* Same pin as Vaul's sheet. Must not live inside `.dashboard-layout`
-     — that shell is overflow:hidden + 100dvh, and iOS Safari's stale dvh
-     would clip a fixed bar that extends past it (the cream gap). */
+  /* Overlay pinned to the real viewport bottom — the same trick Vaul's sheet
+     uses — rather than an in-flow flex child. Pinning to the flex shell would
+     inherit iOS Safari's stale `100dvh` and leave the bar floating short of
+     the screen. Nothing in this wrapper paints; only the pill inside does, so
+     a short shell exposes page bg, which is what surrounds the pill anyway.
+     That is why the docked bar's colour-seam bug can't recur here. */
   .dashboard-mobile-nav {
     display: block;
     position: fixed;
@@ -119,22 +129,37 @@
     right: 0;
     bottom: 0;
     z-index: 40;
-    width: 100%;
-    background: var(--tally-surface);
-    /* padding-bottom: env(safe-area-inset-bottom, 0px); */
+    padding: 0 14px calc(24px + env(safe-area-inset-bottom, 0px));
+    /* Only the pill takes taps — the cream either side of it belongs to the
+       content scrolling underneath. */
+    pointer-events: none;
+  }
+
+  /* Dissolves the last stretch of scroll into the page so content fades out
+     behind the pill instead of colliding with its edge. Taller than the
+     wrapper's own box, which is only as tall as the pill itself. Uses
+     --tally-bg rather than --tally-page-bg: the latter may be a mesh gradient,
+     which can't be a gradient stop, and cream is its base layer. */
+  .dashboard-mobile-nav::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(100% + 40px);
+    background: linear-gradient(to top, var(--tally-bg) 42%, transparent);
+    pointer-events: none;
   }
 
   .dashboard-main {
     flex: 1;
     min-height: 0;
-    /* 92px = DockedTabBar height. Keeps scroll content above the overlay. */
-    padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* Routes that hide the tab bar (e.g. the full-screen add-expense route)
-     don't need the 92px reserved for it — just the safe-area itself. */
-  .dashboard-main.dashboard-main--no-tabbar {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* 24px float + 62px bar + the 26px the key rises above it, plus air. The bar
+     overlays content now, so this padding is the only thing reserving it. */
+  :root {
+    --tally-nav-clearance: calc(120px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -312,11 +337,11 @@
 
 @media (max-width: 1023px) {
   .home-main {
-    padding: 16px 16px 32px;
+    padding: 16px 16px var(--tally-nav-clearance);
   }
 
   .page-scroll {
-    padding-bottom: 32px;
+    padding-bottom: var(--tally-nav-clearance);
   }
 
   .app-header {
@@ -495,7 +520,8 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px 16px 100px;
+  /* Was a hardcoded 100px worked out against the old docked FAB. */
+  padding: 16px 16px var(--tally-nav-clearance);
 }
 
 .group-detail-expense-split-info,

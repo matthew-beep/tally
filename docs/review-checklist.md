@@ -161,8 +161,11 @@ display.
   owns the width (it's a pre-paint `data-sidebar` attribute + CSS, or the
   sidebar flashes wide on every load), and that no sidebar child reintroduces
   an inline `display`/`gap`/`padding` that outranks the rail rules
-- [ ] `src/components/TabBar.tsx` (119) + `src/components/nav/*` (~225) —
-  `NAV_BADGES` hardcoded empty; slider mechanics
+- [ ] `src/components/FloatingTabBar.tsx` (~145) + `src/components/nav/*`
+  (~225) — the live mobile nav: fixed-overlay positioning vs.
+  `--tally-nav-clearance`, and whether every mobile scroller consumes it.
+  (`TabBar.tsx`/`DockedTabBar.tsx` are superseded and pending deletion — review
+  them only if they're still on disk.)
 - [ ] `src/components/ModeSheet.tsx` (113) + `src/store/ui.ts` (21) +
   `src/hooks/useMediaQuery.ts` (24) + `src/hooks/useDebouncedValue.ts` (14)
   — Zustand scope stays UI-only

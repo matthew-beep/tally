@@ -23,7 +23,7 @@ interface AppHeaderProps {
   title: ReactNode
   /** Home only: hour-based greeting + first name under the title instead of a plain heading. */
   greeting?: boolean
-  /** Defaults to "Add expense" (opens the global AddExpenseGroupPicker), hidden below 1024px since DockedTabBar's center button covers mobile — pass to override. */
+  /** Defaults to "Add expense" (opens the global AddExpenseGroupPicker), hidden below 1024px since FloatingTabBar's center key covers mobile — pass to override. */
   action?: AppHeaderAction
 }
 

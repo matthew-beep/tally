@@ -29,7 +29,7 @@ and should be rewritten, not wrapped.
 Do **not** run this Next app through Expo, Solito, or `react-native-web`
 wrappers around existing components. The desktop shell (sidebar, popovers,
 two-column add-expense) is a real product; native should follow
-`DockedTabBar` / sheets / `MobilePanel`.
+`FloatingTabBar` / sheets / `MobilePanel`.
 
 ---
 
@@ -245,7 +245,7 @@ no equivalent — iOS gets a single `shadow*` set, Android only `elevation`, and
 
 The sidebar rail does not port: it's desktop-only, and its state deliberately
 lives in a pre-paint `data-sidebar` attribute + CSS rather than React (see
-`features.md` → "Sidebar rail"). Native's shell is `DockedTabBar`.
+`features.md` → "Sidebar rail"). Native's shell is `FloatingTabBar`.
 
 ---
 
@@ -268,8 +268,8 @@ guard, not Next `proxy.ts`.
 
 ### Tabs
 
-Shell is `DockedTabBar` (`src/components/DockedTabBar.tsx`), not `Sidebar`.
-Tab ids come from `src/components/nav/navTabs.ts`.
+Shell is `FloatingTabBar` (`src/components/FloatingTabBar.tsx`), not
+`Sidebar`. Tab ids come from `src/components/nav/navTabs.ts`.
 
 | Expo | Next today |
 |---|---|
@@ -281,8 +281,13 @@ Tab ids come from `src/components/nav/navTabs.ts`.
 Center Add → group picker (today `AddExpenseGroupPicker` via Zustand
 `fabOpen`). Group detail keeps its own Add Expense control, same as web.
 
-`TabBar.tsx` (floating pill) is unmounted on web and is not the native
-target.
+`TabBar.tsx` and `DockedTabBar.tsx` are both superseded on web (see
+`features.md`) and are not the native target.
+
+The web bar is a floating pill overlaying content, with its clearance reserved
+by a CSS var rather than by layout flow. Expo's tab bar reserves its own space,
+so **don't port `--tally-nav-clearance`** — port the look (inset pill, raised
+center key) and let the native tab bar own the spacing.
 
 ### Stack (outside tabs, back-button headers)
 

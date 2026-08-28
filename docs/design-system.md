@@ -150,7 +150,7 @@ sun-tinted contexts, where lightening the ink in dark mode is correct because
 the background it sits on also lightens.
 
 That breaks for text/icons on a **solid** `T.sun` swatch — CTA buttons
-(`Btn.tsx` primary), the add-expense FAB (`DockedTabBar.tsx`), the app header
+(`Btn.tsx` primary), the add-expense key (`FloatingTabBar.tsx`), the app header
 action button, the mobile tab bar's add button, `NotificationBell`. `T.sun`
 itself stays a saturated gold in both themes (`#F2C144` light / `#F5CB66`
 dark) — it does not lighten the way `sun-soft` does — so `sunInk`'s dark-mode
@@ -258,15 +258,22 @@ ring the recipe calls for:
 ```
 
 Shared, so it lands on every genuinely floating surface at once: the sidebar
-panel, `TabBar`, `Toast`, `DatePicker`, `EmojiPopover`, the `MemberCombobox`
+panel, `Toast`, `DatePicker`, `EmojiPopover`, the `MemberCombobox`
 dropdown, `ProfileMenuPopover` (which was hand-appending the ring — removed,
-the recipe includes it now).
+the recipe includes it now). The mobile nav is the one floating surface that
+does *not* use it — `FloatingTabBar` has its own `--tally-shadow-nav`, a
+three-layer recipe (top-edge highlight, close contact, long float) over
+`--tally-nav-veil`, because a bar sitting directly on scrolling content needs
+more separation than a panel on a static page.
 
 **`T.shadowFab` was deleted.** It was the only entry in `tokens.ts` holding a
 literal instead of a `var()`, and therefore the only one that couldn't respond
-to the theme — it painted a yellow halo on warm charcoal in dark mode. The FAB
-(`DockedTabBar`) and the active nav pill (`SliderPill`) now use the sun
-gradient + `--tally-shadow-sun` like every other sun object.
+to the theme — it painted a yellow halo on warm charcoal in dark mode. The
+mobile nav's add key and the active nav pill (`SliderPill`) moved to the sun
+gradient + `--tally-shadow-sun` like every other sun object. The key in today's
+`FloatingTabBar` still uses it, appending a `0 0 0 6px var(--tally-nav-veil)` ring
+as a final layer so it reads as cut out of the bar's edge rather than stuck on
+top of it.
 
 ### Open decision — flat information cards
 

@@ -432,17 +432,22 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
             <Hairline />
           </>
         )}
-      </div>
 
-      <div style={{ flexShrink: 0, padding: '12px 18px 28px', background: T.surface }}>
-        <Btn
-          onClick={s.handleSave} disabled={!s.canSave || s.isPending} variant="primary" size="lg" fullWidth
-          style={{
-            borderRadius: 14,
-            padding: '17px', fontSize: 16,
-            fontFamily: FH, letterSpacing: -0.2,
-          }}
-        >{saveLabel}</Btn>
+        {/* Save scrolls with the body rather than pinning to the bottom. A
+            pinned footer sat at the bottom of a 100dvh box, and iOS Safari
+            doesn't shrink dvh for the software keyboard — so on focus the
+            footer drifted upward with the panel instead of holding still.
+            In flow there's nothing to track. */}
+        <div style={{ paddingTop: 22, paddingBottom: 'max(12px, env(safe-area-inset-bottom, 0px))' }}>
+          <Btn
+            onClick={s.handleSave} disabled={!s.canSave || s.isPending} variant="primary" size="lg" fullWidth
+            style={{
+              borderRadius: 14,
+              padding: '17px', fontSize: 16,
+              fontFamily: FH, letterSpacing: -0.2,
+            }}
+          >{saveLabel}</Btn>
+        </div>
       </div>
 
       <ModalOrSheet open={s.openPanel === 'payer'} onClose={() => s.setOpenPanel(null)} title="Paid by">

@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { F } from '@/design/tokens'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { AddExpenseGroupPicker } from '@/components/AddExpenseGroupPicker'
-import { DockedTabBar } from '@/components/DockedTabBar'
+import { FloatingTabBar } from '@/components/FloatingTabBar'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -19,7 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <Sidebar />
         </aside>
         <div
-          className={hideTabBar ? 'dashboard-main dashboard-main--no-tabbar' : 'dashboard-main'}
+          className="dashboard-main"
           style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}
         >
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -27,10 +27,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </div>
       </div>
-      {/* Outside the 100dvh overflow:hidden shell so iOS Safari can't clip it. */}
+      {/* Outside the 100dvh overflow:hidden shell, and fixed to the real
+          viewport rather than to that shell — same pin as Vaul's sheet, which
+          is the one thing on mobile that has always sat flush to the bottom.
+          Scroll clearance comes from `--tally-nav-clearance`, not from flow. */}
       {!hideTabBar && (
         <div className="dashboard-mobile-nav">
-          <DockedTabBar />
+          <FloatingTabBar />
         </div>
       )}
       <AddExpenseGroupPicker />

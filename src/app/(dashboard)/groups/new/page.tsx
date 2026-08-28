@@ -302,7 +302,7 @@ export default function NewGroupPage() {
         </header>
 
         {/* Scrollable body */}
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 140 }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingBottom: 'calc(140px + var(--tally-nav-clearance))' }}>
 
           {/* Identity — raised emoji tile + recessed name well, two separate tactile objects */}
           <div style={{ padding: '10px 16px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -487,7 +487,8 @@ export default function NewGroupPage() {
         {/* Floating CTA */}
         <div style={{
           position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
-          padding: '36px 16px 24px',
+          // The floating nav overlays this route, so the CTA lifts clear of it.
+          padding: '36px 16px calc(24px + var(--tally-nav-clearance))',
           background: `linear-gradient(to bottom, transparent 0%, ${T.bg} 38%)`,
           pointerEvents: 'none',
         }}>

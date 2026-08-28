@@ -78,6 +78,13 @@ Run these on each route before the per-feature list:
       after mobile browser chrome collapses. *(Known failure — item 8.)*
 - [ ] Safe-area insets respected: tab bar clears the iPhone home indicator,
       sheet content clears the notch.
+- [ ] **Floating nav** *(new 2026-08-28, `FloatingTabBar`)* — the pill sits a
+      sensible distance off the bottom on a device with a home indicator (the
+      24px float in `.dashboard-mobile-nav` was measured in a frame without
+      one, so this is the number most likely to be wrong); the last row of
+      every scroller clears the raised key, not just the bar; and the pill
+      stays put through an overscroll flick, or drifts only cosmetically —
+      see the pull-gesture item in `TODO.md` Phase 2.
 - [ ] Every sheet: opens at a stable height, scrolls internally, drag-to-dismiss
       works, background does not scroll behind it.
 - [ ] Long content doesn't break layout — 40-character group name, 6+ members,

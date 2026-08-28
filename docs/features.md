@@ -110,10 +110,10 @@ never cached in the DB — recomputation happens on read.
 | `modal/*` | Modal/sheet primitives — `ModalOrSheet` picks by viewport |
 | `home/BalanceSheet`, `home/PersonProfileSheet` | Home balance breakdowns |
 | `notifications/NotificationBell` | Icon + actionable-count badge, fed by `useNotifications` + `selectActionable`. Deliberately dumb — the caller owns the sheet (`useNotificationReviewSheet` + `NotificationsSheet`) |
-| `dashboard/AppHeader` | Persistent header for the four tab pages. Owns its own bell + `NotificationsSheet` instance, so each mount is independent and callers wire nothing. `action` defaults to "Add expense" (`setFabOpen(true)`, opens the global `ModeSheet` group picker), `hideOnMobile: true` by default since `DockedTabBar`'s center button is the mobile entry point instead — desktop-only in practice unless a page overrides it. All four tab pages use the default. No avatar (dropped 2026-08-15 — redundant with the Me tab on mobile and with `Sidebar`'s own profile card on desktop). Group detail keeps its own bespoke header with a directly-scoped Add Expense button (desktop only — the mobile floating duplicate was removed, see `feature-status.md`) — never goes through `ModeSheet` |
+| `dashboard/AppHeader` | Persistent header for the four tab pages. Owns its own bell + `NotificationsSheet` instance, so each mount is independent and callers wire nothing. `action` defaults to "Add expense" (`setFabOpen(true)`, opens the global `ModeSheet` group picker), `hideOnMobile: true` by default since `FloatingTabBar`'s center key is the mobile entry point instead — desktop-only in practice unless a page overrides it. All four tab pages use the default. No avatar (dropped 2026-08-15 — redundant with the Me tab on mobile and with `Sidebar`'s own profile card on desktop). Group detail keeps its own bespoke header with a directly-scoped Add Expense button (desktop only — the mobile floating duplicate was removed, see `feature-status.md`) — never goes through `ModeSheet` |
 | `dashboard/Sidebar` | Desktop nav — 3 primary destinations (Home/Groups/Activity; `Me` is not a nav item, reached via the profile card instead), inline "+" next to the "Groups" label for group creation, group list, bottom profile card (avatar + name) that opens `ProfileMenuPopover` (identity row → `/me`, theme toggle, sign out) rather than navigating directly. A **floating rounded panel** since 2026-08-19 (inset 12px by `.dashboard-sidebar`, `shadowFloat`), not a flush column. **Collapsible to a 64px rail** — wordmark and the whole group section hide, icons center, toggle is the header. See "Sidebar rail" below. UI-only pass — see `feature-status.md` for what was deliberately left out |
-| `TabBar` | Floating-pill mobile nav, 4 destinations incl. `Me`. Currently unmounted — kept for comparison against `DockedTabBar`, swap back into `(dashboard)/layout.tsx` to revert |
-| `DockedTabBar` | Docked-bar mobile nav with an elevated center "Add" button (→ `setFabOpen(true)`), currently mounted in `(dashboard)/layout.tsx`. Shares `NAV_TABS`/`pathnameToTab` with `TabBar` via `nav/navTabs.ts`. See `feature-status.md` — this is a live comparison, not a settled choice |
+| `FloatingTabBar` | **The mobile nav.** Floating pill inset from the screen edges, 4 destinations split 2 \| + \| 2 around a raised round sun key (→ `/groups/[id]/add` when a group is in the URL, else `setFabOpen(true)`). Design D2 from the claude.ai/design splitter project. `position: fixed` to the real viewport via `.dashboard-mobile-nav`; the space it needs is reserved by `--tally-nav-clearance`, not by flow, so every mobile scroller must consume that var. Shipped 2026-08-28 |
+| `TabBar`, `DockedTabBar` | Superseded mobile navs — the floating pill with `SliderPill`, and the docked bar respectively. Both unreferenced, both kept on disk only until D2 clears a device pass (`DockedTabBar` is a one-line import swap back). See `TODO.md` Phase 1 cleanup. All three share `NAV_TABS`/`pathnameToTab` via `nav/navTabs.ts` |
 
 ## Sidebar rail (desktop, 2026-08-19)
 
@@ -122,7 +122,7 @@ section hidden (label, the "+" and the rows — Groups nav is the way back),
 labels collapsed, icons centered, and the collapse toggle becomes the header.
 Toggle sits next to the wordmark when expanded; **⌘\\ / Ctrl+\\** works either
 way. Desktop only — below 1024px the sidebar is `display: none` and
-`DockedTabBar` takes over, so there is no mobile behavior to define.
+`FloatingTabBar` takes over, so there is no mobile behavior to define.
 
 **The state is CSS-driven on purpose.** `data-sidebar="rail"` on `<html>` is
 set *before first paint* by an inline script in `app/layout.tsx` (the same
@@ -154,6 +154,9 @@ Gotchas worth knowing before editing it:
 - **Public expense share page** (`/expense/[share_token]`) — route exists;
   service-role fetch joins are stale vs current schema (likely broken — see
   `TODO.md` Later)
-- **Tab bar nav badges** — `TabBar.tsx`'s `NAV_BADGES` is still a hardcoded
-  empty object; `Sidebar.tsx` has no badge slot. The header bell + 30s poll on
+- **Tab bar nav badges** — no badge slot anywhere in the live nav.
+  `FloatingTabBar` was built without one deliberately (an empty `NAV_BADGES`
+  map is dead code until something feeds it); the old `TabBar.tsx` had the
+  `WebNavBadge` wiring and a hardcoded-empty `NAV_BADGES`, so port that shape
+  back from git if this gets built. `Sidebar.tsx` has no badge slot either. The header bell + 30s poll on
   `useNotifications` (`refetchInterval: 30_000`) shipped 2026-08-16.

@@ -24,6 +24,12 @@
      ring, per the tactile guide: no gray shadows anywhere in the system. */
   --tally-shadow-float:0 10px 34px rgba(31,26,20,0.12), inset 0 0 0 1px rgba(31,26,20,0.05);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.28);
+  /* FLOATING NAV — the mobile pill. The veil is --tally-surface at 96%: enough
+     to keep labels legible over any content, little enough that something
+     passing behind it reads as movement. The blur does the rest. Shadow is
+     three layers — top-edge highlight, close contact, long float. */
+  --tally-nav-veil:    rgba(255,255,255,0.96);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 5px rgba(31,26,20,0.07), 0 16px 38px rgba(31,26,20,0.17);
   --tally-skeleton-a:  rgba(31,26,20,0.06);
   --tally-skeleton-b:  rgba(31,26,20,0.10);
   /* Accent */
@@ -117,6 +123,9 @@
   /* See :root — same recipe, tuned for charcoal. */
   --tally-shadow-float:0 10px 34px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(244,238,227,0.06);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.75);
+  /* See :root — same three-layer recipe, tuned for charcoal. */
+  --tally-nav-veil:    rgba(35,29,23,0.96);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.07), 0 2px 6px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.55);
   --tally-skeleton-a:  rgba(244,238,227,0.05);
   --tally-skeleton-b:  rgba(244,238,227,0.09);
   /* Accent — unchanged from Void, already tuned for dark readability */

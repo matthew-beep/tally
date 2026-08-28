@@ -23,7 +23,10 @@ export function NoteSheetContent({ value, onChange }: Props) {
         rows={4}
         style={{
           width: '100%', border: 0, outline: 'none', background: 'transparent', resize: 'none',
-          fontFamily: F, fontSize: 15, lineHeight: 1.5, color: T.ink, padding: '12px 14px',
+          // 16px is a hard floor, not a design choice — iOS Safari auto-zooms
+          // the viewport on focus for anything smaller. Same reason as Input.tsx's
+          // `md`/`cell` sizes.
+          fontFamily: F, fontSize: 16, lineHeight: 1.5, color: T.ink, padding: '12px 14px',
         }}
       />
     </div>

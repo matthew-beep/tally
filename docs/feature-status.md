@@ -110,16 +110,30 @@ and sidebar profile card (desktop). Sidebar profile card opens
 **Sidebar nav trim shipped 2026-08-13:** 3 destinations (Home/Groups/Activity);
 Me via bottom profile card; inline "+" for group creation.
 
-**Global "Add expense" shipped 2026-08-13** (`AppHeader` + `DockedTabBar`):
-desktop header button and mobile center FAB → `AddExpenseGroupPicker`.
-**FAB scoping shipped 2026-08-26** — `DockedTabBar` reads `useParams().id`
-directly (not `activeGroupId`, which is still never set anywhere) and routes
-straight to `/groups/[id]/add` when already on a group's pages, falling back
-to the picker elsewhere. See `TODO.md` UI pass Phase 3 for the full
-mobile add-expense route writeup.
+**Global "Add expense" shipped 2026-08-13** (`AppHeader` + the mobile nav's
+center key): desktop header button and mobile center FAB →
+`AddExpenseGroupPicker`. **FAB scoping shipped 2026-08-26** — the nav reads
+`useParams().id` directly (not `activeGroupId`, which is still never set
+anywhere) and routes straight to `/groups/[id]/add` when already on a group's
+pages, falling back to the picker elsewhere. Carried over unchanged into
+`FloatingTabBar`. See `TODO.md` UI pass Phase 3 for the full mobile
+add-expense route writeup.
 
-**Mobile nav — docked bar live, floating pill kept for A/B** (`DockedTabBar.tsx`
-mounted; `TabBar.tsx` unmounted but preserved). Decision not made.
+**Mobile nav — floating pill shipped 2026-08-28** (`FloatingTabBar.tsx`).
+Design D2 from the claude.ai/design splitter project (`Floating Navbar - D
+Raised.html` → `NrvCircle`): an inset pill, translucent over a blur, tabs
+split 2 | + | 2 around a round sun key that breaks the bar's top edge.
+Replaces `DockedTabBar.tsx`, and settles the long-running docked-vs-floating
+A/B — though neither original candidate won, since `TabBar.tsx`'s pill was a
+different design (`SliderPill`, no raised key). Both old bars are unreferenced
+and awaiting deletion (`TODO.md` Phase 1). Two consequences worth knowing:
+
+- The nav is `position: fixed` to the real viewport, and the space it needs is
+  reserved by `--tally-nav-clearance` rather than by flow — every mobile
+  scroller consumes that one var.
+- It retired the "mobile navbar bottom colour gap" bug outright. That seam
+  existed only because a docked `--tally-surface` bar met a `--tally-page-bg`
+  page; an inset pill has page bg on all sides.
 
 **Guest claim flow shipped 2026-08-11** (`/claim/[token]`, claim-invite API).
 

@@ -73,9 +73,10 @@ notification.
   `useNotificationReviewSheet` state, sharing only the `useNotifications`
   query cache. Still missing: the spec's 30s `refetchInterval` (the count
   refreshes on the standard mount/focus lifecycle), the mobile tab-bar
-  badge — `WebNavBadge` is wired to the Me tab but fed a hardcoded empty
-  `NAV_BADGES = {}` in `TabBar.tsx` — and any indicator in the desktop
-  sidebar.
+  badge — the live nav (`FloatingTabBar.tsx`, since 2026-08-28) has no badge
+  slot at all; the `WebNavBadge`-on-the-Me-tab wiring described here lives in
+  the superseded `TabBar.tsx`, fed a hardcoded empty `NAV_BADGES = {}`, and
+  would need porting across — and any indicator in the desktop sidebar.
 - **Notification lifespan on `/me` itself:**
   - Actionable (`group_invite`, `settlement_confirm`) — indefinite,
     until the user taps a button.
