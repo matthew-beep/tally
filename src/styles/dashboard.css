@@ -129,10 +129,11 @@
     right: 0;
     bottom: 0;
     z-index: 40;
-    padding: 0 14px calc(24px + env(safe-area-inset-bottom, 0px));
+    padding: 0 14px calc(10px + env(safe-area-inset-bottom, 0px));
     /* Only the pill takes taps — the cream either side of it belongs to the
        content scrolling underneath. */
     pointer-events: none;
+    border-top: 1px solid var(--tally-line);
   }
 
   /* Dissolves the last stretch of scroll into the page so content fades out
@@ -147,7 +148,6 @@
     right: 0;
     bottom: 0;
     height: calc(100% + 40px);
-    background: linear-gradient(to top, var(--tally-bg) 42%, transparent);
     pointer-events: none;
   }
 

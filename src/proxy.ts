@@ -35,7 +35,11 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  const isPublic = ['/login', '/invite', '/claim', '/expense', '/auth', '/devpreviewxyz'].some(p =>
+  // Every entry here is an unauthenticated route. Adding one publishes it —
+  // weigh that against what the page can reach, especially if it uses the
+  // service-role client (RLS bypassed). '/expense' was removed with the
+  // public expense-share route; see TODO "Public expense share page".
+  const isPublic = ['/login', '/invite', '/claim', '/auth', '/devpreviewxyz'].some(p =>
     pathname.startsWith(p)
   )
 

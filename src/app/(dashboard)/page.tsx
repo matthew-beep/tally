@@ -21,6 +21,7 @@ import { AttentionList } from '@/components/notifications/AttentionList'
 import { NotificationsSheet } from '@/components/notifications/NotificationsSheet'
 import { useNotificationReviewSheet } from '@/hooks/useNotificationReviewSheet'
 import { AppHeader } from '@/components/dashboard/AppHeader'
+import { PullToRefresh } from '@/components/PullToRefresh'
 import { avatarProfile, firstName } from '@/lib/memberDisplay'
 import { splitAmount } from '@/lib/money'
 import { selectActionable } from '@/lib/notifications'
@@ -451,7 +452,14 @@ export default function HomePage() {
       <AppHeader title="Home" greeting />
 
       <div className="home-scroll">
-        <div className="home-main">
+        {/* contentStyle reproduces the flex chain the drag wrapper would
+            otherwise interrupt: .home-main is `display: flex; flex-direction:
+            column` above 1024px and .home-content below expects to be its
+            `flex: 1` child. */}
+        <PullToRefresh
+          className="home-main"
+          contentStyle={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}
+        >
           {isLoading || !gb ? (
             <HomeMainSkeleton />
           ) : (
@@ -466,7 +474,7 @@ export default function HomePage() {
               />
             </div>
           )}
-        </div>
+        </PullToRefresh>
         <NeedsAttentionRail
           notifications={notifications}
           notificationsLoading={notificationsLoading}

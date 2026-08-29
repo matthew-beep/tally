@@ -21,6 +21,7 @@ import { ReactionPills } from '@/components/ReactionPills'
 import { toGroupFeedCard } from '@/lib/feedCards'
 import { SettingsIcon } from 'lucide-react'
 import { useGroupDetail } from '@/queries/useGroupDetail'
+import { PullToRefresh } from '@/components/PullToRefresh'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
 import { calcLeaderboard } from '@/lib/leaderboard'
 import { mergeFeed, type FeedItem } from '@/lib/feed'
@@ -284,7 +285,7 @@ export default function GroupDetailPage() {
         </div>
 
         {/* ── Right column / mobile scrollable body ── */}
-        <div className="group-detail-right">
+        <PullToRefresh className="group-detail-right">
 
           {expenses.length === 0 ? (
 
@@ -394,7 +395,7 @@ export default function GroupDetailPage() {
 
             </>
           )}
-        </div>
+        </PullToRefresh>
       </div>
 
       <AddExpenseSheet

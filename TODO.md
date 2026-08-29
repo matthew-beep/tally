@@ -1313,12 +1313,32 @@ confirm+re-close or diagnose the actual gap.
       a "claim this guest" affordance — so the target isn't inconsistent
       between row types. (a) is the cheap correct-now answer; (b) is a real
       design decision and shouldn't be smuggled in under a bug fix.
-    - **The actual "edit group amount doesn't work" report is still
-      unexplained** — the drill-down traced clean above, and this isn't it.
-      Next step is the live check in the bullet below, not more tracing.
-  - **Still worth a live check** of whether the edited amount *persists*
-    (the write path is `useCreateSettlements`, exercised by settle-all which
-    is verified) — but that's now the only unverified half.
+    - ~~**The actual "edit group amount doesn't work" report is still
+      unexplained**~~ — **moot: the feature works. See below.**
+  - **[x] CLOSING — works live, confirmed by Matthew 2026-08-29.** Tapping a
+    group row on the balance screen drills into `GroupSettleScreen` and
+    settles that group individually, exactly as the code trace above
+    predicted. The original "reported not working" is not reproducible and
+    appears to have been stale or a mis-tap. Nothing to fix; the drill-down
+    is verified end to end (wiring traced 2026-08-26, behaviour confirmed
+    live 2026-08-29).
+    - **Process note — two wrong causes were asserted here before the live
+      check settled it**, both from code-reading alone: the guest-avatar dead
+      tap (corrected 2026-08-27), then the confirm-screen rows (asserted
+      2026-08-29 on a misread of Matthew's "yup this works", which was
+      confirming the *working* path). Neither was ever reproduced. For a
+      "reported not working" item, get the live repro first — the trace can
+      tell you what a path does, not which path the reporter took.
+  - **Left standing, unreported and low priority — the settle-all confirm
+    screen's group rows are non-interactive.** `GroupBreakdown` renders twice:
+    `BalanceSheet.tsx:476` (balance screen) passes `onPartTap`, `:396`
+    (confirm screen) doesn't, so the confirm rows differ only by a missing
+    12px chevron (`cursor` does nothing on touch). This is **correct per item
+    5 (b)** — settle-all means "zero every group at its full balance," and
+    editing one allocation there would reopen (b) and (a′)'s batch sign. Filed
+    only as a possible legibility tweak: make the confirm rows read as a
+    receipt rather than a tappable list. **Nobody has reported hitting this** —
+    do not treat it as a bug, and do not "fix" it by making the rows drill in.
 
 ### Phase 1 — Nav decision (unblocks Phase 2)
 
@@ -1471,15 +1491,110 @@ confirm+re-close or diagnose the actual gap.
     4. Refresh action: `queryClient.refetchQueries({ type: 'active' })` refetches
        exactly what's mounted — no per-page key wiring needed. Per-page `onRefresh`
        override available if a screen needs more.
+  - **What `type: 'active'` actually resolves to, and why nothing needs naming**
+    *(traced 2026-08-29)* — "active" means every query with a mounted observer,
+    which is definitionally what's on screen. Home gets `['profile','me']`,
+    `['groups']`, `['notifications']`, plus **N×3** per-group keys, because
+    `useAllGroupData` (`:27-29`) builds `useQueries` from the *same*
+    `expensesQueryOptions`/`settlementsQueryOptions`/`groupMembersQueryOptions`
+    the single-group hooks use — real cache entries with real observers. Group
+    detail gets its own four.
+    - **`useGlobalBalances` and `useAllActivity` need no wiring and have no key
+      to wire** — both are `useMemo` derivations over the per-group caches
+      (`useGlobalBalances.ts:35-37` says so). Refreshing the leaves refreshes
+      the aggregates. Same reason the `invalidateMoneyData` extraction was
+      dropped as unnecessary under item 5.
+    - Sheet-scoped queries (`['expense-social', groupId]`,
+      `['expense-comments', expenseId]`) are only mounted while their sheet is
+      open, so a closed sheet isn't refetched. Correct, not a gap.
+    - **A pull is strictly heavier than a focus refetch.** `refetchQueries`
+      ignores `staleTime`, while `refetchOnWindowFocus` respects the 60s
+      window — so a pull on home with 12 groups is an unconditional ~37
+      requests. Inherent to home (it needs every group to compute global
+      balances), so there is nothing to narrow; just know it.
+  - **Spinner needs an upper bound** 🟢 *(new, 2026-08-29)* — `MAX_SPIN_MS`
+    racing the refetch, so the indicator can't spin forever. Three things
+    established while scoping it, all verified against the installed
+    `@tanstack/query-core` source rather than assumed:
+    - **`refetchQueries` does not reject by default** (`queryClient.js:173-175`
+      — `if (!fetchOptions.throwOnError) promise = promise.catch(noop)`). So a
+      `.catch()` + error toast on the refresh path is dead code unless
+      `throwOnError: true` is passed. **Leaving it off:** one flaky query out
+      of 37 on home would toast an error even though the other 36 landed and
+      the screen updated fine.
+    - **Offline is already handled and is not the hang case** — a paused query
+      returns `Promise.resolve()` immediately (`:176`), so airplane mode
+      resolves fast and clean. The real risk is *connected but never settles*,
+      which is exactly the failure mode `lib/supabase.ts:11-21` documents on
+      WebKit ("hang forever, in every tab, until Safari is fully quit"). Not
+      theoretical on this platform.
+    - **Size it above the retry floor.** `providers.tsx` sets no `retry`, so
+      the query default of 3 attempts + exponential backoff means a genuinely
+      failing query takes ~7s to settle. 10s fires on legitimate slow retries;
+      use ~15s, or drop retries for this path.
+    - The cap bounds the **indicator, not the fetch** — nothing is cancelled,
+      the refetches keep running and still populate the cache when they land.
+      Real cancellation would mean plumbing `AbortSignal` through every
+      `queryFn` in `src/queries/`; that's the separate Prod-readiness item
+      below, not this. `Promise.race` subscribes to both promises, so a late
+      rejection hits an already-neutralized handler and doesn't leak an
+      unhandled rejection.
+  - **Built 2026-08-29 — `src/components/PullToRefresh.tsx`, live on all four
+    scrollers.** Trialled on `/activity` first, then propagated the same day once
+    content-drag settled. Typecheck, 138/138 tests, clean production build.
+    **Not yet walked on a device.**
+    - **Three call sites, not five.** `DashboardPage` covers Groups + Activity +
+      Me in one (`.page-scroll`); home (`.home-main`) and group detail
+      (`.group-detail-right`) own their scrollers directly because both are
+      two-column layouts whose scroller has a sibling — `.home-rail` and
+      `.group-detail-left` respectively — that `DashboardPage`'s single-column
+      shape doesn't model. The opt-in `pullToRefresh` prop from the trial was
+      removed once all three of its consumers converted.
+    - **Only home needs `contentStyle`** (`{ display: 'flex', flexDirection:
+      'column', flex: 1, minHeight: 0 }`) — `.home-main` is a flex column above
+      1024px with `.home-content` at `flex: 1`. `.page-scroll` and
+      `.group-detail-right` are block containers, so the drag wrapper is
+      layout-neutral there.
+    - Two deviations from the plan above:
+    - **`overscroll-behavior-y: contain` is an inline style on the component, not
+      a CSS rule on the three scrollers.** Step 1 above assumed all scrollers get
+      it at once. Rolling out per page, a bare CSS rule would half-suppress the
+      native gesture on pages that don't yet have the replacement — so it travels
+      with the component instead and lands exactly where the gesture exists. No
+      change to `dashboard.css` at all. When the other three scrollers convert,
+      they inherit it for free.
+    - **`DashboardPage` gained a `pullToRefresh` prop rather than being flipped
+      wholesale**, because Groups and Me share it and each wants its own device
+      pass. Home (`.home-main`) and group detail (`.group-detail-right`) are
+      untouched — those are direct element swaps when their turn comes.
   - **Shape:** a `PullToRefresh` component that *is* the scroll container (takes the
     scroller's own `className`/`style`), so pages swap `<div className="home-main">`
     → `<PullToRefresh className="home-main">` with no extra layout box. Indicator is
     absolutely positioned and out of flow — important, because `.home-main` is a flex
     parent on desktop (`.home-content` is `flex: 1` inside it) and an in-flow wrapper
     would break that. Only the indicator moves; content stays put.
-  - **Open question:** content-drag vs indicator-only. Indicator-only is zero-risk to
-    the existing desktop layouts; dragging the content down is more tactile and more
-    in keeping with the design system. Start indicator-only, revisit.
+  - ~~**Open question:** content-drag vs indicator-only.~~ **Settled 2026-08-29 —
+    content-drag**, after indicator-only was tried live on `/activity` and read as
+    flat next to the native gesture it replaces. Content and indicator now move
+    together: the content slides down by the pull distance and the indicator rides
+    into the space it clears. Two things that fell out of doing it:
+    - **The drag needs an inner wrapper**, which is exactly the flex hazard this
+      bullet was hedging against — so the wrapper takes an optional `contentStyle`
+      prop. Block scrollers (`.page-scroll`) need nothing. **`.home-main` will
+      need `{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }`
+      when home converts**, because it's `display: flex; flex-direction: column`
+      on desktop (`dashboard.css:389-394`) with `.home-content` at `flex: 1`
+      inside it. Noted here so home's conversion isn't a surprise.
+    - **The wrapper's transform is cleared to `none` after the settle, not left
+      at `translateY(0)`.** Any transform — identity included — makes an element
+      a containing block for `position: fixed` descendants, which would silently
+      break the four popovers that position against the viewport
+      (`DatePicker.tsx:49`, `EmojiPopover.tsx:40`, `EmojiPickerSheet.tsx:62`,
+      `ProfileMenuPopover.tsx:194`). Parking one on every converted page is a
+      latent bug; this way it only exists mid-gesture.
+    - Also worth knowing for home: **`.home-main` isn't a scroller on desktop at
+      all** — it's `overflow: hidden` there, and the balance table's own columns
+      scroll internally. So home's PTR is inherently mobile-only.
   - Supersedes the `overscroll-behavior` half of the shell work. The
     `.dashboard-safe-area-fill` colour strip this bullet used to set aside as a
     separate concern is **gone** — deleted 2026-08-28 with the move to a
@@ -1741,8 +1856,9 @@ Track elsewhere but will block polish or ship if ignored:
   or design the mixed zone (`docs/responsive-qa.md`).
 - **Responsive QA sweep** — `docs/responsive-qa.md` almost entirely unchecked; every
   screen in light + dark.
-- **Public expense share page** (`/expense/[share_token]`) — route exists; fetch
-  likely broken (stale joins).
+- ~~**Public expense share page** (`/expense/[share_token]`)~~ — **route
+  deleted 2026-08-29, deferred to Phase 3.** Was never reachable. See the
+  full entry under "Later (Phase 2+/3)".
 - **Edit history viewer** — `expense_history` captured, zero UI.
 - **Split editing + category/date editing** in expense edit drawer (`TODO.md` § Now step 6).
 - **Expense note field on EDIT** — add (mobile) shipped 2026-08-26 via
@@ -2091,6 +2207,44 @@ still has no frontend reader at all.
     DB); `/api/groups/members/add`'s caller lookup no longer reports "not a
     member" to a member when the lookup errored; `useRecentCollaborators`
     throws instead of rendering a failure as "no recent people."
+- [ ] **No network deadline anywhere in the app** 🟡 *(found 2026-08-29 while
+  scoping pull-to-refresh)* — third in the sequence with the two entries above:
+  the global error surface catches mutations that **throw**, the unchecked-error
+  audit caught calls that **return** a failure — and neither helps when a request
+  simply **never settles**. Nothing in the app bounds how long that can take.
+  - **Confirmed absent:** zero `AbortController`, zero `AbortSignal`, zero
+    `Promise.race`, no `fetch` deadline. All seven `setTimeout` call sites are
+    UI timing, not network — three debounces (`useDebouncedValue.ts:9`,
+    `HandleInput.tsx:106`, `groups/new/page.tsx:232`), a toast auto-dismiss
+    (`Toast.tsx:39`), a copy-confirm reset (`InviteGroupSheet.tsx:27`), a
+    post-join redirect (`invite/[token]/page.tsx:110`). `postJson`
+    (`lib/api.ts:7`) is a bare `fetch`; `createClient` (`lib/supabase.ts`) sets
+    no timeout.
+  - **Not theoretical on this platform.** `lib/supabase.ts:11-21` already
+    documents a WebKit `navigator.locks` bug that made `getSession()` "hang
+    forever, in every tab, until Safari is fully quit." That was mitigated at
+    the source (`processLock`), but nothing downstream is bounded, so the next
+    stall of that class has the same unlimited blast radius.
+  - **Worst surface is the write path, not reads.** A hung read shows an
+    infinite skeleton — bad but legible. A hung `postJson` mutation
+    (group create, member add/remove, invite accept/decline, claim — 6 call
+    sites) leaves the button spinning with **no toast**, because the
+    `MutationCache.onError` net only fires on rejection and a hang never
+    rejects. Mutations also default to `retry: 0`, so there's no accidental
+    backstop.
+  - **Reads are partly covered by accident:** query `retry: 3` + backoff means
+    a *failing* read eventually settles (~7s). A *stalled* one still doesn't.
+  - **Open — where the deadline goes.** Cheapest is wrapping `postJson`'s
+    `fetch` in `AbortSignal.timeout(...)` (covers all 6 mutation sites in one
+    edit, real cancellation, no per-query plumbing). Covering the Supabase
+    reads is the bigger question: either a shared `withTimeout` helper applied
+    per `queryFn` across `src/queries/`, or accept that reads degrade visibly
+    and only bound the writes. Decide scope before building — the write-only
+    version is a small change and gets most of the value.
+  - **Distinct from PullToRefresh's `MAX_SPIN_MS`** (Phase 2). That one bounds
+    an *indicator* and cancels nothing; this one is about actually giving up on
+    a request. Doing this properly would make that cap redundant, not the other
+    way round.
 - [ ] **Generated Supabase types** 🟡 (needs linked-project login) —
   `types/index.ts` is still handwritten, no generated `supabase.ts` exists.
   **Verified 2026-08-16: the "17 `as any` casts" symptom is gone** —
@@ -2328,43 +2482,148 @@ consumer.
 
 ### Later (Phase 2+/3)
 
-- **Public expense share page (`/expense/[share_token]`) — likely fully
-  broken, found during `docs/audit-fix-plan.md` re-audit 2026-08-16.** The
-  service-role fetch this bullet was waiting on exists now, but its joins
-  don't match the current schema: `expenses.paid_by` FKs to
-  `group_members.id`, not `profiles`, and `expense_splits` has no `profiles`
-  relationship at all (only `group_member_id`). The query does
-  `payer:profiles!paid_by(*)` and nests `profile:profiles(*)` under
-  `expense_splits` — neither has a resolvable FK path for PostgREST to embed,
-  so the fetch almost certainly errors, `{ data: expense }` comes back
-  `null`, and every share link renders "This link is invalid or has
-  expired." Fix: route both joins through
-  `group_members` (and its own `profiles` relationship), narrow columns
-  (never `profiles(*)` — service role bypasses RLS), filter
-  `deleted_at IS NULL`. Detail in `docs/audit-fix-plan.md` Phase 6.
-  - **Confirmed broken by inspection 2026-08-26** (was "not verified live
-    yet"). The query is one line —
-    `src/app/expense/[share_token]/page.tsx:11` — and both embeds are
-    unresolvable against the baseline schema, which was checked directly:
-    `expenses_paid_by_member_id_fkey` FKs `group_members(id)`
-    (`20260721000000_baseline_schema.sql:584`) so `payer:profiles!paid_by(*)`
-    names a constraint that doesn't exist, and `expense_splits` has only
-    `expense_splits_group_member_id_fkey` → `group_members` (`:574`) with no
-    `profiles` relationship at all, so `profile:profiles(*)` can't embed
-    either. `.single()` then yields `data: null` and the page short-circuits
-    to the invalid-link branch (`:15`). **Every share link is dead**, and has
-    been since the seat-key migration.
-  - **Two more defects in the same line, fix together:** no
-    `.is('deleted_at', null)` — a soft-deleted expense stays publicly
-    shareable (violates the soft-delete invariant, and this is the one
-    unauthenticated surface in the app); and `profiles(*)` under the
-    **service-role** client selects every column including `email`, which
-    CLAUDE.md says must never reach a client. Narrow to
-    `id, name, display_name, avatar_url`.
-  - Confirmed by sweep to be the **only** `from('expenses')` read in `src/`
-    missing a `deleted_at` filter — the two other unfiltered hits
-    (`useExpenses.ts:77`, `:119`) are an UPDATE-by-id and an INSERT, which
-    correctly don't need one.
+- **Public expense share page (`/expense/[share_token]`) — route DELETED
+  2026-08-29, deferred to Phase 3 with itemized splits.** Rebuild it when
+  there's a reason to; everything needed to do that is recorded below.
+  Recover the old page from git (`src/app/expense/[share_token]/page.tsx`,
+  last present at `ab00f0c`) — but treat it as a sketch, not a starting
+  point: its query was broken in three separate ways (below).
+
+  **Why deleted rather than fixed.** It was **never reachable**. Verified by
+  sweep 2026-08-29: nothing in `src/` ever writes `share_token`, there is no
+  Share affordance in `ExpenseActionSheet` (or anywhere), and nothing links
+  to `/expense/`. The column is always NULL, so no share link could be
+  generated and the broken page could not be visited. Earlier notes here
+  (and two statements in the 2026-08-29 session) called it a *ship blocker* —
+  **that was wrong**, and the severity was overstated twice before the
+  reachability check was run.
+  - It also **exists to serve itemized splits** — CLAUDE.md's "restaurant
+    moment": assign items → Share → drop in the group chat. Itemized is still
+    "Coming soon", so the feature it was built for doesn't exist. That's
+    likely why the Share button was never built.
+  - **Not in MVP scope** — CLAUDE.md's Phase 1 list is auth / groups /
+    members / equal-split expenses / balances / settle up. Expense sharing
+    isn't on it.
+  - **Deleting beat leaving it.** It was an unauthenticated, service-role,
+    RLS-bypassing route on the public surface, serving a feature nobody could
+    reach — and it *looked* shipped, so the natural next move ("repair the
+    joins") is also the move that publishes columns that must stay private
+    (see the danger list below). A page nobody can visit is safer than a
+    working page nobody asked for.
+  - `/expense` removed from `proxy.ts`'s `isPublic` allow-list in the same
+    change. **`share_token` stays** in the schema and `types/index.ts` — it
+    costs nothing and Phase 3 wants it. No migration.
+  - **Matthew's framing, worth keeping:** he expected "share" to mean *invite
+    to join the group*. That's the **other** mechanism and it already ships —
+    `groups.invite_token` → `/invite/:token` → `InviteGroupSheet.tsx`
+    (show/copy/native share from group settings). The two are easy to
+    conflate; CLAUDE.md's "Two share mechanisms" table is the reference.
+
+  **What the page is for, if rebuilt.** One question for an unauthenticated
+  reader: *what do I owe on this one expense, and who do I pay?* Data needed:
+  `expenses(description, amount, category, expense_date)` +
+  `groups(name, emoji)` + payer and each split's member resolved
+  **through `group_members`** to `profiles`.
+
+  **The three defects the old query had — all must be fixed together:**
+  1. **Both embeds named FK paths that don't exist.** `payer:profiles!paid_by(*)`
+     and `profile:profiles(*)` under `expense_splits`. Money tables key on
+     `group_members.id`: `expenses_paid_by_member_id_fkey` FKs
+     `group_members(id)` (`20260721000000_baseline_schema.sql:584`), and
+     `expense_splits` has only `expense_splits_group_member_id_fkey` →
+     `group_members` (`:574`), no `profiles` relationship at all. PostgREST
+     rejects the whole select, `.single()` yields `data: null`, and the page
+     renders "invalid or has expired". **Correct shape already exists** in
+     `expensesQueryOptions` (`src/queries/useExpenses.ts:17`) — copy it.
+  2. **No `.is('deleted_at', null)`** — a soft-deleted expense stayed
+     publicly shareable, violating the soft-delete invariant on the one
+     unauthenticated surface. (Sweep confirmed it was the only
+     `from('expenses')` *read* missing the filter; `useExpenses.ts:77`/`:119`
+     are an UPDATE-by-id and an INSERT and correctly don't need one.)
+  3. **`profiles(*)` under the service-role client.** No RLS here, so **the
+     select string is the access control** — every named column is published
+     to anyone holding the link. This inverts the usual habit: `*` is normally
+     harmless convenience; here it's the vulnerability.
+
+  **Danger list — never select these on this route:**
+  - **`groups.invite_token`** — the worst. `/invite/:token` auto-joins the
+    group on sign-in, so publishing it turns a read-only receipt into "anyone
+    with this link can join your group." The old `groups(name, emoji)` was
+    narrow and safe; widening to `groups(*)` while fixing the joins is a very
+    natural move and would be a serious hole. Keep a comment saying why.
+  - **`profiles.claim_token`** — whoever holds it can claim that guest identity.
+  - **`profiles.add_code`** — the QR identity; lets anyone add that person to groups.
+  - **`profiles.email`** — CLAUDE.md's explicit never-to-client rule.
+
+  Defects 2 and 3 never leaked anything *because* of defect 1 — the query
+  returned nothing. Fixing the joins without narrowing the columns would turn
+  a dead page into a live leak. Hence: together, or not at all.
+
+  **Two open product decisions, deliberately not made** (they change the query):
+  - **Names — full or first?** Old page rendered `display_name ?? name`.
+    First names (`firstName()` in `lib/memberDisplay.ts`) give up nothing —
+    you know which row is yours — and leak less if the link is forwarded.
+    Leaning first names.
+  - **Avatars — show them?** Not rendered before. `avatar_url` is the only
+    field here that's personal data with no bearing on "what do I owe."
+    Leaning skip.
+
+  **PREFERRED DIRECTION — share a frozen snapshot, not a live query
+  (Matthew, 2026-08-29).** Rebuild it this way rather than repairing the old
+  live-resolving page. Instead of a token that resolves against live rows on
+  every visit, freeze the rendered data at share time and serve *that*.
+  - **Why it's better, not just different:** the entire danger list above
+    stops being a concern. The public route no longer touches `profiles`,
+    `groups`, or `group_members` at all — so `invite_token`, `claim_token`,
+    `add_code` and `email` are structurally unreachable rather than merely
+    not-selected. Today's safety depends on every future edit keeping the
+    select narrow; a snapshot moves that from a rule someone must remember to
+    something the schema enforces. The service-role client may not even be
+    needed, depending on where the snapshot lives.
+  - **A share link stops being a permanent public window into a live record.**
+    Under the live design, anything later added to the expense (comments,
+    reactions, edits) is retroactively exposed to everyone who ever held the
+    link. A snapshot shows what was true when shared, and nothing after.
+  - **It's arguably more correct as a receipt anyway** — "here's what we
+    agreed at dinner" shouldn't silently change when someone edits the
+    expense next week.
+  - **Idiomatic here already:** `expense_history.snapshot jsonb` does exactly
+    this (`to_jsonb(OLD)`, `docs/schema.md:131`), and CLAUDE.md already has a
+    "Snapshot invariant" section to extend.
+  - **Sketch** — a table, not a column, so a share can be revoked and audited
+    independently of the expense:
+    ```sql
+    expense_shares (
+      id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      expense_id uuid REFERENCES expenses ON DELETE CASCADE NOT NULL,
+      token      text UNIQUE NOT NULL,
+      snapshot   jsonb NOT NULL,   -- exactly what the page renders, nothing more
+      created_by uuid REFERENCES group_members NOT NULL,
+      created_at timestamptz DEFAULT now(),
+      revoked_at timestamptz       -- un-share without deleting the record
+    )
+    ```
+    The snapshot is built deliberately at write time (names already resolved
+    to whatever the "first names?" decision lands on), so the public page is
+    a single `select snapshot where token = ? and revoked_at is null` — no
+    joins, no embeds, no FK-path bugs of the kind that killed the old page.
+  - **Open questions this raises:**
+    - **Staleness vs. correction.** If the amount is fixed after sharing, the
+      link shows the old figure. Good for a receipt, bad for a typo. Options:
+      leave it (it's a snapshot, that's the point), re-snapshot on edit
+      (defeats the purpose), or show a "shared on [date]" stamp so the reader
+      knows it's point-in-time. Leaning the stamp.
+    - **Revocation UX** — `revoked_at` gives the mechanism; needs a surface
+      ("Stop sharing" wherever the Share button ends up).
+    - **Does deleting the expense revoke the link?** `ON DELETE CASCADE`
+      above says yes for hard deletes, but expenses are *soft*-deleted, so
+      a deleted expense's share would survive unless explicitly handled.
+      Decide deliberately — this is the same soft-delete trap as defect 2.
+    - **Scope: one expense, or a group snapshot too?** Matthew framed it as
+      "a snapshot of the data," which may be broader than one expense —
+      e.g. "here's where we all stand" for a whole group. Same mechanism,
+      different payload. Worth deciding before building, since it changes
+      whether the FK is `expense_id` or something more general.
 - ~~Guest claim flow (`claim_token`, email match, manual link)~~ — **done,
   verified 2026-08-16.** `src/app/claim/[token]/page.tsx` implements the
   full RPC-based flow (`get_seat_by_claim_token`, `claim_seat`), handling
