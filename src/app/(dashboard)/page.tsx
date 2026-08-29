@@ -117,15 +117,13 @@ function HeroCard({ gb, people }: { gb: NonNullable<ReturnType<typeof useGlobalB
   return (
     <div style={{
       position: 'relative', overflow: 'hidden',
-      background: T.cardBg, borderRadius: 22,
+      // Soft glow via radial-gradient — not a blurred child. Safari won't clip
+      // filter:blur() inside overflow:hidden + border-radius, which left a
+      // sharp rect peeking past the rounded corners.
+      background: `radial-gradient(circle 130px at 100% 40%, ${softBg} 0%, transparent 70%), ${T.cardBg}`,
+      borderRadius: 22,
       border: T.cardBorder, boxShadow: T.cardShadow,
     }}>
-      <div style={{
-        position: 'absolute', top: -80, right: -60,
-        width: 260, height: 260, borderRadius: '50%',
-        background: softBg, opacity: 0.55, filter: 'blur(4px)',
-        pointerEvents: 'none',
-      }} />
       <div style={{ padding: '26px 30px 22px', position: 'relative' }}>
         <SectionLabel size="sm">Net balance</SectionLabel>
         <div style={{ marginTop: 7, display: 'flex', alignItems: 'baseline', gap: 1, lineHeight: 1 }}>

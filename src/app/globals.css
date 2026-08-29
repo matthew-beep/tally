@@ -29,7 +29,7 @@
      Shadow: inset top highlight, upward cast into content, close contact,
      long float downward. */
   --tally-nav-veil:    rgba(255,255,255,0.96);
-  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.9), 0 -8px 24px rgba(31,26,20,0.10), 0 2px 5px rgba(31,26,20,0.07), 0 16px 38px rgba(31,26,20,0.17);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.9), 0 -6px 16px rgba(31,26,20,0.08), 0 2px 4px rgba(31,26,20,0.06), 0 8px 20px rgba(31,26,20,0.12);
   --tally-skeleton-a:  rgba(31,26,20,0.06);
   --tally-skeleton-b:  rgba(31,26,20,0.10);
   /* Accent */
@@ -125,7 +125,7 @@
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.75);
   /* See :root — veil matches --tally-card-bg (#2B241D), not page. */
   --tally-nav-veil:    rgba(43,36,29,0.96);
-  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.07), 0 -8px 24px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.55);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.07), 0 -6px 16px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.32), 0 8px 20px rgba(0,0,0,0.4);
   --tally-skeleton-a:  rgba(244,238,227,0.05);
   --tally-skeleton-b:  rgba(244,238,227,0.09);
   /* Accent — unchanged from Void, already tuned for dark readability */
