@@ -13,11 +13,10 @@ import { useUIStore } from '@/store/ui'
  * with the tabs split 2 | + | 2 around a round sun key that breaks the bar's
  * top edge.
  *
- * Replaces `DockedTabBar`, the edge-to-edge opaque bar. The move to floating
- * is what retires the "mobile navbar bottom colour gap" bug: that seam only
- * existed because the docked bar painted `--tally-surface` against a
- * `--tally-page-bg` page, so iOS Safari's stale `100dvh` exposed a colour
- * change under it. Everything around this pill is already page bg.
+ * Replaces `DockedTabBar`, the edge-to-edge opaque bar. Pill fill is card
+ * white (`--tally-nav-veil`); the wrapper in `dashboard.css` paints
+ * `--tally-bg` under the float padding so iOS Safari can't show its own
+ * canvas through the gap.
  *
  * Positioning and the scroll clearance it needs live in `dashboard.css`
  * (`.dashboard-mobile-nav`, `--tally-nav-clearance`) — this component only

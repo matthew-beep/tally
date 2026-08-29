@@ -24,12 +24,12 @@
      ring, per the tactile guide: no gray shadows anywhere in the system. */
   --tally-shadow-float:0 10px 34px rgba(31,26,20,0.12), inset 0 0 0 1px rgba(31,26,20,0.05);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.28);
-  /* FLOATING NAV — the mobile pill. Veil matches --tally-bg / page cream at
-     96% so the bar reads as the same surface as the header and content, with
-     just enough translucency for motion behind it. Blur does the rest.
-     Shadow is three layers — top-edge highlight, close contact, long float. */
-  --tally-nav-veil:    rgba(244,238,227,0.96);
-  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.9), 0 2px 5px rgba(31,26,20,0.07), 0 16px 38px rgba(31,26,20,0.17);
+  /* FLOATING NAV — pill matches card surface (white / card-bg) at 96% so it
+     reads with the balance cards, not the cream page. Blur does the rest.
+     Shadow: inset top highlight, upward cast into content, close contact,
+     long float downward. */
+  --tally-nav-veil:    rgba(255,255,255,0.96);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.9), 0 -8px 24px rgba(31,26,20,0.10), 0 2px 5px rgba(31,26,20,0.07), 0 16px 38px rgba(31,26,20,0.17);
   --tally-skeleton-a:  rgba(31,26,20,0.06);
   --tally-skeleton-b:  rgba(31,26,20,0.10);
   /* Accent */
@@ -123,9 +123,9 @@
   /* See :root — same recipe, tuned for charcoal. */
   --tally-shadow-float:0 10px 34px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(244,238,227,0.06);
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.75);
-  /* See :root — veil matches --tally-bg (#181410), not surface. */
-  --tally-nav-veil:    rgba(24,20,16,0.96);
-  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.07), 0 2px 6px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.55);
+  /* See :root — veil matches --tally-card-bg (#2B241D), not page. */
+  --tally-nav-veil:    rgba(43,36,29,0.96);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.07), 0 -8px 24px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.55);
   --tally-skeleton-a:  rgba(244,238,227,0.05);
   --tally-skeleton-b:  rgba(244,238,227,0.09);
   /* Accent — unchanged from Void, already tuned for dark readability */

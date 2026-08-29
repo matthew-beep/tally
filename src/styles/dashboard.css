@@ -119,9 +119,9 @@
   /* Overlay pinned to the real viewport bottom — the same trick Vaul's sheet
      uses — rather than an in-flow flex child. Pinning to the flex shell would
      inherit iOS Safari's stale `100dvh` and leave the bar floating short of
-     the screen. Nothing in this wrapper paints; only the pill inside does, so
-     a short shell exposes page bg, which is what surrounds the pill anyway.
-     That is why the docked bar's colour-seam bug can't recur here. */
+     the screen. Wrapper paints --tally-bg so the float padding + safe-area
+     match the page/header; without it iOS Safari's own canvas shows through
+     as a colder black / odd white. The pill on top uses card-coloured veil. */
   .dashboard-mobile-nav {
     display: block;
     position: fixed;
@@ -130,9 +130,9 @@
     bottom: 0;
     z-index: 40;
     padding: 0 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--tally-bg);
     /* Only the pill takes taps — the cream either side of it belongs to the
-       content scrolling underneath. No fade overlay: a painted band read as a
-       different colour than the page/header behind the floating pill. */
+       content scrolling underneath. */
     pointer-events: none;
   }
 
