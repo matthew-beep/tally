@@ -131,23 +131,8 @@
     z-index: 40;
     padding: 0 14px calc(10px + env(safe-area-inset-bottom, 0px));
     /* Only the pill takes taps — the cream either side of it belongs to the
-       content scrolling underneath. */
-    pointer-events: none;
-    border-top: 1px solid var(--tally-line);
-  }
-
-  /* Dissolves the last stretch of scroll into the page so content fades out
-     behind the pill instead of colliding with its edge. Taller than the
-     wrapper's own box, which is only as tall as the pill itself. Uses
-     --tally-bg rather than --tally-page-bg: the latter may be a mesh gradient,
-     which can't be a gradient stop, and cream is its base layer. */
-  .dashboard-mobile-nav::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: calc(100% + 40px);
+       content scrolling underneath. No fade overlay: a painted band read as a
+       different colour than the page/header behind the floating pill. */
     pointer-events: none;
   }
 
