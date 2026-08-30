@@ -103,7 +103,8 @@
   --tally-nav-clearance: 0px;
 }
 
-.dashboard-mobile-nav {
+.dashboard-mobile-nav,
+.dashboard-mobile-nav-fade {
   display: none;
 }
 
@@ -116,12 +117,30 @@
     display: none;
   }
 
+  /* Sits behind the pill, above scrolled content. Content fades into
+     --tally-bg on its way under the bar instead of hitting a hard-edged
+     opaque rectangle — the fade only needs to be fully solid for the last
+     stretch (safe-area + a little) to paper over iOS Safari's dynamic
+     toolbar gap, where its own canvas colour would otherwise show through a
+     stale `100dvh`. */
+  .dashboard-mobile-nav-fade {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 39;
+    height: calc(80px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to bottom, transparent 0%, var(--tally-bg) 55%, var(--tally-bg) 100%);
+    pointer-events: none;
+  }
+
   /* Overlay pinned to the real viewport bottom — the same trick Vaul's sheet
      uses — rather than an in-flow flex child. Pinning to the flex shell would
      inherit iOS Safari's stale `100dvh` and leave the bar floating short of
-     the screen. Wrapper paints --tally-bg so the float padding + safe-area
-     match the page/header; without it iOS Safari's own canvas shows through
-     as a colder black / odd white. The pill on top uses card-coloured veil. */
+     the screen. No background of its own — the fade layer behind it handles
+     colour, so the pill genuinely floats over content rather than sitting on
+     a painted plate. */
   .dashboard-mobile-nav {
     display: block;
     position: fixed;
@@ -130,9 +149,8 @@
     bottom: 0;
     z-index: 40;
     padding: 0 14px calc(10px + env(safe-area-inset-bottom, 0px));
-    background: var(--tally-bg);
-    /* Only the pill takes taps — the cream either side of it belongs to the
-       content scrolling underneath. */
+    /* Only the pill takes taps — either side of it belongs to the content
+       scrolling underneath. */
     pointer-events: none;
   }
 
@@ -141,10 +159,10 @@
     min-height: 0;
   }
 
-  /* 24px float + 62px bar + the 26px the key rises above it, plus air. The bar
-     overlays content now, so this padding is the only thing reserving it. */
+  /* Float padding + 62px bar + air. The bar overlays content, so this padding
+     is the only thing reserving it. */
   :root {
-    --tally-nav-clearance: calc(120px + env(safe-area-inset-bottom, 0px));
+    --tally-nav-clearance: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -172,6 +190,13 @@
   display: none;
   font-size: 18px;
   line-height: 1;
+}
+
+/* Scroll body for Groups / Activity / Me — see components/dashboard/DashboardPage.tsx.
+   Owns its own padding so the mobile breakpoint below can restate it; an inline
+   value on the component would beat the media query. */
+.page-scroll {
+  padding: 28px;
 }
 
 /* ── Home page ── */
@@ -325,8 +350,10 @@
     padding: 16px 16px var(--tally-nav-clearance);
   }
 
+  /* Side padding matches .home-main so Groups/Activity/Me line up with Home
+     and with the header (14px 16px) on mobile. */
   .page-scroll {
-    padding-bottom: var(--tally-nav-clearance);
+    padding: 16px 16px var(--tally-nav-clearance);
   }
 
   .app-header {

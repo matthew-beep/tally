@@ -7,11 +7,9 @@ import { NAV_TABS, pathnameToTab, type TabId } from '@/components/nav/navTabs'
 import { useUIStore } from '@/store/ui'
 
 /**
- * Mobile nav — "D2 · Circle" from the claude.ai/design splitter project
- * (`Floating Navbar - D Raised.html` → `NrvCircle` in
- * `nav-raised-variations.jsx`). A floating pill inset from the screen edges
- * with the tabs split 2 | + | 2 around a round sun key that breaks the bar's
- * top edge.
+ * Mobile nav — floating pill inset from the screen edges with the tabs
+ * split 2 | + | 2 around a round sun add key, centred and flush with the
+ * tab row (no raised break above the bar).
  *
  * Replaces `DockedTabBar`, the edge-to-edge opaque bar. Pill fill is card
  * white (`--tally-nav-veil`); the wrapper in `dashboard.css` paints
@@ -26,13 +24,8 @@ import { useUIStore } from '@/store/ui'
 const BAR_RADIUS = 27
 const BAR_PAD = 8
 const TAB_HEIGHT = 46
-/** Width reserved between the two tab pairs for the raised key. */
-const KEY_SLOT = 72
-const KEY_SIZE = 60
-/** How far the key breaks above the bar's top edge. */
-const KEY_RISE = 26
-/** Ring of bar colour around the key, cutting it out of the bar's edge. */
-const KEY_RING = 6
+/** Sun key diameter — matches tab hit height so the whole row shares one midline. */
+const KEY_SIZE = 46
 
 export function FloatingTabBar() {
   const router = useRouter()
@@ -88,7 +81,6 @@ export function FloatingTabBar() {
   return (
     <div
       style={{
-        position: 'relative',
         display: 'flex',
         alignItems: 'center',
         padding: BAR_PAD,
@@ -106,11 +98,6 @@ export function FloatingTabBar() {
       {left.map(tab => (
         <Tab key={tab.id} id={tab.id} label={tab.label} href={tab.href} />
       ))}
-      <div style={{ width: KEY_SLOT, flexShrink: 0 }} />
-      {right.map(tab => (
-        <Tab key={tab.id} id={tab.id} label={tab.label} href={tab.href} />
-      ))}
-
       <button
         type="button"
         className="wntap"
@@ -118,30 +105,28 @@ export function FloatingTabBar() {
         title="Add expense"
         aria-label="Add expense"
         style={{
-          position: 'absolute',
-          top: -KEY_RISE,
-          // Centred with `left` rather than a translate, so `.wntap:active`'s
-          // translateY press has the transform to itself.
-          left: `calc(50% - ${KEY_SIZE / 2}px)`,
           width: KEY_SIZE,
           height: KEY_SIZE,
+          flexShrink: 0,
+          margin: '0 4px',
           borderRadius: T.r.pill,
           border: 0,
           cursor: 'pointer',
           background: `linear-gradient(180deg, ${T.sunHi} 0%, ${T.sun} 55%, ${T.sunLo} 100%)`,
           color: T.sunOn,
-          // Ring last so it paints under the sun shadow, which then tints its
-          // outer edge — the key reads as cut out of the bar, not stuck on it.
-          boxShadow: `${T.shadowSun}, 0 0 0 ${KEY_RING}px ${T.navVeil}`,
+          boxShadow: T.shadowSun,
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <svg width="27" height="27" viewBox="0 0 24 24" fill="none">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
           <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" />
         </svg>
       </button>
+      {right.map(tab => (
+        <Tab key={tab.id} id={tab.id} label={tab.label} href={tab.href} />
+      ))}
     </div>
   )
 }
