@@ -93,7 +93,6 @@ export function well(focused = false, rimColor?: string) {
   }
 }
 
-export const PADDING_X_BASE = 28
 export const CONTENT_MAX_WIDTH = 680
 
 export const F     = 'var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif'
