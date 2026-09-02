@@ -16,6 +16,7 @@ export default function NavPreview() {
           </div>
         ))}
       </div>
+      <div className="dashboard-mobile-nav-fade" />
       <div className="dashboard-mobile-nav">
         <FloatingTabBar />
       </div>

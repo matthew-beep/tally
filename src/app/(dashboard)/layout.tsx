@@ -32,9 +32,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           is the one thing on mobile that has always sat flush to the bottom.
           Scroll clearance comes from `--tally-nav-clearance`, not from flow. */}
       {!hideTabBar && (
-        <div className="dashboard-mobile-nav">
-          <FloatingTabBar />
-        </div>
+        <>
+          <div className="dashboard-mobile-nav-fade" />
+          <div className="dashboard-mobile-nav">
+            <FloatingTabBar />
+          </div>
+        </>
       )}
       <AddExpenseGroupPicker />
     </>
