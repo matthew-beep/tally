@@ -2106,6 +2106,25 @@ static chips, category/date have no pickers, note field doesn't exist, and
 `(edited)` isn't a tappable link to any history view. `expense_history`
 still has no frontend reader at all.
 
+- [ ] **Add/edit expense UX pass** 🟡 *(2026-08-30, Matthew)* — another design
+  pass over the whole add **and** edit expense surface, specifically the two
+  controls that are hardest to change after the fact: **the amount** and
+  **how it's split**. Today the amount is a plain number input and the split
+  mode/membership is only settable at add-time (edit drawer renders splits as
+  static chips). Wanted: a consistent way to edit both from either entry
+  point. Covers the existing "Split editing" item below — do them as one pass,
+  not two. Design decision needed on the amount control (keypad? inline
+  edit-in-place on the hero amount?) before implementation.
+
+  **Matthew, 2026-08-30: “adding expenses is too complicated.”** Treat this as
+  the framing constraint for the pass, not a separate task — the goal is
+  *fewer decisions to log a normal expense*, not more editing controls bolted
+  on. Start by counting what the current add flow demands before it will save
+  (group → description → amount → paid-by → split mode → participants →
+  category → date) and work out which of those can default, collapse, or move
+  to an edit-after step. The common case is an equal split among everyone in
+  the group, paid by you, today — that should be near-zero input. Any new
+  amount/split affordance has to make the fast path shorter, not just prettier.
 - [ ] **Edit history drawer** 🟡 (light — needs a look at the sheet design) —
   tap "(edited)" → sheet listing `expense_history` snapshots (edited_by name,
   date, old amount/description). Needs a read hook.
