@@ -4,6 +4,12 @@
 /* ── Theme tokens ── */
 :root {
   --tally-bg:          #F4EEE3;
+  /* Channel triple for --tally-bg, for the one place that needs it at partial
+     alpha: the nav scrim's eased gradient in dashboard.css. Keep in sync with
+     --tally-bg above. (color-mix() would avoid the duplication, but Lightning
+     CSS then emits a fallback where every stop collapses to solid, which is a
+     hard edge — exactly what the scrim exists to remove.) */
+  --tally-bg-rgb:      244 238 227;
   --tally-surface:     #FFFFFF;
   --tally-surface-alt: #F1EDE4;
   --tally-surface-hov: #F5F1E9;
@@ -26,10 +32,13 @@
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.28);
   /* FLOATING NAV — pill matches card surface (white / card-bg) at 96% so it
      reads with the balance cards, not the cream page. Blur does the rest.
-     Shadow: inset top highlight, upward cast into content, close contact,
-     long float downward. */
+     Shadow: inset top highlight, upward cast into content, and a downward
+     float layer sized to the landing room the nav's max() padding guarantees
+     (26px). Keep `6 + 14 = 20 < 26` true if either number is retuned — an
+     oversized float layer is what got clipped against iOS Safari's toolbar
+     edge when env(safe-area-inset-bottom) collapsed to 0. */
   --tally-nav-veil:    rgba(255,255,255,0.96);
-  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.9), 0 -6px 16px rgba(31,26,20,0.08), 0 2px 4px rgba(31,26,20,0.06), 0 8px 20px rgba(31,26,20,0.12);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.9), 0 -6px 16px rgba(31,26,20,0.08), 0 6px 14px rgba(31,26,20,0.10);
   --tally-skeleton-a:  rgba(31,26,20,0.06);
   --tally-skeleton-b:  rgba(31,26,20,0.10);
   /* Accent */
@@ -104,6 +113,8 @@
      instead of contrasting against it. See docs/design-system.md for the
      archived "Void" (OLED black) scheme this replaced 2026-08-13. */
   --tally-bg:          #181410;
+  /* See :root — keep in sync with --tally-bg. */
+  --tally-bg-rgb:      24 20 16;
   --tally-surface:     #231D17;
   --tally-surface-alt: #262019;
   --tally-surface-hov: #2F2820;
@@ -125,7 +136,7 @@
   --tally-shadow-modal:0 30px 80px rgba(0,0,0,0.75);
   /* See :root — veil matches --tally-card-bg (#2B241D), not page. */
   --tally-nav-veil:    rgba(43,36,29,0.96);
-  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.07), 0 -6px 16px rgba(0,0,0,0.28), 0 2px 4px rgba(0,0,0,0.32), 0 8px 20px rgba(0,0,0,0.4);
+  --tally-shadow-nav:  inset 0 1px 0 rgba(255,255,255,0.07), 0 -6px 16px rgba(0,0,0,0.28), 0 6px 14px rgba(0,0,0,0.34);
   --tally-skeleton-a:  rgba(244,238,227,0.05);
   --tally-skeleton-b:  rgba(244,238,227,0.09);
   /* Accent — unchanged from Void, already tuned for dark readability */

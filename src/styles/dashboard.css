@@ -100,11 +100,11 @@
    floating nav never covers the last row. Zero on desktop — the nav is a
    mobile-only object and the sidebar reserves its own width in flow. */
 :root {
+  --tally-nav-fade: 0px;
   --tally-nav-clearance: 0px;
 }
 
-.dashboard-mobile-nav,
-.dashboard-mobile-nav-fade {
+.dashboard-mobile-nav {
   display: none;
 }
 
@@ -115,24 +115,6 @@
 
   .dashboard-sidebar {
     display: none;
-  }
-
-  /* Sits behind the pill, above scrolled content. Content fades into
-     --tally-bg on its way under the bar instead of hitting a hard-edged
-     opaque rectangle — the fade only needs to be fully solid for the last
-     stretch (safe-area + a little) to paper over iOS Safari's dynamic
-     toolbar gap, where its own canvas colour would otherwise show through a
-     stale `100dvh`. */
-  .dashboard-mobile-nav-fade {
-    display: block;
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 39;
-    height: calc(80px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to bottom, transparent 0%, var(--tally-bg) 55%, var(--tally-bg) 100%);
-    pointer-events: none;
   }
 
   /* Overlay pinned to the real viewport bottom — the same trick Vaul's sheet
@@ -148,7 +130,15 @@
     right: 0;
     bottom: 0;
     z-index: 40;
-    padding: 0 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    /* Floored, not raw. `env(safe-area-inset-bottom)` is not a constant: iOS
+       Safari reports ~34px only while its bottom toolbar is collapsed, and 0
+       while the toolbar is expanded — and it flips as you scroll. At 0 the
+       pill sat 10px off the viewport edge, so the bar's downward shadow
+       (needs offset + blur of room to land) was chopped against the toolbar's
+       top edge, then un-chopped a scroll later. max() guarantees 26px of
+       landing room in every state; --tally-shadow-nav's float layer is sized
+       to fit inside it. */
+    padding: 0 14px max(26px, calc(10px + env(safe-area-inset-bottom, 0px)));
     /* Only the pill takes taps — either side of it belongs to the content
        scrolling underneath. */
     pointer-events: none;
@@ -159,10 +149,80 @@
     min-height: 0;
   }
 
-  /* Float padding + 62px bar + air. The bar overlays content, so this padding
-     is the only thing reserving it. */
+
+  /* Content dissolves at the bottom of its own scroller instead of being
+     painted over by a fixed scrim. This replaces `.dashboard-mobile-nav-fade`
+     (removed 2026-08-30), which had to paint opaque --tally-bg to hide what
+     was under it — that opaque slab was the "band with a straight line on
+     top", and it only worked while the page background stayed a flat colour
+     matching it.
+
+     A mask has none of those problems: it removes the content rather than
+     covering it, so whatever the page background is shows through untouched
+     (including the mesh-gradient --tally-page-bg, if that ever comes back),
+     and there is no painted region to have an edge or to clip the nav's
+     shadow against.
+
+     Band height tracks --tally-nav-clearance, which is also the scrollers'
+     padding-bottom — so at rest the last row sits exactly at the top of the
+     fade and stays fully opaque; only mid-scroll content dissolves.
+
+     Stops sample smoothstep (t²(3−2t)) rather than ramping linearly: a
+     straight alpha ramp has a derivative break at both ends and the eye reads
+     rate-of-change, so a two-stop mask would band exactly where this one
+     doesn't.
+
+     Safe because every fixed overlay in the app (ActionSheet, ModalOverlay,
+     the popovers, Toast) portals to document.body — a mask would otherwise
+     become their containing block and pin them inside the scroller. Keep that
+     true if new overlays are added. */
+  .page-scroll,
+  .home-main,
+  .group-detail-right {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.972) calc(100% - 0.9000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.896) calc(100% - 0.8000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.784) calc(100% - 0.7000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.648) calc(100% - 0.6000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.500) calc(100% - 0.5000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.352) calc(100% - 0.4000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.216) calc(100% - 0.3000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.104) calc(100% - 0.2000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.028) calc(100% - 0.1000 * var(--tally-nav-fade)),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      #000 calc(100% - var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.972) calc(100% - 0.9000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.896) calc(100% - 0.8000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.784) calc(100% - 0.7000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.648) calc(100% - 0.6000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.500) calc(100% - 0.5000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.352) calc(100% - 0.4000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.216) calc(100% - 0.3000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.104) calc(100% - 0.2000 * var(--tally-nav-fade)),
+      rgb(0 0 0 / 0.028) calc(100% - 0.1000 * var(--tally-nav-fade)),
+      transparent 100%
+    );
+  }
+
+  /* One knob, and a derived one that can't drift from it.
+
+     --tally-nav-fade is the height of the dissolve band at the bottom of every
+     mobile scroller. Raise it to start the fade higher up the screen.
+
+     --tally-nav-clearance is the padding those scrollers leave at their bottom
+     edge, and it must never be smaller than the fade band: content parks at
+     the clearance line when you scroll to the end, so if the band reached
+     above that line the last row would sit inside the fade and render
+     semi-transparent at rest. Hence max() over the fade — and over what the
+     bar physically needs regardless (26px float pad + 62px bar + air). */
   :root {
-    --tally-nav-clearance: calc(96px + env(safe-area-inset-bottom, 0px));
+    --tally-nav-fade: 170px;
+    --tally-nav-clearance: max(var(--tally-nav-fade), calc(96px + env(safe-area-inset-bottom, 0px)));
   }
 }
 

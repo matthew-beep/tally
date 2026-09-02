@@ -1,4 +1,3 @@
-import { PADDING_X_BASE } from '@/design/tokens'
 import { PullToRefresh } from '@/components/PullToRefresh'
 
 interface DashboardPageProps {
@@ -10,6 +9,10 @@ interface DashboardPageProps {
  * The scroll body for Groups / Activity / Me. `.page-scroll` is a block
  * container, so PullToRefresh's drag wrapper is layout-neutral here and needs
  * no `contentStyle`.
+ *
+ * Padding lives in `.page-scroll` (styles/dashboard.css), NOT here — it has to
+ * match `.home-main` at both breakpoints (16px sides + nav clearance on mobile,
+ * 28px on desktop) and an inline value would beat the mobile media query.
  */
 export function DashboardPage({ children, maxWidth }: DashboardPageProps) {
   return (
@@ -19,7 +22,6 @@ export function DashboardPage({ children, maxWidth }: DashboardPageProps) {
         flex: 1,
         minHeight: 0,
         overflowY: 'auto',
-        padding: `28px ${PADDING_X_BASE}px`,
       }}
     >
       {maxWidth ? (
