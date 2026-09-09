@@ -15,21 +15,9 @@ import { Segmented } from '@/components/Segmented'
 import { PersonToken, Token } from '@/components/PersonToken'
 import { DatePicker } from '@/components/DatePicker'
 import type { GroupMember } from '@/types'
-import type { SplitMode } from './types'
+import { SPLIT_MODES } from './types'
 import { RemainderInline, shortName } from './parts'
 import type { AddExpenseFormState } from './useAddExpenseForm'
-
-// Desktop 4-way split_type tab strip. Mobile uses AlgorithmRadios instead.
-const MODE_TABS: { value: SplitMode; label: string }[] = [
-  { value: 'equal',      label: 'Equal'    },
-  { value: 'percentage', label: 'Percent'  },
-  { value: 'exact',      label: 'Exact'    },
-  { value: 'itemized',   label: 'Itemized' },
-]
-
-function ModeTabs({ value, onChange }: { value: SplitMode; onChange: (m: SplitMode) => void }) {
-  return <Segmented options={MODE_TABS} value={value} onChange={onChange} />
-}
 
 // Unified desktop split list — one row renderer for all three amount modes.
 // Itemized shows a coming-soon placeholder.
@@ -290,7 +278,7 @@ export function DesktopPanel({ s, onCancel }: { s: AddExpenseFormState; onCancel
 
         <div className="add-expense-desktop-right">
           <div style={{ paddingBottom: 12, flexShrink: 0 }}>
-            <ModeTabs value={s.splitMode} onChange={s.setSplitMode} />
+            <Segmented options={SPLIT_MODES} value={s.splitMode} onChange={s.setSplitMode} />
           </div>
           <div className="add-expense-scroll">
             <DesktopSplitList s={s} />

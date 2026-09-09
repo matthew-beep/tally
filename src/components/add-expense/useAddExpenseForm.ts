@@ -66,6 +66,10 @@ export interface AddExpenseFormState {
   /** Signed shortfall: positive = still to assign, negative = over. */
   percentRemaining: number
   exactRemaining: number
+  /** Whether the current mode's numbers balance — gates the split sheet's Done. */
+  splitValid: boolean
+  /** Re-seed the editable rows with an even split. */
+  evenOut: () => void
 
   focusId: string | null
   setFocusId: (id: string | null) => void
@@ -249,18 +253,41 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     setExactAmounts(p => ({ ...p, [id]: v }))
   }
 
+  /**
+   * The escape hatch back to a balanced state after hand-editing: re-seed every
+   * editable row with an even share. Marks the mode touched so the seeding
+   * effect above treats these values as intent and stops re-deriving them.
+   */
+  function evenOut() {
+    if (amountsIds.length === 0) return
+    if (splitMode === 'exact') {
+      const shares = evenShares(amt, amountsIds.length, 2)
+      setExactTouched(true)
+      setExactAmounts(prev => ({ ...prev, ...Object.fromEntries(amountsIds.map((id, i) => [id, shares[i]])) }))
+    } else if (splitMode === 'percentage') {
+      const shares = evenShares(100, amountsIds.length, 1)
+      setPercentTouched(true)
+      setPercents(prev => ({ ...prev, ...Object.fromEntries(amountsIds.map((id, i) => [id, shares[i]])) }))
+    }
+  }
+
   const subtotal  = items.reduce((s, it) => s + it.price, 0)
   const taxAmt    = taxMode === 'percent' ? round2(subtotal * taxVal / 100) : taxVal
   const tipAmt    = tipMode === 'percent' ? round2(subtotal * tipVal / 100) : tipVal
   const itemTotal = round2(subtotal + taxAmt + tipAmt)
 
   const baseValid = !!description.trim() && amt > 0 && !!paidById
-  const canSave = baseValid && (
+
+  // Whether the split itself adds up, independent of whether the expense can be
+  // saved. Itemized has nothing to balance yet, so the split sheet lets you
+  // close it — saving is what stays blocked, on the next line.
+  const splitValid =
     splitMode === 'equal'      ? included.size > 0 :
     splitMode === 'percentage' ? percentValid :
     splitMode === 'exact'      ? exactValid :
-    false
-  )
+    true
+
+  const canSave = baseValid && splitValid && splitMode !== 'itemized'
 
   const saveLabel = addExpense.isPending ? 'Saving…' :
     !baseValid                                  ? 'Save expense' :
@@ -348,6 +375,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     exactAmounts, setExactAmount,
 
     amountsIds, percentValid, exactValid, percentRemaining, exactRemaining,
+    splitValid, evenOut,
 
     focusId, setFocusId, openPanel, setOpenPanel,
 
