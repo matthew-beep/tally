@@ -528,17 +528,6 @@ a {
   background: var(--tally-surface-alt);
 }
 
-.add-expense-mobile-header {
-  flex-shrink: 0;
-  padding: 8px 14px 6px;
-}
-
-.add-expense-amount-hero {
-  flex-shrink: 0;
-  padding: 10px 14px 6px;
-  text-align: center;
-}
-
 .add-expense-amount-input {
   font-size: 16px; /* prevent iOS zoom */
 }
@@ -549,14 +538,40 @@ a {
   }
 }
 
-.add-expense-mobile-meta {
-  flex-shrink: 0;
-  padding: 6px 14px 10px;
+/* Mobile body: the two fields and the sentence, centered in whatever space is
+   left between the header and the input slab. Deliberately not scrollable —
+   the split list lives in a sheet and the details in the utility row, so there
+   is nothing here that needs to overflow. */
+.add-expense-mobile-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+  padding: 0 20px;
+  overflow: hidden;
 }
 
-.add-expense-mobile-tabs {
-  flex-shrink: 0;
-  padding: 0 14px 10px;
+/* The amount's caret — the field is a readout driven by NumericPad, not a real
+   input, so the blink has to be drawn. */
+.add-expense-caret {
+  width: 2.5px;
+  height: 30px;
+  margin-left: 3px;
+  border-radius: 2px;
+  align-self: center;
+  background: var(--tally-sun);
+  animation: tally-caret-blink 1.05s steps(1, end) infinite;
+}
+
+@keyframes tally-caret-blink {
+  0%, 50% { opacity: 1 }
+  50.01%, 100% { opacity: 0 }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .add-expense-caret { animation: none }
 }
 
 .add-expense-scroll {
@@ -568,15 +583,6 @@ a {
 
 .add-expense-panel--desktop .add-expense-scroll {
   padding: 0 0 16px;
-}
-
-.add-expense-mobile-footer {
-  flex-shrink: 0;
-  padding: 10px 14px 28px;
-  background: linear-gradient(to top, var(--tally-surface) 70%, transparent);
-  display: flex;
-  align-items: center;
-  gap: 10px;
 }
 
 .add-expense-desktop-body {

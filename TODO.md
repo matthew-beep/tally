@@ -1660,6 +1660,29 @@ confirm+re-close or diagnose the actual gap.
   - Both entry points still need the live pass they never got (see the
     full-screen route item below) — now more so, since the nav shell was
     rewritten underneath them on 2026-08-27.
+- [ ] **Add-expense flow — drop "Next", just save** 🟡 *(new, 2026-09-08)* —
+  raised after walking the T1 token-sentence redesign on device (steps 0-2b:
+  `SPLIT_MODES`, `SplitSheetContent`, `TokenSentence`, `UtilityRow`,
+  `NumericPad`). The bottom slab currently swaps by which field is focused,
+  and each state has its own action button:
+  - `field === 'desc'` → `DescSuggestions` renders chips + a **"Next"** that
+    only moves focus to the amount.
+  - `field === 'amount'` → `NumericPad`'s action saves when `canSave`, and
+    reads "Done" when it can't.
+  - `field === null` → the commit button.
+  Three different bottom buttons for what is really one action. Matthew's
+  call: **take "Next" out and make the slab's button save.** Implies the
+  commit action is always present and always means the same thing, and that
+  focus moves on its own (or doesn't need to) rather than being something the
+  user is asked to advance.
+  - **Worth settling while doing it:** what the button says when the form
+    isn't saveable yet — today `commitLabel` falls back to the hook's
+    blocking messages ("Balance to 100% first", "Doesn't add up yet"), which
+    are worth keeping over a dead grey "Save".
+  - **Related:** `field` currently has no path back to `null` except through
+    the pad's action, so closing a sub-sheet can leave you looking at
+    description chips instead of the commit button. Same fix probably
+    resolves it.
 - [x] **Date picker design — mobile parity** 🟡 — **done 2026-08-26.**
   `MobilePanel.tsx` now has a Date row opening a sheet (`DateSheetContent.tsx`)
   with Today/Yesterday quick chips + a full calendar. The day-grid itself was
