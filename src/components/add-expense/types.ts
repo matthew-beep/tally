@@ -1,8 +1,9 @@
 export type SplitMode = 'equal' | 'percentage' | 'exact' | 'itemized'
 
 // Which mobile picker sheet is currently open — Paid by/Split (existing
-// fields, moved from inline-expand to a sheet) plus Date/Category/Note (new).
-export type OpenPanel = 'payer' | 'split' | 'date' | 'category' | 'note' | null
+// fields, moved from inline-expand to a sheet) plus Date/Category. The note has
+// no sheet: it is a line of the form you type into, so there is nothing to open.
+export type OpenPanel = 'payer' | 'split' | 'date' | 'category' | null
 
 // UI-only line item for the mobile itemized receipt builder (ItemizedBuilder).
 // Nothing here reaches handleSave — expense_items isn't written yet.

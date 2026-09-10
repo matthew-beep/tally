@@ -517,7 +517,7 @@ a {
   flex: 1;
   min-height: 0;
   height: 100%;
-  background: var(--tally-surface);
+  background: var(--tally-bg);
   color: var(--tally-ink);
   font-family: var(--font-ui), "Plus Jakarta Sans", system-ui, sans-serif;
 }
@@ -538,40 +538,22 @@ a {
   }
 }
 
-/* Mobile body: the two fields and the sentence, centered in whatever space is
-   left between the header and the input slab. Deliberately not scrollable —
-   the split list lives in a sheet and the details in the utility row, so there
-   is nothing here that needs to overflow. */
+/* Mobile body: the whole form, scrolling. It used to be centered and clipped,
+   which only worked while a hand-built keypad sat below it in the flow — the
+   system keyboard overlays instead, so there is no height to center within.
+   Scrolling is what lets the details ride along with the form rather than being
+   shoved off the bottom edge; the panel's own bottom padding (set from
+   visualViewport) keeps the last row clear of the keys. */
 .add-expense-mobile-body {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 18px;
-  padding: 0 20px;
-  overflow: hidden;
-}
-
-/* The amount's caret — the field is a readout driven by NumericPad, not a real
-   input, so the blink has to be drawn. */
-.add-expense-caret {
-  width: 2.5px;
-  height: 30px;
-  margin-left: 3px;
-  border-radius: 2px;
-  align-self: center;
-  background: var(--tally-sun);
-  animation: tally-caret-blink 1.05s steps(1, end) infinite;
-}
-
-@keyframes tally-caret-blink {
-  0%, 50% { opacity: 1 }
-  50.01%, 100% { opacity: 0 }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .add-expense-caret { animation: none }
+  padding: 18px 20px 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .add-expense-scroll {

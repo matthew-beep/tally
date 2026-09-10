@@ -37,3 +37,23 @@ export function splitAmount(n: number): { whole: string; cents: string } {
     cents: (abs % 1).toFixed(2).slice(1),
   }
 }
+
+/**
+ * Normalise free-typed money text into something `parseNum` can trust: digits,
+ * at most one decimal point, at most two decimals, no stray leading zeros.
+ *
+ * The two-decimal cap is the rule the retired NumericPad enforced per
+ * keystroke, kept now that the amount is an ordinary input driven by the system
+ * keyboard. `round2` at save time would silently turn a typed 12.345 into
+ * 12.35; refusing the third decimal as it is typed makes the limit visible at
+ * the moment it applies.
+ */
+export function sanitizeAmount(v: string): string {
+  const cleaned = v.replace(/[^0-9.]/g, '')
+  const [whole, ...rest] = cleaned.split('.')
+  // Trim leading zeros, but only when a digit follows — a lone "0" is a real
+  // value on the way to "0.50".
+  const head = whole.replace(/^0+(?=\d)/, '')
+  if (rest.length === 0) return head
+  return `${head || '0'}.${rest.join('').slice(0, 2)}`
+}

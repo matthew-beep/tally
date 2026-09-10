@@ -1,27 +1,34 @@
 'use client'
 
-import { useState, type ReactNode } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
+import { format, parseISO, isToday, isYesterday } from 'date-fns'
+import { X } from 'lucide-react'
 import { T, FH, F } from '@/design/tokens'
 import { ModalOrSheet, ModalHeader, ModalContent } from '@/components/modal'
 import { Btn } from '@/components/Btn'
-import { formatAmount } from '@/lib/money'
+import { formatAmount, sanitizeAmount } from '@/lib/money'
+import { CATEGORIES } from '@/lib/categories'
+import { useKeyboardInset } from '@/hooks/useKeyboardInset'
 import { TokenSentence, ShareLine } from './TokenSentence'
-import { UtilityRow } from './UtilityRow'
-import { NumericPad } from './NumericPad'
 import { PayerSheetContent } from './PayerSheetContent'
 import { SplitSheetContent } from './SplitSheetContent'
 import { DateSheetContent } from './DateSheetContent'
 import { CategorySheetContent } from './CategorySheetContent'
-import { NoteSheetContent } from './NoteSheetContent'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
-// Which field owns the bottom slab. Local to the layout — the hook has no
-// opinion about what's focused, and the desktop panel has no slab at all.
-type Field = 'desc' | 'amount' | null
+// Which field has the caret. Local to the layout — the hook has no opinion
+// about what's focused, and the desktop panel has no keyboard to care about.
+type Field = 'desc' | 'amount' | 'note' | null
 
-const SUGGESTIONS = [
-  ['🍜', 'Dinner'], ['🛒', 'Groceries'], ['⛽', 'Gas'], ['🎟️', 'Tickets'], ['🏠', 'Airbnb'],
-] as const
+const SUGGESTIONS = ['Dinner', 'Groceries', 'Gas', 'Tickets', 'Coffee'] as const
+
+/** "Today" / "Yesterday" / "Mar 4" — the date said the way someone would say it. */
+function dateLabel(iso: string): string {
+  const d = parseISO(iso)
+  if (isToday(d))     return 'Today'
+  if (isYesterday(d)) return 'Yesterday'
+  return format(d, 'MMM d')
+}
 
 // The recessed square that marks each field — a trough, matching every other
 // "put a value here" surface in the app.
@@ -35,37 +42,96 @@ function Glyph({ children }: { children: ReactNode }) {
   )
 }
 
-function DescSuggestions({ onPick, onNext }: { onPick: (label: string) => void; onNext: () => void }) {
+const ICON_LINES = (
+  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+    <path d="M3 4.2h10M3 8h10M3 11.8h6" />
+  </svg>
+)
+
+const ICON_DATE = (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <rect x="1.2" y="2.8" width="13.6" height="12" rx="2.4" />
+    <path d="M1.2 6.4h13.6M4.8 1.2v3M11.2 1.2v3" strokeLinecap="round" />
+  </svg>
+)
+
+const ICON_NOTE = (
+  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+    <path d="M2.5 4h11M2.5 8h11M2.5 12h7" />
+  </svg>
+)
+
+/**
+ * One detail: icon, what it is, what it currently says, chevron. A full-width
+ * row rather than a third of a horizontal strip, because these now live in the
+ * flow of the form instead of on the bottom edge — there is width to spend, and
+ * a row can show its value where a 33%-wide button could only show its label.
+ */
+function DetailRow({ icon, label, value, onClick, last }: {
+  icon: ReactNode; label: string; value?: string; onClick: () => void; last?: boolean
+}) {
   return (
-    <div style={{
-      flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10,
-      padding: '10px 14px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))',
-    }}>
-      <Btn
-        onClick={onNext} variant="primary" size="lg" fullWidth
-        style={{ borderRadius: 15, padding: '15px', fontSize: 17, fontFamily: FH, letterSpacing: -0.2 }}
-      >Next</Btn>
-    </div>
+    <button
+      type="button" onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 12, width: '100%', minHeight: 48,
+        padding: '10px 0', border: 0, background: 'transparent', cursor: 'pointer',
+        textAlign: 'left', fontFamily: F,
+        borderBottom: last ? 'none' : `0.5px solid ${T.line}`,
+      }}
+    >
+      <span style={{ width: 20, display: 'inline-flex', justifyContent: 'center', color: T.inkFaint, flexShrink: 0 }}>{icon}</span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 14.5, fontWeight: 600, color: T.inkMuted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+      {value && (
+        <span style={{ flexShrink: 0, fontSize: 14, fontWeight: 700, color: T.ink, maxWidth: 150, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
+      )}
+      <svg width="7" height="12" viewBox="0 0 7 12" fill="none" style={{ flexShrink: 0 }}>
+        <path d="M1 1l5 5-5 5" stroke={T.inkFaint} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   )
 }
 
-// ── Mobile layout: two fields and a sentence, centered; one input slab ───────
-// The screen no longer scrolls. Everything about *how* the expense splits lives
-// in SplitSheetContent behind the [equally] token, and the three details that
-// aren't the split live in UtilityRow — which is what leaves room for the body
-// to sit centered at any phone height.
+// ── Mobile layout: the OS supplies both keyboards ───────────────────────────
+// The amount used to be a readout driven by a hand-built keypad while the
+// description got the system keyboard — two input surfaces for two fields an
+// inch apart — and Date/Category/Note rode the bottom edge, rising with the
+// custom pad and hiding under the system one. Three things fix that:
+//
+//   · both fields are ordinary inputs, so the OS picks the keyboard (digits for
+//     one, letters for the other) and there is nothing of ours to get out of sync
+//   · Save moves to the top bar, above any keyboard, so nothing has to stay
+//     pinned to the bottom to remain reachable
+//   · the form scrolls, and takes the details with it — they can't jump when a
+//     keyboard opens because they were never anchored to the bottom
 //
 // `variant: 'route'` is used when this panel is the root of a full-screen page
-// (/groups/[id]/add) instead of the Vaul sheet — same body, a back-button nav
-// bar instead of the sheet's Cancel + centered group pill.
+// (/groups/[id]/add) instead of the Vaul sheet — same body, a close button
+// instead of the sheet's Cancel.
 export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseFormState; onCancel: () => void; variant?: 'sheet' | 'route' }) {
-  const [field, setField] = useState<Field>('desc')
+  const [field, setField] = useState<Field>(null)
+  const kbInset = useKeyboardInset()
+
+  const amountRef = useRef<HTMLInputElement>(null)
+  // Moving between two of our own fields fires blur before focus. Clearing the
+  // field on a timer lets the incoming focus cancel it, so the layout doesn't
+  // flicker through "no keyboard" on the way from the description to the amount.
+  const blurTimer = useRef<number | null>(null)
+  const focusField = (f: Field) => {
+    if (blurTimer.current !== null) { clearTimeout(blurTimer.current); blurTimer.current = null }
+    setField(f)
+  }
+  const blurField = () => {
+    if (blurTimer.current !== null) clearTimeout(blurTimer.current)
+    blurTimer.current = window.setTimeout(() => { setField(null); blurTimer.current = null }, 80)
+  }
+  useEffect(() => () => { if (blurTimer.current !== null) clearTimeout(blurTimer.current) }, [])
 
   const isItemized  = s.splitMode === 'itemized'
-  const shownAmount = isItemized
-    ? (s.itemTotal > 0 ? s.itemTotal.toFixed(2) : '0.00')
-    : (s.amount || '0.00')
-  const hasAmount = isItemized ? s.itemTotal > 0 : s.amt > 0
+  const shownAmount = isItemized ? (s.itemTotal > 0 ? s.itemTotal.toFixed(2) : '') : s.amount
+  const hasAmount   = isItemized ? s.itemTotal > 0 : s.amt > 0
+  const categoryLabel = CATEGORIES.find(c => c.emoji === s.category)?.label ?? 'Other'
+  const kbUp = field !== null
 
   // Keeps the hook's blocking messages ("Balance to 100% first") rather than
   // replacing them with a cheerful amount the user can't actually save.
@@ -76,119 +142,154 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
     s.amt > 0     ? `Add ${formatAmount(s.amt)}` :
                     'Add expense'
 
+  const underline = (on: boolean, pad: number) => ({
+    flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', paddingBottom: pad,
+    borderBottom: `1.5px solid ${on ? T.sun : T.line}`,
+    transition: 'border-color .14s ease',
+  })
+
   return (
-    <div className="add-expense-panel add-expense-panel--mobile border-2">
-      {variant === 'route' ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 14px 8px', flexShrink: 0 }}>
+    <div
+      className="add-expense-panel add-expense-panel--mobile"
+      // iOS overlays the keyboard rather than shrinking the viewport, so the
+      // column has to be told how much of its own bottom is covered. Padding it
+      // keeps the scroller's last row reachable instead of stranded under the
+      // keys. No transition: the resize lands after the keyboard has finished
+      // animating, so easing from there only adds a second, later slide.
+      style={{ paddingBottom: kbInset }}
+    >
+      {/* Save lives up here, above every keyboard. That one move is what frees
+          the rest of the screen from having to keep anything pinned. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 10px 8px', flexShrink: 0 }}>
+        {variant === 'route' ? (
           <button
-            type="button" onClick={onCancel} aria-label="Back"
-            style={{ width: 36, height: 36, borderRadius: T.r.md, background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+            type="button" onClick={onCancel} aria-label="Close"
+            style={{ width: 36, height: 36, borderRadius: T.r.md, background: 'transparent', border: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: T.ink }}
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              <path d="M12 4l-6 6 6 6" stroke={T.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <X size={20} strokeWidth={2} />
           </button>
-          <span style={{ flex: 1, fontFamily: F, fontSize: 15.5, fontWeight: 700, letterSpacing: -0.2, color: T.ink }}>Add expense</span>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.inkMuted, background: T.surfaceAlt, padding: '4px 12px', borderRadius: 999, flexShrink: 0 }}>
-            {s.groupLabel}
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 14px 8px', flexShrink: 0 }}>
+        ) : (
           <button
             type="button" onClick={onCancel}
-            style={{ background: 'transparent', border: 0, cursor: 'pointer', fontFamily: F, fontSize: 15, fontWeight: 600, color: T.inkMuted, padding: '6px 4px' }}
+            style={{ background: 'transparent', border: 0, cursor: 'pointer', fontFamily: F, fontSize: 15, fontWeight: 600, color: T.inkMuted, padding: '8px 6px', flexShrink: 0 }}
           >Cancel</button>
-          <div style={{ fontSize: 12, fontWeight: 700, color: T.inkMuted, background: T.surfaceAlt, padding: '4px 12px', borderRadius: 999 }}>
-            {s.groupLabel}
-          </div>
-          <div style={{ width: 56 }} />
-        </div>
-      )}
+        )}
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '6px 12px', borderRadius: T.r.pill,
+          fontFamily: F, fontSize: 13, fontWeight: 700, color: T.ink,
+          background: T.surface, boxShadow: T.shadowRaised,
+          maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{s.groupLabel}</span>
+        <button
+          type="button" onClick={s.handleSave} disabled={!s.canSave || s.isPending}
+          style={{
+            background: 'transparent', border: 0, padding: '8px 6px', flexShrink: 0,
+            cursor: s.canSave && !s.isPending ? 'pointer' : 'default',
+            fontFamily: FH, fontSize: 15.5, fontWeight: 700, letterSpacing: -0.2,
+            color: s.canSave && !s.isPending ? T.ink : T.inkFaint,
+            transition: 'color .14s ease',
+          }}
+        >{s.isPending ? 'Saving…' : 'Save'}</button>
+      </div>
+
 
       <div className="add-expense-mobile-body">
         {/* what it was for */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Glyph>
-            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <path d="M3 4.2h10M3 8h10M3 11.8h6" />
-            </svg>
-          </Glyph>
-          <input
-            autoFocus
-            value={s.description}
-            onChange={e => s.setDescription(e.target.value)}
-            onFocus={() => setField('desc')}
-            placeholder="Enter a description"
-            style={{
-              flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent',
-              color: T.ink, fontFamily: FH, fontSize: 22, fontWeight: 700, letterSpacing: -0.5,
-              paddingBottom: 8, borderBottom: `1.5px solid ${field === 'desc' ? T.sun : T.line}`,
-              transition: 'border-color .14s ease',
-            }}
-          />
+          <Glyph>{ICON_LINES}</Glyph>
+          <span style={underline(field === 'desc', 8)}>
+            <input
+              autoFocus
+              value={s.description}
+              onChange={e => s.setDescription(e.target.value)}
+              onFocus={() => focusField('desc')}
+              onBlur={blurField}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); amountRef.current?.focus() } }}
+              enterKeyHint="next"
+              placeholder="What was it for?"
+              style={{
+                flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', padding: 0,
+                color: T.ink, fontFamily: FH, fontSize: 22, fontWeight: 700, letterSpacing: -0.5,
+              }}
+            />
+          </span>
         </div>
 
-        {/* how much — a readout driven by the pad, or by the items in itemized mode */}
-        <button
-          type="button" disabled={isItemized}
-          onClick={() => setField('amount')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12, width: '100%',
-            textAlign: 'left', border: 0, background: 'transparent', padding: 0,
-            cursor: isItemized ? 'default' : 'pointer', fontFamily: F,
-          }}
-        >
+        {/* how much — inputMode picks the OS number pad; in itemized mode the
+            items own the total, so the field states it read-only */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Glyph><span style={{ fontFamily: FH, fontSize: 19, fontWeight: 700 }}>$</span></Glyph>
-          <span style={{
-            flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', paddingBottom: 6,
-            borderBottom: `1.5px solid ${field === 'amount' ? T.sun : T.line}`,
-            transition: 'border-color .14s ease',
-          }}>
-            <span style={{
-              fontFamily: FH, fontSize: 36, fontWeight: 700, letterSpacing: -1.4,
-              fontVariantNumeric: 'tabular-nums', color: hasAmount ? T.ink : T.inkFaint,
-            }}>{shownAmount}</span>
-            {field === 'amount' && !isItemized && <span className="add-expense-caret" />}
+          <span style={underline(field === 'amount', 6)}>
+            <input
+              ref={amountRef}
+              value={shownAmount}
+              readOnly={isItemized}
+              onChange={e => s.setAmount(sanitizeAmount(e.target.value))}
+              onFocus={() => { if (!isItemized) focusField('amount') }}
+              onBlur={blurField}
+              inputMode="decimal"
+              enterKeyHint="done"
+              placeholder="0.00"
+              aria-label="Amount"
+              style={{
+                flex: 1, minWidth: 0, border: 0, outline: 'none', background: 'transparent', padding: 0,
+                fontFamily: FH, fontSize: 36, fontWeight: 700, letterSpacing: -1.4,
+                fontVariantNumeric: 'tabular-nums', color: hasAmount ? T.ink : T.inkFaint,
+              }}
+            />
             {isItemized && (
-              <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 8, alignSelf: 'flex-end', paddingBottom: 5 }}>
+              <span style={{ fontSize: 11, color: T.inkFaint, marginLeft: 8, alignSelf: 'flex-end', paddingBottom: 5, flexShrink: 0 }}>
                 from items
               </span>
             )}
           </span>
-        </button>
+        </div>
 
         {/* who paid and how it splits, plus what that costs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginTop: 2 }}>
           <TokenSentence s={s} />
           {hasAmount && <ShareLine s={s} />}
         </div>
+
+        {/* The three details, in reading order after the things that matter
+            more. They scroll with the form, which is the whole point — there is
+            no bottom edge for them to be shoved off any more. */}
+        <div style={{ borderTop: `0.5px solid ${T.line}`, paddingTop: 4, marginTop: 4 }}>
+          <DetailRow icon={ICON_DATE} label="Date" value={dateLabel(s.expenseDate)} onClick={() => s.setOpenPanel('date')} />
+          <DetailRow icon={<span style={{ fontSize: 14 }}>{s.category}</span>} label="Category" value={categoryLabel} onClick={() => s.setOpenPanel('category')} />
+
+          {/* The note is a line of the form you type into, not a sheet with its
+              own Save. 16px is a hard floor, not a design choice — iOS Safari
+              auto-zooms the viewport on focus for anything smaller. */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0' }}>
+            <span style={{ width: 20, marginTop: 3, display: 'inline-flex', justifyContent: 'center', flexShrink: 0, color: field === 'note' || s.note ? T.inkMuted : T.inkFaint }}>{ICON_NOTE}</span>
+            <textarea
+              value={s.note}
+              onChange={e => s.setNote(e.target.value)}
+              onFocus={() => focusField('note')}
+              onBlur={blurField}
+              rows={field === 'note' || s.note ? 3 : 1}
+              placeholder="Add a note"
+              style={{
+                flex: 1, minWidth: 0, resize: 'none', border: 0, outline: 'none', background: 'transparent', padding: 0,
+                fontFamily: F, fontSize: 16, fontWeight: 600, lineHeight: 1.45, color: T.ink,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* clearance so the last row can sit clear of the commit button */}
+        <div style={{ height: kbUp ? 16 : 72, flexShrink: 0 }} />
       </div>
 
-      <UtilityRow s={s} />
 
-      {field === 'amount' && !isItemized ? (
-        <NumericPad
-          value={s.amount} onChange={s.setAmount}
-          // The label has to be honest: it only says "Add" when tapping it
-          // actually saves. Otherwise it just commits the amount and steps back.
-          onAction={() => { if (s.canSave && !s.isPending) s.handleSave(); else setField(null) }}
-          actionLabel={s.canSave ? `Add ${formatAmount(s.amt)}` : 'Done'}
-          actionOn={s.amt > 0}
-        />
-      ) : field === 'desc' ? (
-        <DescSuggestions
-          onPick={label => { s.setDescription(label); setField('amount') }}
-          onNext={() => setField('amount')}
-        />
-      ) : (
-        <div style={{ flexShrink: 0, padding: '10px 14px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))' }}>
-          <Btn
-            onClick={s.handleSave} disabled={!s.canSave || s.isPending} variant="primary" size="lg" fullWidth
-            style={{ borderRadius: 15, padding: '17px', fontSize: 17, fontFamily: FH, letterSpacing: -0.2 }}
-          >{commitLabel}</Btn>
-        </div>
-      )}
+      <div style={{ flexShrink: 0, padding: '10px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))' }}>
+        <Btn
+          onClick={s.handleSave} disabled={!s.canSave || s.isPending} variant="primary" size="lg" fullWidth
+          style={{ borderRadius: 15, padding: '17px', fontSize: 17, fontFamily: FH, letterSpacing: -0.2 }}
+        >{commitLabel}</Btn>
+      </div>
+      
 
       <ModalOrSheet open={s.openPanel === 'payer'} onClose={() => s.setOpenPanel(null)} title="Paid by">
         <ModalHeader title="Paid by" onClose={() => s.setOpenPanel(null)} />
@@ -218,13 +319,6 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
         <ModalHeader title="Category" onClose={() => s.setOpenPanel(null)} />
         <ModalContent>
           <CategorySheetContent category={s.category} onSelect={emoji => { s.selectCategory(emoji); s.setOpenPanel(null) }} />
-        </ModalContent>
-      </ModalOrSheet>
-
-      <ModalOrSheet open={s.openPanel === 'note'} onClose={() => s.setOpenPanel(null)} title="Note">
-        <ModalHeader title="Note" onClose={() => s.setOpenPanel(null)} />
-        <ModalContent>
-          <NoteSheetContent value={s.note} onChange={s.setNote} />
         </ModalContent>
       </ModalOrSheet>
     </div>
