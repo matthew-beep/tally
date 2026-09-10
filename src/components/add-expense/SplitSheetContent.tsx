@@ -9,9 +9,8 @@ import { Segmented } from '@/components/Segmented'
 import { avatarProfile } from '@/lib/memberDisplay'
 import { formatAmount, round2, stripNegative, parseNum } from '@/lib/money'
 import type { GroupMember } from '@/types'
-import { SPLIT_MODES } from './types'
+import { SPLIT_TABS } from './types'
 import { RemainderInline, Checkbox, shortName, fmtPct } from './parts'
-import { ItemizedBuilder } from './ItemizedBuilder'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 // Avatar + name for one member row. Payer rows are non-interactive.
@@ -68,9 +67,12 @@ function StatusRow({ s }: { s: AddExpenseFormState }) {
       </span>
     )
   } else {
+    // Itemized has no tab here any more — the Receipt row owns it — so the only
+    // way to be in this branch is to open the sheet while a receipt is filled
+    // in, which is a request to replace it with one of the three methods.
     status = (
       <span style={{ fontSize: 12.5, fontWeight: 700, color: T.inkMuted }}>
-        Tax and tip are shared in proportion
+        The receipt decides the split — pick a method to replace it
       </span>
     )
   }
@@ -177,13 +179,25 @@ function MemberSplitList({ s, payerId }: { s: AddExpenseFormState; payerId: stri
 export function SplitSheetContent({ s, onDone }: { s: AddExpenseFormState; onDone: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <Segmented options={SPLIT_MODES} value={s.splitMode} onChange={s.setSplitMode} fullWidth />
+      {/* Picking a method while a receipt is filled in is the "replace it" the
+          status line offers, so it has to actually replace it — the receipt is
+          torn up rather than left behind contradicting the split. Its total
+          carries over into the amount field, which the receipt had been driving
+          and which is otherwise still blank. */}
+      <Segmented
+        options={SPLIT_TABS} value={s.splitMode} fullWidth
+        onChange={m => {
+          if (s.splitMode === 'itemized') {
+            if (!s.amount && s.itemTotal > 0) s.setAmount(s.itemTotal.toFixed(2))
+            s.clearItems()
+          }
+          s.setSplitMode(m)
+        }}
+      />
 
       <StatusRow s={s} />
 
-      {s.splitMode === 'itemized'
-        ? <ItemizedBuilder s={s} />
-        : s.paidById && <MemberSplitList s={s} payerId={s.paidById} />}
+      {s.paidById && <MemberSplitList s={s} payerId={s.paidById} />}
 
       <Btn
         onClick={onDone} disabled={!s.splitValid} variant="primary" size="lg" fullWidth

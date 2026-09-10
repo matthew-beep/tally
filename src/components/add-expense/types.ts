@@ -1,9 +1,10 @@
 export type SplitMode = 'equal' | 'percentage' | 'exact' | 'itemized'
 
 // Which mobile picker sheet is currently open — Paid by/Split (existing
-// fields, moved from inline-expand to a sheet) plus Date/Category. The note has
-// no sheet: it is a line of the form you type into, so there is nothing to open.
-export type OpenPanel = 'payer' | 'split' | 'date' | 'category' | null
+// fields, moved from inline-expand to a sheet) plus Date/Category/Receipt. The
+// note has no sheet: it is a line of the form you type into, so there is
+// nothing to open.
+export type OpenPanel = 'payer' | 'split' | 'date' | 'category' | 'receipt' | null
 
 // UI-only line item for the mobile itemized receipt builder (ItemizedBuilder).
 // Nothing here reaches handleSave — expense_items isn't written yet.
@@ -26,6 +27,15 @@ export const SPLIT_MODES: { value: SplitMode; label: string; sentence: string }[
   { value: 'percentage', label: 'Percent',  sentence: 'by percentage'    },
   { value: 'itemized',   label: 'Itemized', sentence: 'by item'          },
 ]
+
+/**
+ * The modes you can *pick* — which is no longer all of them. Itemized is not
+ * something you choose from a list of methods any more; it is what happens when
+ * you fill in a receipt, so it is reached from the Receipt row in the form and
+ * has no tab. It stays in SPLIT_MODES above because it is still a real
+ * `SplitMode` that `splitSentence` has to be able to name.
+ */
+export const SPLIT_TABS = SPLIT_MODES.filter(m => m.value !== 'itemized')
 
 /**
  * The same mode said as a sentence fragment rather than a tab label — the token

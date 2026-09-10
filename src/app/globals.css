@@ -542,8 +542,9 @@ a {
    which only worked while a hand-built keypad sat below it in the flow — the
    system keyboard overlays instead, so there is no height to center within.
    Scrolling is what lets the details ride along with the form rather than being
-   shoved off the bottom edge; the panel's own bottom padding (set from
-   visualViewport) keeps the last row clear of the keys. */
+   shoved off the bottom edge. Nothing here reacts to the keyboard: the column
+   is a fixed 100dvh, the commit button is its last row, and iOS lays the
+   keyboard over both. */
 .add-expense-mobile-body {
   flex: 1;
   min-height: 0;

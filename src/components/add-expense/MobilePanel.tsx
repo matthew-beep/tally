@@ -8,12 +8,12 @@ import { ModalOrSheet, ModalHeader, ModalContent } from '@/components/modal'
 import { Btn } from '@/components/Btn'
 import { formatAmount, sanitizeAmount } from '@/lib/money'
 import { CATEGORIES } from '@/lib/categories'
-import { useKeyboardInset } from '@/hooks/useKeyboardInset'
 import { TokenSentence, ShareLine } from './TokenSentence'
 import { PayerSheetContent } from './PayerSheetContent'
 import { SplitSheetContent } from './SplitSheetContent'
 import { DateSheetContent } from './DateSheetContent'
 import { CategorySheetContent } from './CategorySheetContent'
+import { ItemizedBuilder } from './ItemizedBuilder'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 // Which field has the caret. Local to the layout — the hook has no opinion
@@ -52,6 +52,13 @@ const ICON_DATE = (
   <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
     <rect x="1.2" y="2.8" width="13.6" height="12" rx="2.4" />
     <path d="M1.2 6.4h13.6M4.8 1.2v3M11.2 1.2v3" strokeLinecap="round" />
+  </svg>
+)
+
+const ICON_RECEIPT = (
+  <svg width="15" height="16" viewBox="0 0 16 17" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2.6 1.6h10.8v13.8l-2.16-1.4-2.16 1.4-2.16-1.4-2.16 1.4L2.6 15.4z" />
+    <path d="M5.4 5.4h5.2M5.4 8.4h5.2M5.4 11.4h3" />
   </svg>
 )
 
@@ -110,7 +117,6 @@ function DetailRow({ icon, label, value, onClick, last }: {
 // instead of the sheet's Cancel.
 export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseFormState; onCancel: () => void; variant?: 'sheet' | 'route' }) {
   const [field, setField] = useState<Field>(null)
-  const kbInset = useKeyboardInset()
 
   const amountRef = useRef<HTMLInputElement>(null)
   // Moving between two of our own fields fires blur before focus. Clearing the
@@ -131,7 +137,27 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
   const shownAmount = isItemized ? (s.itemTotal > 0 ? s.itemTotal.toFixed(2) : '') : s.amount
   const hasAmount   = isItemized ? s.itemTotal > 0 : s.amt > 0
   const categoryLabel = CATEGORIES.find(c => c.emoji === s.category)?.label ?? 'Other'
-  const kbUp = field !== null
+
+  const itemCount   = s.items.length
+  const receiptValue = itemCount === 0
+    ? ''
+    : `${itemCount} item${itemCount === 1 ? '' : 's'} · ${formatAmount(s.itemTotal)}`
+
+  // Opening the receipt is the whole decision — there is no separate "switch to
+  // itemized" step, because picking the mode and filling in the receipt were
+  // never two things. Leaving it empty puts the expense back on equal shares
+  // rather than stranding it in a mode with nothing in it.
+  function openReceipt() {
+    if (s.items.length === 0) s.addItem()
+    s.setSplitMode('itemized')
+    s.setOpenPanel('receipt')
+  }
+
+  function closeReceipt() {
+    const filled = s.items.some(it => it.name.trim() || it.price > 0)
+    if (!filled) { s.clearItems(); s.setSplitMode('equal') }
+    s.setOpenPanel(null)
+  }
 
   // Keeps the hook's blocking messages ("Balance to 100% first") rather than
   // replacing them with a cheerful amount the user can't actually save.
@@ -151,12 +177,6 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
   return (
     <div
       className="add-expense-panel add-expense-panel--mobile"
-      // iOS overlays the keyboard rather than shrinking the viewport, so the
-      // column has to be told how much of its own bottom is covered. Padding it
-      // keeps the scroller's last row reachable instead of stranded under the
-      // keys. No transition: the resize lands after the keyboard has finished
-      // animating, so easing from there only adds a second, later slide.
-      style={{ paddingBottom: kbInset }}
     >
       {/* Save lives up here, above every keyboard. That one move is what frees
           the rest of the screen from having to keep anything pinned. */}
@@ -255,6 +275,12 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
             more. They scroll with the form, which is the whole point — there is
             no bottom edge for them to be shoved off any more. */}
         <div style={{ borderTop: `0.5px solid ${T.line}`, paddingTop: 4, marginTop: 4 }}>
+          {/* Itemizing used to be a fourth tab in the split sheet, sitting
+              beside Equal/Exact/Percent as though it were another way of
+              dividing a number you had already typed. It isn't — a receipt
+              *produces* the number. So it comes out of that sheet and becomes a
+              row of the form, above Date, next to the amount it decides. */}
+          <DetailRow icon={ICON_RECEIPT} label="Receipt" value={receiptValue} onClick={openReceipt} />
           <DetailRow icon={ICON_DATE} label="Date" value={dateLabel(s.expenseDate)} onClick={() => s.setOpenPanel('date')} />
           <DetailRow icon={<span style={{ fontSize: 14 }}>{s.category}</span>} label="Category" value={categoryLabel} onClick={() => s.setOpenPanel('category')} />
 
@@ -278,11 +304,18 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
           </div>
         </div>
 
-        {/* clearance so the last row can sit clear of the commit button */}
-        <div style={{ height: kbUp ? 16 : 72, flexShrink: 0 }} />
+        {/* Clearance so the last row sits clear of the commit button — and,
+            once a keyboard is up, so the note has somewhere to scroll to
+            instead of the browser panning the whole page to reveal it. Constant
+            now that the button no longer rises with the keyboard. */}
+        <div style={{ height: 72, flexShrink: 0 }} />
       </div>
 
 
+      {/* Stays on the bottom edge of the screen and lets the keyboard slide up
+          over it, rather than riding the keyboard's top edge. Save is in the
+          top bar, above every keyboard, so nothing is unreachable while it's
+          covered — and the form doesn't lurch every time a field is focused. */}
       <div style={{ flexShrink: 0, padding: '10px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 0px))' }}>
         <Btn
           onClick={s.handleSave} disabled={!s.canSave || s.isPending} variant="primary" size="lg" fullWidth
@@ -319,6 +352,16 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
         <ModalHeader title="Category" onClose={() => s.setOpenPanel(null)} />
         <ModalContent>
           <CategorySheetContent category={s.category} onSelect={emoji => { s.selectCategory(emoji); s.setOpenPanel(null) }} />
+        </ModalContent>
+      </ModalOrSheet>
+
+      <ModalOrSheet open={s.openPanel === 'receipt'} onClose={closeReceipt} title="Receipt">
+        <ModalHeader title="Receipt" onClose={closeReceipt} />
+        <ModalContent>
+          <ItemizedBuilder s={s} />
+          <Btn onClick={closeReceipt} variant="primary" size="lg" fullWidth style={{ marginTop: 18, borderRadius: 14 }}>
+            Done
+          </Btn>
         </ModalContent>
       </ModalOrSheet>
     </div>

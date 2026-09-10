@@ -16,6 +16,8 @@ interface ModalOrSheetProps {
   /** Applied to Vaul drawer content on mobile */
   sheetContentClassName?: string
   sheetContentStyle?: CSSProperties
+  /** Pass false when the sheet's own content handles the keyboard (see Sheet). */
+  sheetRepositionInputs?: boolean
   /** Applied to Modal panel on desktop */
   panelClassName?: string
   panelStyle?: CSSProperties
@@ -33,6 +35,7 @@ export function ModalOrSheet({
   maxWidth = 440,
   sheetContentClassName,
   sheetContentStyle,
+  sheetRepositionInputs,
   panelClassName,
   panelStyle,
 }: ModalOrSheetProps) {
@@ -46,6 +49,7 @@ export function ModalOrSheet({
         title={title}
         contentClassName={sheetContentClassName}
         contentStyle={sheetContentStyle}
+        repositionInputs={sheetRepositionInputs}
       >
         {children}
       </Sheet>

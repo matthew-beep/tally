@@ -47,6 +47,7 @@ export function AddExpenseSheet({ open, onClose, groupId }: AddExpenseSheetProps
       maxWidth={980}
       sheetContentClassName="add-expense-panel-root"
       sheetContentStyle={{ padding: 0, overflow: 'hidden' }}
+      sheetRepositionInputs={false}
       panelClassName="add-expense-panel-root"
       panelStyle={{ padding: 0, overflow: 'hidden' }}
     >

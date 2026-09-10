@@ -79,6 +79,8 @@ export interface AddExpenseFormState {
   items: LineItem[]
   addItem: () => void
   removeItem: (id: number) => void
+  /** Tear the receipt up — used when the Receipt sheet is dismissed empty. */
+  clearItems: () => void
   renameItem: (id: number, name: string) => void
   priceItem: (id: number, price: number) => void
   toggleAssign: (id: number, memberId: string) => void
@@ -382,6 +384,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     items,
     addItem: () => setItems(prev => [...prev, { id: ++nextItemId.current, name: '', price: 0, assignedTo: [...memberIds] }]),
     removeItem: id => setItems(prev => prev.filter(it => it.id !== id)),
+    clearItems: () => setItems([]),
     renameItem: (id, name) => setItems(prev => prev.map(it => it.id === id ? { ...it, name } : it)),
     priceItem: (id, price) => setItems(prev => prev.map(it => it.id === id ? { ...it, price } : it)),
     toggleAssign: (id, memberId) => setItems(prev => prev.map(it => {

@@ -14,6 +14,14 @@ interface SheetProps {
   handleOnly?: boolean
   contentClassName?: string
   contentStyle?: CSSProperties
+  /**
+   * Vaul's own keyboard handling: it translates the whole sheet up so the
+   * focused input clears the keys. Turn it off for a sheet that already knows
+   * about the keyboard itself (add expense reads `visualViewport` and pads its
+   * scroller) — otherwise both act and the sheet's bottom edge lifts twice.
+   * Default true, which is Vaul's default.
+   */
+  repositionInputs?: boolean
 }
 
 export function Sheet({
@@ -24,6 +32,7 @@ export function Sheet({
   handleOnly = true,
   contentClassName,
   contentStyle,
+  repositionInputs = true,
 }: SheetProps) {
   return (
     <Drawer.Root
@@ -31,6 +40,7 @@ export function Sheet({
       onOpenChange={next => { if (!next) onClose() }}
       shouldScaleBackground={false}
       handleOnly={handleOnly}
+      repositionInputs={repositionInputs}
       dismissible
     >
       <Drawer.Portal>
