@@ -623,3 +623,20 @@ a {
   border-radius: 8px;
 }
 
+
+/* Itemize sheet — pinned tall rather than content-sized, so the composer keeps
+   the same place on screen no matter how many lines are already on the bill,
+   and the totals footer has a fixed edge to sit on. Same trick as
+   .add-expense-panel-root above. */
+.tally-sheet-content.itemize-sheet-root {
+  height: calc(100dvh - 40px);
+  max-height: calc(100dvh - 40px);
+}
+
+@media (min-width: 768px) {
+  .itemize-sheet-root {
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: min(92dvh, 780px) !important;
+  }
+}

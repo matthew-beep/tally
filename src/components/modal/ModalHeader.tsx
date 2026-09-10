@@ -9,12 +9,14 @@ import { ModalContext } from './ModalContext'
 interface ModalHeaderProps {
   title?: string
   children?: ReactNode
+  /** Action placed beside the close button — e.g. the itemize sheet's "Scan receipt". */
+  right?: ReactNode
   showClose?: boolean
   onClose?: () => void
   style?: CSSProperties
 }
 
-export function ModalHeader({ title, children, showClose = true, onClose, style }: ModalHeaderProps) {
+export function ModalHeader({ title, children, right, showClose = true, onClose, style }: ModalHeaderProps) {
   const ctx = useContext(ModalContext)
   const handleClose = onClose ?? ctx?.onClose
 
@@ -46,6 +48,7 @@ export function ModalHeader({ title, children, showClose = true, onClose, style 
         )}
         {children}
       </div>
+      {right && <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>{right}</div>}
       {showClose && handleClose && (
         <button
           type="button"

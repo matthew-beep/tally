@@ -27,6 +27,19 @@ export function evenShares(total: number, n: number, decimals: 1 | 2): string[] 
   return Array.from({ length: n }, (_, i) => (i === 0 ? base + leftover : base).toFixed(decimals))
 }
 
+/**
+ * One member's outcome from the receipt: what they ordered, their proportional
+ * cut of tax and tip, and the sum. Members who shared nothing are still
+ * present with zeros — the totals drawer lists everyone, so the absence has to
+ * be visible rather than implied by a missing row.
+ */
+export interface ItemShare {
+  memberId: string
+  subtotal: number
+  extra: number
+  total: number
+}
+
 export interface AddExpenseFormState {
   group: ReturnType<typeof useGroup>['data']
   groupLabel: string
@@ -77,13 +90,16 @@ export interface AddExpenseFormState {
   setOpenPanel: (p: OpenPanel) => void
 
   items: LineItem[]
-  addItem: () => void
+  /**
+   * Add a line, or replace one being edited. A single entry point because the
+   * itemize sheet has a single composer — there is no state in which half a
+   * line exists in `items`, so there is nothing for a per-field setter to act
+   * on. `id: null` appends.
+   */
+  upsertItem: (id: number | null, item: Omit<LineItem, 'id'>) => void
   removeItem: (id: number) => void
-  /** Tear the receipt up — used when the Receipt sheet is dismissed empty. */
+  /** Tear the receipt up — used when the split mode moves off itemized. */
   clearItems: () => void
-  renameItem: (id: number, name: string) => void
-  priceItem: (id: number, price: number) => void
-  toggleAssign: (id: number, memberId: string) => void
   taxMode: 'percent' | 'flat'
   setTaxMode: (m: 'percent' | 'flat') => void
   taxVal: number
@@ -96,6 +112,8 @@ export interface AddExpenseFormState {
   taxAmt: number
   tipAmt: number
   itemTotal: number
+  /** What each member ends up owing under the current receipt, per member. */
+  itemShares: ItemShare[]
 
   canSave: boolean
   saveLabel: string
@@ -144,7 +162,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
   const [percentTouched, setPercentTouched] = useState(false)
   const [exactTouched,   setExactTouched]   = useState(false)
 
-  // Itemized builder state — UI-only preview, nothing reaches handleSave
+  // Itemized receipt state — UI-only preview, nothing reaches handleSave yet
   const [items,    setItems]    = useState<LineItem[]>([])
   const [taxMode,  setTaxMode]  = useState<'percent' | 'flat'>('percent')
   const [taxVal,   setTaxVal]   = useState(0)
@@ -278,6 +296,26 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
   const tipAmt    = tipMode === 'percent' ? round2(subtotal * tipVal / 100) : tipVal
   const itemTotal = round2(subtotal + taxAmt + tipAmt)
 
+  // Per CLAUDE.md's itemized formula: an item's price divides evenly among its
+  // assignees, and tax + tip ride along in proportion to what each person
+  // ordered. Rounded for display only — the exact-sum-to-total reconciliation
+  // belongs in lib/splits.ts when there is a save path to reconcile for.
+  const extras = taxAmt + tipAmt
+  const itemShares: ItemShare[] = memberIds.map(memberId => {
+    const share = items.reduce((a, it) => (
+      it.assignedTo.includes(memberId) && it.assignedTo.length > 0
+        ? a + it.price / it.assignedTo.length
+        : a
+    ), 0)
+    const extra = subtotal > 0 ? extras * (share / subtotal) : 0
+    return {
+      memberId,
+      subtotal: round2(share),
+      extra:    round2(extra),
+      total:    round2(share + extra),
+    }
+  })
+
   const baseValid = !!description.trim() && amt > 0 && !!paidById
 
   // Whether the split itself adds up, independent of whether the expense can be
@@ -382,19 +420,16 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     focusId, setFocusId, openPanel, setOpenPanel,
 
     items,
-    addItem: () => setItems(prev => [...prev, { id: ++nextItemId.current, name: '', price: 0, assignedTo: [...memberIds] }]),
+    upsertItem: (id, item) => setItems(prev => (
+      id === null
+        ? [...prev, { ...item, id: ++nextItemId.current }]
+        : prev.map(it => it.id === id ? { ...item, id } : it)
+    )),
     removeItem: id => setItems(prev => prev.filter(it => it.id !== id)),
     clearItems: () => setItems([]),
-    renameItem: (id, name) => setItems(prev => prev.map(it => it.id === id ? { ...it, name } : it)),
-    priceItem: (id, price) => setItems(prev => prev.map(it => it.id === id ? { ...it, price } : it)),
-    toggleAssign: (id, memberId) => setItems(prev => prev.map(it => {
-      if (it.id !== id) return it
-      const has = it.assignedTo.includes(memberId)
-      return { ...it, assignedTo: has ? it.assignedTo.filter(x => x !== memberId) : [...it.assignedTo, memberId] }
-    })),
     taxMode, setTaxMode, taxVal, setTaxVal,
     tipMode, setTipMode, tipVal, setTipVal,
-    subtotal, taxAmt, tipAmt, itemTotal,
+    subtotal, taxAmt, tipAmt, itemTotal, itemShares,
 
     canSave, saveLabel, isPending: addExpense.isPending, handleSave,
   }

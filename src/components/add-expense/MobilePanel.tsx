@@ -13,7 +13,7 @@ import { PayerSheetContent } from './PayerSheetContent'
 import { SplitSheetContent } from './SplitSheetContent'
 import { DateSheetContent } from './DateSheetContent'
 import { CategorySheetContent } from './CategorySheetContent'
-import { ItemizedBuilder } from './ItemizedBuilder'
+import { ItemizedSheet } from './ItemizedSheet'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 // Which field has the caret. Local to the layout — the hook has no opinion
@@ -139,23 +139,30 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
   const categoryLabel = CATEGORIES.find(c => c.emoji === s.category)?.label ?? 'Other'
 
   const itemCount   = s.items.length
-  const receiptValue = itemCount === 0
+  const receiptValue = !isItemized || itemCount === 0
     ? ''
     : `${itemCount} item${itemCount === 1 ? '' : 's'} · ${formatAmount(s.itemTotal)}`
 
-  // Opening the receipt is the whole decision — there is no separate "switch to
-  // itemized" step, because picking the mode and filling in the receipt were
-  // never two things. Leaving it empty puts the expense back on equal shares
-  // rather than stranding it in a mode with nothing in it.
+  // Opening the sheet changes nothing — you can go and look at a bill, or start
+  // one and abandon it, without the expense quietly switching split mode
+  // underneath you. The receipt only takes over when its own commit button says
+  // so, which is what `useReceipt` is.
   function openReceipt() {
-    if (s.items.length === 0) s.addItem()
-    s.setSplitMode('itemized')
     s.setOpenPanel('receipt')
   }
 
+  function useReceipt() {
+    s.setSplitMode('itemized')
+    s.setAmount(s.itemTotal.toFixed(2))
+    s.setOpenPanel(null)
+  }
+
+  // Emptying a receipt that was already driving the split is a way of undoing
+  // it, so it puts the expense back on equal shares rather than leaving it in a
+  // mode with nothing in it. The last total stays in the amount field — it is
+  // still the number the user entered.
   function closeReceipt() {
-    const filled = s.items.some(it => it.name.trim() || it.price > 0)
-    if (!filled) { s.clearItems(); s.setSplitMode('equal') }
+    if (isItemized && s.items.length === 0) s.setSplitMode('equal')
     s.setOpenPanel(null)
   }
 
@@ -280,7 +287,7 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
               dividing a number you had already typed. It isn't — a receipt
               *produces* the number. So it comes out of that sheet and becomes a
               row of the form, above Date, next to the amount it decides. */}
-          <DetailRow icon={ICON_RECEIPT} label="Receipt" value={receiptValue} onClick={openReceipt} />
+          <DetailRow icon={ICON_RECEIPT} label="Itemize the bill" value={receiptValue} onClick={openReceipt} />
           <DetailRow icon={ICON_DATE} label="Date" value={dateLabel(s.expenseDate)} onClick={() => s.setOpenPanel('date')} />
           <DetailRow icon={<span style={{ fontSize: 14 }}>{s.category}</span>} label="Category" value={categoryLabel} onClick={() => s.setOpenPanel('category')} />
 
@@ -355,14 +362,14 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
         </ModalContent>
       </ModalOrSheet>
 
-      <ModalOrSheet open={s.openPanel === 'receipt'} onClose={closeReceipt} title="Receipt">
-        <ModalHeader title="Receipt" onClose={closeReceipt} />
-        <ModalContent>
-          <ItemizedBuilder s={s} />
-          <Btn onClick={closeReceipt} variant="primary" size="lg" fullWidth style={{ marginTop: 18, borderRadius: 14 }}>
-            Done
-          </Btn>
-        </ModalContent>
+      {/* Pinned tall via `itemize-sheet-root`: the composer keeps one place on
+          screen however long the bill gets, and the totals footer sits outside
+          the scroller instead of scrolling away under the last line. */}
+      <ModalOrSheet
+        open={s.openPanel === 'receipt'} onClose={closeReceipt} title="Itemize"
+        sheetContentClassName="itemize-sheet-root" panelClassName="itemize-sheet-root"
+      >
+        <ItemizedSheet s={s} onClose={closeReceipt} onUse={useReceipt} />
       </ModalOrSheet>
     </div>
   )
