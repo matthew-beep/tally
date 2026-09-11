@@ -58,7 +58,9 @@ function ItemRow({ item, s, editing, onEdit, onRemove }: {
       // itself: pressed in, ringed, and faded, so there is never a moment where
       // the same line appears to exist twice as two live things.
       background: editing ? T.sink : 'transparent',
-      boxShadow: editing ? `${T.shadowRecessed}, inset 0 0 0 1.5px ${T.sun}` : T.shadowHair,
+      boxShadow: editing
+        ? `${T.shadowRecessed}, inset 0 0 0 1.5px ${T.sun}`
+        : `inset 0 0 0 1.25px ${T.lineStrong}`,
       opacity: editing ? 0.55 : 1,
       transition: 'opacity .15s ease, box-shadow .15s ease',
     }}>
@@ -81,9 +83,9 @@ function ItemRow({ item, s, editing, onEdit, onRemove }: {
       </button>
       <button
         type="button" onClick={onRemove} aria-label={`Remove ${item.name || 'item'}`}
-        style={{ width: 30, height: 30, flexShrink: 0, borderRadius: T.r.sm, border: 0, background: 'transparent', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+        style={{ width: 30, height: 30, flexShrink: 0, borderRadius: T.r.sm, border: 0, background: 'transparent', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: T.inkMuted }}
       >
-        <svg width="11" height="11" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" stroke={T.inkFaint} strokeWidth="1.7" strokeLinecap="round" /></svg>
+        <svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
       </button>
     </div>
   )

@@ -3,6 +3,7 @@
 import { format, parseISO } from 'date-fns'
 import { Token } from '@/components/PersonToken'
 import { CalendarGrid } from '@/components/CalendarGrid'
+import { localISODate } from '@/lib/time'
 
 interface Props {
   value: string
@@ -10,12 +11,12 @@ interface Props {
 }
 
 function isoToday(): string {
-  return new Date().toISOString().split('T')[0]
+  return localISODate()
 }
 function isoYesterday(): string {
   const d = new Date()
   d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
+  return localISODate(d)
 }
 
 /** Date picker sheet content: Today/Yesterday quick chips + the shared CalendarGrid. */

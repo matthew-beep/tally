@@ -67,10 +67,10 @@ function FaceToggle({ member, slot, youMemberId, on, onClick }: {
  * same place, and it asks for the item in the order a person reads a receipt:
  * what it was, what it cost, who had it.
  *
- * Price and faces stay dimmed until the item is named — the sequence is visible
- * without disabling anything, so a user who wants to fill it out of order still
- * can. The commit button carries the next instruction instead of a static
- * label, which means the card never needs a separate line of validation text.
+ * Validity shows on the rim (gray → sun) and the commit button; the fields stay
+ * fully readable so filling out of order still works. The button label carries
+ * the next instruction instead of a static label, so the card never needs a
+ * separate line of validation text.
  */
 export function ItemComposer({
   draft, onChange, onCommit, onCancel, editing,
@@ -119,7 +119,7 @@ export function ItemComposer({
       background: T.surface,
       // Outset rim, not the inset one `well()` uses: this is a raised card that
       // has become complete, not a trough that has taken focus.
-      boxShadow: `${T.shadowRaised}, 0 0 0 1.5px ${ready ? T.sun : 'transparent'}`,
+      boxShadow: `${T.shadowRaised}, 0 0 0 1.5px ${ready ? T.sun : T.lineStrong}`,
       transition: 'box-shadow .18s ease',
     }}>
       {/* 1 · what it is, and what it cost */}
@@ -136,7 +136,7 @@ export function ItemComposer({
             fontFamily: FH, fontSize: 19, fontWeight: 700, letterSpacing: -0.3,
           }}
         />
-        <span style={{ flexShrink: 0, opacity: named ? 1 : 0.45, transition: 'opacity .18s ease' }}>
+        <span style={{ flexShrink: 0 }}>
           <Input
             size="cell" prefix="$" alignRight fieldWidth={58}
             inputMode="decimal" placeholder="0.00"
@@ -148,9 +148,9 @@ export function ItemComposer({
       </div>
 
       {/* 2 · who shared it */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, opacity: named ? 1 : 0.45, transition: 'opacity .18s ease' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <span style={{ fontFamily: F, fontSize: 11.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: T.inkFaint }}>
+          <span style={{ fontFamily: F, fontSize: 11.5, fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase', color: T.ink }}>
             Who shared it
           </span>
           {priced && draft.assignedTo.length > 0 && (

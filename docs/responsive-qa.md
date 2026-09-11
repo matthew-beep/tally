@@ -33,9 +33,10 @@ width; it is always an explicit user choice. See `features.md` → "Sidebar rail
 
 At 768–1023px — **iPad portrait, small laptop windows, split-screen** — you get
 mobile navigation and mobile page layouts, but desktop modals. Concretely:
-`AddExpenseForm` renders `DesktopPanel` (the two-column tiles-left/split-right
-layout) inside a centered modal, while the page behind it is the single-column
-mobile group detail with a tab bar.
+`AddExpenseForm` renders `DesktopPanel` (the 560px dialog with the token
+sentence; its split ledger opens *below* the sentence here, since the 1010px
+side-by-side layout needs a 1080px viewport) inside a centered modal, while the
+page behind it is the single-column mobile group detail with a tab bar.
 
 This has never been designed or verified. **Decide before launch:** either move
 `useIsMobileSheet` to `max-width: 1023px` so sheet presentation follows the nav

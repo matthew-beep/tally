@@ -368,6 +368,8 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
       <ModalOrSheet
         open={s.openPanel === 'receipt'} onClose={closeReceipt} title="Itemize"
         sheetContentClassName="itemize-sheet-root" panelClassName="itemize-sheet-root"
+        sheetContentStyle={{ background: T.bg }}
+        panelStyle={{ background: T.bg }}
       >
         <ItemizedSheet s={s} onClose={closeReceipt} onUse={useReceipt} />
       </ModalOrSheet>

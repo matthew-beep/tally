@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { batchNet, batchStatus, buildSettlementBatch, type SettlementAllocation } from './settlements'
+import { localISODate } from './time'
 
 // Helper: one allocation. Positive amount + direction from my perspective.
 // Seat ids are per-group by construction — mine differs in every group, which
@@ -162,6 +163,6 @@ describe('buildSettlementBatch', () => {
 
   it('defaults settled_date to today when the caller does not set one', () => {
     const [row] = buildSettlementBatch([alloc('apartment', 30, 'owe')], { batchId: 'b' })
-    expect(row.settled_date).toBe(new Date().toISOString().slice(0, 10))
+    expect(row.settled_date).toBe(localISODate())
   })
 })

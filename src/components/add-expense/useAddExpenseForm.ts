@@ -9,6 +9,7 @@ import { detectCategory } from '@/lib/categories'
 import { makeEqualSplits, makePercentSplits, makeExactSplits } from '@/lib/splits'
 import { round2, parseNum } from '@/lib/money'
 import { slotFor } from '@/lib/memberDisplay'
+import { localISODate } from '@/lib/time'
 import { createClient } from '@/lib/supabase'
 import { useUIStore } from '@/store/ui'
 import type { GroupMember } from '@/types'
@@ -58,6 +59,8 @@ export interface AddExpenseFormState {
   setNote: (v: string) => void
   category: string
   selectCategory: (emoji: string) => void
+  /** True once the user has picked a category, rather than it being auto-detected. */
+  manualCategory: boolean
   expenseDate: string
   setExpenseDate: (v: string) => void
   splitMode: SplitMode
@@ -83,6 +86,13 @@ export interface AddExpenseFormState {
   splitValid: boolean
   /** Re-seed the editable rows with an even split. */
   evenOut: () => void
+  /**
+   * What each member would owe if Save were pressed now, keyed by member id —
+   * built by the same lib/splits call handleSave uses, so the stray cent lands
+   * where it will actually be saved. Null whenever there is nothing savable to
+   * preview: no amount, no payer, an unbalanced split, or itemized.
+   */
+  previewSplits: Record<string, number> | null
 
   focusId: string | null
   setFocusId: (id: string | null) => void
@@ -150,7 +160,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
   const [manualCategory, setManualCategory] = useState(false)
   const [splitMode,      setSplitMode]      = useState<SplitMode>('equal')
   const [paidById,       setPaidById]       = useState<string | null>(null)
-  const [expenseDate,    setExpenseDate]    = useState(new Date().toISOString().split('T')[0])
+  const [expenseDate,    setExpenseDate]    = useState(() => localISODate())
   const [included,       setIncluded]       = useState<Set<string>>(new Set())
   const [percents,       setPercents]       = useState<Record<string, string>>({})
   const [exactAmounts,   setExactAmounts]   = useState<Record<string, string>>({})
@@ -336,17 +346,23 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     splitMode === 'itemized'                    ? 'Coming soon' :
     'Save expense'
 
-  async function handleSave() {
-    if (!canSave || addExpense.isPending || !paidById) return
+  // The rows Save would write, built once per render. The desktop ledger and
+  // footer read the same object through `previewSplits`, so neither can show a
+  // figure that differs from what gets saved — including where the leftover
+  // cent of an uneven division ends up.
+  function buildSplits(): {
+    splitType: 'equal' | 'percentage' | 'exact'
+    splits: { group_member_id: string; owed_amount: number }[]
+  } | null {
+    if (!paidById || amt <= 0 || splitMode === 'itemized' || !splitValid) return null
     const roundedAmt = round2(amt)
-
-    let splits: { group_member_id: string; owed_amount: number }[]
-    let splitType: 'equal' | 'percentage' | 'exact'
+    const trim = (rows: { group_member_id: string; owed_amount: number }[]) =>
+      rows.map(r => ({ group_member_id: r.group_member_id, owed_amount: r.owed_amount }))
 
     if (splitMode === 'equal') {
-      splits    = makeEqualSplits('', roundedAmt, [...included], paidById)
-      splitType = 'equal'
-    } else if (splitMode === 'percentage') {
+      return { splitType: 'equal', splits: trim(makeEqualSplits('', roundedAmt, [...included], paidById)) }
+    }
+    if (splitMode === 'percentage') {
       // Mobile: the payer takes whatever percentage the others left over.
       const percentInputs = [
         ...(isMobile ? [{
@@ -355,26 +371,32 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
         }] : []),
         ...amountsIds.map(id => ({ group_member_id: id, percent: parseNum(percents[id]) })),
       ]
-      splits    = makePercentSplits('', roundedAmt, percentInputs, paidById)
-      splitType = 'percentage'
-    } else {
-      const exactInputs = [
-        ...(isMobile ? [{
-          group_member_id: paidById,
-          owed_amount: Math.max(0, round2(roundedAmt - exactSum)),
-        }] : []),
-        ...amountsIds.map(id => ({ group_member_id: id, owed_amount: parseNum(exactAmounts[id]) })),
-      ]
-      splits    = makeExactSplits('', exactInputs, roundedAmt, paidById)
-      splitType = 'exact'
+      return { splitType: 'percentage', splits: trim(makePercentSplits('', roundedAmt, percentInputs, paidById)) }
     }
+    const exactInputs = [
+      ...(isMobile ? [{
+        group_member_id: paidById,
+        owed_amount: Math.max(0, round2(roundedAmt - exactSum)),
+      }] : []),
+      ...amountsIds.map(id => ({ group_member_id: id, owed_amount: parseNum(exactAmounts[id]) })),
+    ]
+    return { splitType: 'exact', splits: trim(makeExactSplits('', exactInputs, roundedAmt, paidById)) }
+  }
+
+  const built = buildSplits()
+  const previewSplits = built
+    ? Object.fromEntries(built.splits.map(r => [r.group_member_id, r.owed_amount]))
+    : null
+
+  async function handleSave() {
+    if (!canSave || addExpense.isPending || !paidById || !built) return
 
     const newExpense = await addExpense.mutateAsync({
       description: description.trim(),
-      amount: roundedAmt,
+      amount: round2(amt),
       paid_by: paidById,
-      split_type: splitType,
-      splits: splits.map(s => ({ group_member_id: s.group_member_id, owed_amount: s.owed_amount })),
+      split_type: built.splitType,
+      splits: built.splits,
       category,
       expense_date: expenseDate,
     })
@@ -405,7 +427,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     amount, setAmount, amt,
     description, setDescription,
     note, setNote,
-    category, selectCategory,
+    category, selectCategory, manualCategory,
     expenseDate, setExpenseDate,
     splitMode, setSplitMode,
     paidById, setPaidById,
@@ -415,7 +437,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     exactAmounts, setExactAmount,
 
     amountsIds, percentValid, exactValid, percentRemaining, exactRemaining,
-    splitValid, evenOut,
+    splitValid, evenOut, previewSplits,
 
     focusId, setFocusId, openPanel, setOpenPanel,
 

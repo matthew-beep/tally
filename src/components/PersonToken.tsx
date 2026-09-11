@@ -27,7 +27,7 @@ interface TokenProps {
 /**
  * The app's one selectable-pill shape — the tactile RAISED tier.
  *
- * Unselected is a warm-white token sitting on the surface; selected is the same
+ * Unselected is a gray-fill token sitting on the surface; selected is the same
  * object in sun. No borders: selection reads as the object changing material,
  * not as a ring drawn around it. Pressing dips it with Btn's timing.
  *
@@ -82,7 +82,7 @@ export function Token({ leading, children, selected = false, onClick, size = 'md
         // can't interpolate a gradient to a flat colour.
         background: selected
           ? `linear-gradient(180deg, ${T.sunHi} 0%, ${T.sun} 100%)`
-          : `linear-gradient(180deg, ${T.surface} 0%, ${T.surface} 100%)`,
+          : `linear-gradient(180deg, ${T.grayFill} 0%, ${T.grayFill} 100%)`,
         boxShadow: press ? T.shadowPressed : selected ? T.shadowSun : T.shadowRaised,
         transform: press ? 'translateY(1px)' : 'none',
         transition: 'transform .09s ease, box-shadow .12s ease, background .14s ease, color .14s ease',

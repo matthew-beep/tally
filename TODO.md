@@ -1824,11 +1824,11 @@ confirm+re-close or diagnose the actual gap.
   best-effort after the expense insert succeeds (toast on failure, never
   blocks navigation — the expense itself already saved by then). Surfaces
   read-only via the existing comment thread in
-  `ExpenseActionSheet`/`CommentsList` — no new read UI needed. **Desktop
-  (`DesktopPanel.tsx`) still has no note field** — this landed mobile-only,
-  as part of the mobile add-expense route work below.
+  `ExpenseActionSheet`/`CommentsList` — no new read UI needed. Landed
+  mobile-first; desktop (`DesktopPanel.tsx`) gained the same note, as a
+  recessed "Note" well, in the 2026-09-10 E4 rebuild.
 - [ ] **Category + date editing on expenses** 🟡 — add-expense sets both (`category` via
-  `CategoryChips` / `detectCategory`, `expense_date` via `DatePicker` on desktop only).
+  `detectCategory` plus the category chip/sheet, `expense_date` via the date chip/sheet).
   Edit flow (`ExpenseActionSheet.tsx` → `ExpenseEditDrawer`) only edits
   description/amount/paid_by — category renders as a static emoji beside the description
   input (~133), date is read-only in the detail screen (~272). Extend

@@ -50,6 +50,10 @@ export function ModalMenu({
           pointerEvents: 'auto',
           width: '100%',
           maxWidth,
+          // A dialog that changes its own width (add expense opening its split
+          // ledger) eases to the new size instead of snapping. Inert for every
+          // modal whose maxWidth never changes.
+          transition: 'max-width .22s cubic-bezier(.32,.72,0,1)',
           animation: closing ? 'modal-pop-out 0.16s ease-in forwards' : 'modal-pop-in 0.22s ease-out',
           ...style,
         }}

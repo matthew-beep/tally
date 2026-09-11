@@ -1,4 +1,5 @@
 import { round2 } from './money'
+import { localISODate } from './time'
 
 /**
  * One group's share of a single payment. A settle-all across three groups is
@@ -87,7 +88,7 @@ export function buildSettlementBatch(
 
   // Computed from the live rows, so dropped residue can never flip the sign.
   const status = batchStatus(live)
-  const settled_date = settledDate ?? new Date().toISOString().slice(0, 10)
+  const settled_date = settledDate ?? localISODate()
 
   return live.map(a => ({
     group_id: a.groupId,

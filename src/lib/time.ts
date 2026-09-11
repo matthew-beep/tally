@@ -1,3 +1,11 @@
+/** Local calendar day as `yyyy-MM-dd`. Never use `toISOString().slice(0, 10)` for this — that is UTC. */
+export function localISODate(d: Date = new Date()): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 /** Compact relative time for a timestamptz string — "2h", "3d", or a short date past a week. */
 export function timeAgo(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime()

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { InputHTMLAttributes, CSSProperties, ReactNode } from 'react'
 import { T, F, FH, well } from '@/design/tokens'
 
-export type InputSize = 'hero' | 'title' | 'md' | 'cellLg' | 'cell'
+export type InputSize = 'hero' | 'title' | 'field' | 'fieldLg' | 'md' | 'cellLg' | 'cell'
 
 interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'style' | 'prefix'> {
   size?: InputSize
@@ -29,6 +29,10 @@ const SIZE: Record<InputSize, {
 }> = {
   hero:  { padding: '14px 16px', fontSize: 38, fontFamily: FH, fontWeight: 800, letterSpacing: -1.5, radius: 16, gap: 12, affix: 22 },
   title: { padding: '12px 14px', fontSize: 21, fontFamily: F,  fontWeight: 700, letterSpacing: -0.5, radius: 14, gap: 8,  affix: 16 },
+  // A pair that sit side by side at the same 54px height — the desktop add
+  // dialog's What for (field) and How much (fieldLg, bigger digits, less padding).
+  field:  { padding: '15px 15px', fontSize: 19, fontFamily: FH, fontWeight: 700, letterSpacing: -0.3, radius: 14, gap: 4, affix: 19 },
+  fieldLg:{ padding: '12px 15px', fontSize: 25, fontFamily: FH, fontWeight: 700, letterSpacing: -0.8, radius: 14, gap: 4, affix: 19 },
   md:    { padding: '11px 14px', fontSize: 16, fontFamily: F,  fontWeight: 600, letterSpacing: 0,    radius: 12, gap: 6,  affix: 13 },
   cellLg:{ padding: '8px 12px',  fontSize: 19, fontFamily: FH, fontWeight: 600, letterSpacing: -0.4, radius: 10, gap: 2,  affix: 14 },
   cell:  { padding: '6px 10px',  fontSize: 16, fontFamily: F,  fontWeight: 700, letterSpacing: 0,    radius: 10, gap: 2,  affix: 12 },
@@ -38,7 +42,8 @@ const SIZE: Record<InputSize, {
  * The app's text input — a RECESSED well you drop a value into, with the sun
  * focus rim replacing a native outline.
  *
- * Sizes: `hero` (the amount), `title` (expense description), `md` (standard
+ * Sizes: `hero` (the amount), `title` (expense description), `field`/`fieldLg`
+ * (the desktop add dialog's paired description and amount), `md` (standard
  * field), `cell` (compact numeric in a split row).
  *
  * For inputs whose well contains more than a value — MemberCombobox's chips,

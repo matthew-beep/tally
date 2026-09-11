@@ -141,7 +141,7 @@ Process and matrix: [responsive-qa.md](./responsive-qa.md). Two parts.
 `max-width: 767px`; the layout CSS switches at `max-width: 1023px`
 (`dashboard.css:10`, `:191`, `:383`). Across 768–1023px — iPad portrait, small
 laptop windows, split screen — you get mobile nav and mobile page layouts with
-**desktop modals**: `AddExpenseForm` renders its two-column `DesktopPanel`
+**desktop modals**: `AddExpenseForm` renders its desktop `DesktopPanel` dialog
 inside a centered modal over a single-column mobile page with a tab bar. Never
 designed, never verified.
 

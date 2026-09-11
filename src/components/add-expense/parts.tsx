@@ -1,8 +1,17 @@
 'use client'
 
+import { format, parseISO, isToday, isYesterday } from 'date-fns'
 import { T, FMONO } from '@/design/tokens'
 import { displayName, firstName } from '@/lib/memberDisplay'
 import type { GroupMember } from '@/types'
+
+/** "Today" / "Yesterday" / "Mar 4" — the date said the way someone would say it. */
+export function dateLabel(iso: string): string {
+  const d = parseISO(iso)
+  if (isToday(d))     return 'Today'
+  if (isYesterday(d)) return 'Yesterday'
+  return format(d, 'MMM d')
+}
 
 /** Compact row label — "You" for the current user, otherwise a first name. */
 export function shortName(m: GroupMember | undefined, youMemberId?: string): string {

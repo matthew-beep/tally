@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import type { ReactNode, Ref } from 'react'
 import { T, FH, F, FMONO, well } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { avatarProfile } from '@/lib/memberDisplay'
@@ -48,30 +48,49 @@ function payerWord(m: GroupMember | undefined, youMemberId?: string): string {
  * The two decisions that used to be a pair of labelled rows — who paid, and how
  * it splits — said as one line with two tappable words. Each token opens the
  * sheet that owns exactly the thing it names.
+ *
+ * By default the tokens drive the mobile sheets through `s.openPanel`. The
+ * desktop dialog passes its own open state and handlers instead, because there
+ * the payer popover and the split ledger are independent and can both be open.
+ * `payerRef` is the popover's anchor.
  */
-export function TokenSentence({ s }: { s: AddExpenseFormState }) {
+export function TokenSentence({ s, align = 'center', payerOpen, splitOpen, onPayer, onSplit, payerRef }: {
+  s: AddExpenseFormState
+  align?: 'center' | 'start'
+  payerOpen?: boolean
+  splitOpen?: boolean
+  onPayer?: () => void
+  onSplit?: () => void
+  payerRef?: Ref<HTMLSpanElement>
+}) {
   const payer = s.paidById ? s.memberById[s.paidById] : undefined
   const word  = { fontSize: 14, fontWeight: 600, color: T.inkMuted, letterSpacing: -0.1 }
 
   return (
     <div style={{
       display: 'flex', flexWrap: 'wrap', alignItems: 'center',
-      justifyContent: 'center', gap: 8, rowGap: 8, fontFamily: F,
+      justifyContent: align === 'center' ? 'center' : 'flex-start', gap: 8, rowGap: 8, fontFamily: F,
     }}>
       <span style={word}>Paid by</span>
-      <TkTok
-        open={s.openPanel === 'payer'} onClick={() => s.setOpenPanel('payer')}
-        avatar={
-          <Avatar
-            profile={payer ? avatarProfile(payer) : undefined}
-            slot={s.paidById ? (s.slotById[s.paidById] ?? 0) : 0}
-            size={20} isYou={s.paidById === s.youMemberId}
-          />
-        }
-      >{payerWord(payer, s.youMemberId)}</TkTok>
+      <span ref={payerRef} style={{ display: 'inline-flex' }}>
+        <TkTok
+          open={payerOpen ?? s.openPanel === 'payer'}
+          onClick={onPayer ?? (() => s.setOpenPanel('payer'))}
+          avatar={
+            <Avatar
+              profile={payer ? avatarProfile(payer) : undefined}
+              slot={s.paidById ? (s.slotById[s.paidById] ?? 0) : 0}
+              size={20} isYou={s.paidById === s.youMemberId}
+            />
+          }
+        >{payerWord(payer, s.youMemberId)}</TkTok>
+      </span>
 
       <span style={word}>and split</span>
-      <TkTok open={s.openPanel === 'split'} onClick={() => s.setOpenPanel('split')}>
+      <TkTok
+        open={splitOpen ?? s.openPanel === 'split'}
+        onClick={onSplit ?? (() => s.setOpenPanel('split'))}
+      >
         {splitSentence(s.splitMode)}
       </TkTok>
     </div>

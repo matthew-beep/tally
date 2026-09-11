@@ -162,7 +162,7 @@ Fix: `--tally-sun-on` (`T.sunOn`), fixed at `#7A5200` in **both** themes —
 declared identically in `:root` and `[data-theme="dark"]`, no adaptation, by
 design. Rule of thumb: `sunInk` for text tinted against `sun-soft`, `sunOn`
 for text/icons sitting directly on solid `T.sun`. Several files use both
-(e.g. `add-expense/DesktopPanel.tsx`, `home/BalanceSheet.tsx`,
+(e.g. `home/BalanceSheet.tsx`,
 `groups/new/page.tsx`) for exactly these two different purposes — that's
 correct, not drift.
 
