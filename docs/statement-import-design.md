@@ -169,7 +169,19 @@ server, and gets fixed inside `local` without touching anything else.
 
 ## Provider Decision
 
-**Gemini (Google AI Studio) now; self-hosted evaluated later on measured data.**
+**Decision (2026-09-16): call Gemini directly, paid tier, ZDR requested. Start
+on Gemini 3.8 Flash. Self-hosting and OpenRouter both stay open, decided later
+on fixtures rather than taste.**
+
+Direct rather than through a router: shortest chain for the most sensitive
+payload in the app, native server-side schema enforcement that the extraction
+contract leans on, one vendor in a user-facing path, and a privacy note that
+fits in one honest sentence.
+
+3.8 Flash rather than Flash-Lite: the delta is ~$12/month at our caps and
+accuracy is the entire game. Drop to Flash-Lite only once fixtures show no
+difference — do not pre-optimize into the cheaper model and then debug a wrong
+`expense_splits` row.
 
 Reasoning:
 
@@ -269,7 +281,38 @@ found, amounts exact, dates exact, latency, cost. The decision becomes measured
 rather than a matter of taste.
 
 **Do not build that harness yet.** It earns its keep at the second fixture that
-disagrees with the first, not before.
+disagrees with the first, not before. But **start collecting fixtures with the
+first spike screenshot** — they cost nothing to save and they are what turns
+every later provider decision into a measurement.
+
+#### OpenRouter answers the open-model question before the tunnel exists
+
+The blocking question for self-hosting is "is an open VLM good enough?", and it
+currently sits behind half a day of network setup. It does not have to.
+[OpenRouter](https://openrouter.ai) is OpenAI-compatible, so the existing
+`local` provider reaches it with a base URL swap and a bearer header — no new
+provider code:
+
+```
+LOCAL_VLM_URL=https://openrouter.ai/api/v1
+LOCAL_VLM_MODEL=qwen/qwen2.5-vl-72b-instruct
+```
+
+Run the spike screenshots through one or two open VLMs alongside Gemini. A few
+cents settles whether the self-hosting branch is worth pursuing at all.
+
+**Read the result carefully, because the models are not equivalent.** A hosted
+Qwen2.5-VL 72B runs at full precision on datacenter hardware; the homelab would
+run a ~7B at Q4 alongside Virgil. So this is an **upper bound on local
+quality** — a cheap negative test. Fails hosted ⇒ certainly fails quantized,
+branch closed for pocket change. Passes hosted ⇒ less than it looks, because
+quantization still has to be tested on the actual card.
+
+Worth knowing separately: that 72B is ~$0.25/$0.75 per 1M in/out, roughly **4×
+cheaper than 3.8 Flash** per screenshot. Being open-weight does not make it the
+weaker model here — that equivalence only held for the local 7B. If it matches
+Gemini on the fixtures it is a legitimate candidate on its own merits, not just
+as a homelab proxy.
 
 #### Three things stand between here and a local provider
 
@@ -516,7 +559,8 @@ A free expense app that leaks bank screenshots does not get a second chance.
 
 | # | Step | Size |
 |---|---|---|
-| 0 | **Spike.** `npm i @google/genai zod`, key in `.env.local`, ~40-line scratchpad script: one real screenshot in, JSON out. No route, no UI, no migration. | 30m |
+| 0 | **Spike.** `npm i @google/genai zod`, key in `.env.local`, ~40-line scratchpad script: one real screenshot in, JSON out. No route, no UI, no migration. Save each screenshot with hand-corrected expected JSON — fixtures start here. | 30m |
+| 0a | **Open-model read.** Same screenshots through Qwen2.5-VL 72B on OpenRouter (base-URL swap on the `local` provider). Few cents; tells us whether the self-hosting branch is worth pursuing, and gives a second opinion on the rows. | 30m |
 | 0b | **Enable billing** on the Gemini project, request ZDR, wire the budget → Pub/Sub → disable-billing hard-stop. Before any screenshot that is not ours. | 1h |
 | 1 | `src/lib/extract/` — `schema.ts`, the prompt, `providers.ts` with `gemini`, JSON-block extraction, validate-and-retry-once | 2h |
 | 2 | `/api/ocr` — auth, `ocr_calls` migration + rate limit, one image per request | 2h |
@@ -602,6 +646,32 @@ Client-side OCR was also considered as a privacy layer — the image never
 leaving the device, with row selection happening before transmission. It fails
 on the same point: selection can only precede the model call if rows can be
 built without it.
+
+**OpenRouter as the production path.** Not rejected on privacy — it is
+non-retaining by default ("your prompts are not retained unless you
+specifically opt in to prompt logging") and `provider.zdr: true` restricts
+routing to zero-retention upstream endpoints, settable per-request or
+account-wide. That is a legitimate posture, and its ZDR is a boolean where
+Google's is an approval cycle.
+
+Rejected for production on two narrower grounds. **It adds a hop** — the models
+run on the same third-party hardware either way, so the router is strictly one
+more party in the path for a bank screenshot, with nothing gained in exchange.
+And **schema enforcement gets softer**: this design leans on Gemini enforcing
+the JSON Schema server-side, but through a router that depends on which
+endpoint serves the request, and ZDR routing constrains that pool. The
+validate-and-retry-once path catches the fallback, so it is a quality
+regression rather than a breakage — but it makes the extraction contract less
+certain for no benefit.
+
+Two caveats worth recording if this is ever revisited: OpenRouter treats
+in-memory prompt caching at the provider as not "retention", which is a
+definitional call made on our behalf; and a given cheap model may have no
+ZDR-eligible endpoint at all, so rate-card price and the price available under
+our privacy constraint are not the same number.
+
+**Kept for evaluation.** See *OpenRouter answers the open-model question* above
+— this is how the self-hosting question gets answered before the tunnel exists.
 
 **Bank API integration (Plaid or similar).** Real per-connection cost, which
 conflicts directly with Tally being free; heavy compliance surface; and vast
