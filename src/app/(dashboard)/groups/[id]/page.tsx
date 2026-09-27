@@ -24,7 +24,7 @@ import { useGroupDetail } from '@/queries/useGroupDetail'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
 import { calcLeaderboard } from '@/lib/leaderboard'
-import { mergeFeed, type FeedItem } from '@/lib/feed'
+import { mergeFeed, feedItemDate, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement, Transfer } from '@/types'
 
@@ -106,13 +106,14 @@ export default function GroupDetailPage() {
     ...Object.entries(viewingNets).filter(([, v]) => v < -0.01).map(([id, amt]) => toTransfer(id, Math.abs(amt), 'owe')),
   ] : []
 
-  // Feed — sorted by created_at (mergeFeed), month-bucketed by expense/settled date
-  const feed = mergeFeed(expenses, settlements)
+  // Feed — sorted and month-bucketed by the same key (expense/settled date),
+  // so each month is one contiguous run
+  const feed = mergeFeed(expenses, settlements, 'date')
 
   const dateOrder: string[] = []
   const byDate: Record<string, FeedItem[]> = {}
   for (const item of feed) {
-    const label = monthLabel(item.type === 'expense' ? item.data.expense_date : item.data.settled_date)
+    const label = monthLabel(feedItemDate(item))
     if (!byDate[label]) { byDate[label] = []; dateOrder.push(label) }
     byDate[label].push(item)
   }
@@ -373,7 +374,7 @@ export default function GroupDetailPage() {
                             className="feed-card-row"
                             model={{ ...model, onClick: () => setExpenseSheet(item.data) }}
                             footer={
-                              <div style={{ marginTop: 10 }}>
+                              <div className="feed-card-reactions">
                                 <ReactionPills
                                   expenseId={item.data.id}
                                   groupId={groupId}

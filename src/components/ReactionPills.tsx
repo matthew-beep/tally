@@ -63,15 +63,14 @@ export function ReactionPills({ expenseId, groupId, mySeatId, canPost, size = 'r
     )
   }
 
-  // `reaction-add` + `data-open` are the hooks for the desktop hover-reveal:
-  // inside a feed card the button fades in only on row hover, so an un-reacted
-  // expense carries no visible chrome. The CSS lands with the feed cards it
-  // depends on — there is no row element to hover yet. Only the row size opts
-  // in; the drawer has nothing to hover and shows the button outright.
+  // `data-open` is the hook for the desktop hover-reveal in dashboard.css: the
+  // feed hides the whole reaction row until its card is hovered, and this
+  // keeps it shown while the picker is open. Opacity is left to the
+  // stylesheet (`.reaction-add:disabled`) — an inline value would override it.
   const addButton = (
     <button
       ref={addRef}
-      className={size === 'row' ? 'reaction-add' : undefined}
+      className="reaction-add"
       data-open={pickerOpen || undefined}
       onClick={e => { e.stopPropagation(); setPickerOpen(o => !o) }}
       disabled={isPending}
@@ -81,7 +80,7 @@ export function ReactionPills({ expenseId, groupId, mySeatId, canPost, size = 'r
       style={{
         width: s.btn, height: s.btn, borderRadius: T.r.pill,
         border: `1px dashed ${T.lineStrong}`, background: 'transparent',
-        cursor: isPending ? 'default' : 'pointer', opacity: isPending ? 0.4 : 1,
+        cursor: isPending ? 'default' : 'pointer',
         color: T.inkMuted, fontSize: s.btnEmoji, fontFamily: F,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         flexShrink: 0,

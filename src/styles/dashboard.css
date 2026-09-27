@@ -601,21 +601,55 @@
   display: none;
 }
 
-/* Reaction add button: on pointer devices it appears only when the card is
-   hovered, so an un-reacted expense carries no visible chrome and the feed
-   keeps its density. Kept visible while its picker is open (or focused, for
-   keyboard users) so it can't vanish out from under the popover it opened.
-   Touch has no hover, so the rule is scoped to devices that do. */
+.reaction-add:disabled {
+  opacity: 0.4;
+}
+
+/* Feed reaction row: on pointer devices the whole row — pills and add
+   button — is collapsed until the card is hovered, so the feed is just the
+   expenses. Kept shown while its picker is open (the popover anchors to the
+   add button) or while focus is inside it, for keyboard users.
+   Touch has no hover, so the collapse is scoped to devices that do.
+
+   Collapses via grid-template-rows 0fr → 1fr rather than display: none so
+   the height can animate. The child clips while collapsed (the picker is
+   portaled, so it isn't cut off), and visibility keeps the hidden buttons
+   out of the tab order — it flips at the end of a collapse, the start of
+   an expand. */
+.feed-card-reactions {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: 10px;
+}
+
+.feed-card-reactions > * {
+  min-height: 0;
+}
+
 @media (hover: hover) and (pointer: fine) {
-  .feed-card-row .reaction-add {
+  .feed-card-row .feed-card-reactions {
+    grid-template-rows: 0fr;
+    margin-top: 0;
     opacity: 0;
-    transition: opacity 0.15s ease;
+    visibility: hidden;
+    transition:
+      grid-template-rows 0.3s ease,
+      margin-top 0.3s ease,
+      opacity 0.3s ease,
+      visibility 0.3s;
   }
 
-  .feed-card-row:hover .reaction-add,
-  .feed-card-row .reaction-add[data-open],
-  .feed-card-row .reaction-add:focus-visible {
+  .feed-card-row .feed-card-reactions > * {
+    overflow: hidden;
+  }
+
+  .feed-card-row:hover .feed-card-reactions,
+  .feed-card-row .feed-card-reactions:has([data-open]),
+  .feed-card-row:focus-within .feed-card-reactions {
+    grid-template-rows: 1fr;
+    margin-top: 10px;
     opacity: 1;
+    visibility: visible;
   }
 }
 

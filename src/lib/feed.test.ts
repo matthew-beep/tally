@@ -87,6 +87,26 @@ describe('mergeFeed', () => {
     const feed = mergeFeed([backdated, older], [])
     expect(feed.map(f => f.data.id)).toEqual([backdated.id, older.id])
   })
+
+  describe("order: 'date'", () => {
+    it('sorts by expense_date / settled_date, newest first, regardless of when logged', () => {
+      const backdated = expense('2026-07-10T10:00:00Z', { expense_date: '2026-06-01' })
+      const older = expense('2026-07-05T10:00:00Z')
+      const s = settlement('2026-07-01T10:00:00Z', { settled_date: '2026-06-15' })
+
+      const feed = mergeFeed([backdated, older], [s], 'date')
+      expect(feed.map(f => f.data.id)).toEqual([older.id, s.id, backdated.id])
+    })
+
+    it('breaks same-day ties by created_at, newest first', () => {
+      const first = expense('2026-07-05T09:00:00Z', { expense_date: '2026-07-01' })
+      const second = expense('2026-07-05T18:00:00Z', { expense_date: '2026-07-01' })
+      const s = settlement('2026-07-05T12:00:00Z', { settled_date: '2026-07-01' })
+
+      const feed = mergeFeed([first, second], [s], 'date')
+      expect(feed.map(f => f.data.id)).toEqual([second.id, s.id, first.id])
+    })
+  })
 })
 
 function activityItem(date: string): ActivityItem {

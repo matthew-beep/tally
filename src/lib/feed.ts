@@ -4,14 +4,35 @@ export type FeedItem =
   | { type: 'expense'; data: Expense }
   | { type: 'settlement'; data: Settlement }
 
-// One timeline, newest first. Sort key is created_at — a backdated expense
-// (old expense_date, logged today) still surfaces at the top. Bucketing
-// (by month, by group) is the consumer's job, not mergeFeed's.
-export function mergeFeed(expenses: Expense[], settlements: Settlement[]): FeedItem[] {
+/** The user-set day an item happened — expense_date or settled_date (YYYY-MM-DD). */
+export function feedItemDate(item: FeedItem): string {
+  return item.type === 'expense' ? item.data.expense_date : item.data.settled_date
+}
+
+// One timeline, newest first. Bucketing (by month, by group) is the
+// consumer's job, not mergeFeed's.
+//   'logged' — by created_at: a backdated expense (old expense_date, logged
+//              today) surfaces at the top. The cross-group Activity feed.
+//   'date'   — by the item's own date, created_at breaking ties within a day.
+//              Group detail, whose month headers come from that same date —
+//              sorting by anything else splits a month across the list.
+export function mergeFeed(
+  expenses: Expense[],
+  settlements: Settlement[],
+  order: 'logged' | 'date' = 'logged'
+): FeedItem[] {
+  const created = (i: FeedItem) => new Date(i.data.created_at).getTime()
   return [
     ...expenses.filter(e => !e.deleted_at).map(e => ({ type: 'expense' as const, data: e })),
     ...settlements.map(s => ({ type: 'settlement' as const, data: s })),
-  ].sort((a, b) => new Date(b.data.created_at).getTime() - new Date(a.data.created_at).getTime())
+  ].sort((a, b) => {
+    if (order === 'date') {
+      // ISO dates compare correctly as strings.
+      const byDate = feedItemDate(b).localeCompare(feedItemDate(a))
+      if (byDate !== 0) return byDate
+    }
+    return created(b) - created(a)
+  })
 }
 
 export interface ActivityBucket {
