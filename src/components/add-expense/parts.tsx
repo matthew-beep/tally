@@ -89,3 +89,16 @@ export function Checkbox({ on, onClick }: { on: boolean; onClick: () => void }) 
     >{on ? '✓' : ''}</div>
   )
 }
+
+/** Edit mode only — says up front that saving is visible to the group. */
+export function EditedNotice() {
+  return (
+    <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', background: T.sunSoft, borderRadius: 12, fontSize: 12, lineHeight: 1.5, color: T.sunInk }}>
+      <svg width="16" height="16" viewBox="0 0 16 16" style={{ flexShrink: 0, marginTop: 1 }}>
+        <circle cx="8" cy="8" r="6.5" stroke={T.sunInk} strokeWidth="1.3" fill="none" />
+        <path d="M8 4.5v4M8 11v.4" stroke={T.sunInk} strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+      <span><b>Saving will mark this as modified.</b> Others will see <span style={{ fontFamily: FMONO }}>(edited)</span> in the activity feed.</span>
+    </div>
+  )
+}

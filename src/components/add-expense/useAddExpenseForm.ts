@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useGroup, useGroupMembers } from '@/queries/useGroups'
-import { useAddExpense } from '@/queries/useExpenses'
+import { useAddExpense, useUpdateExpense } from '@/queries/useExpenses'
 import { useCurrentProfile } from '@/queries/useProfile'
 import { insertExpenseComment } from '@/queries/useExpenseComments'
 import { detectCategory } from '@/lib/categories'
@@ -12,8 +13,9 @@ import { slotFor } from '@/lib/memberDisplay'
 import { localISODate } from '@/lib/time'
 import { createClient } from '@/lib/supabase'
 import { useUIStore } from '@/store/ui'
-import type { GroupMember } from '@/types'
+import type { Expense, GroupMember } from '@/types'
 import type { SplitMode, LineItem, OpenPanel } from './types'
+import { seedFromExpense } from './seedFromExpense'
 
 /**
  * Even shares that sum *exactly* to the total. Naive `total / n` rounded per row
@@ -125,6 +127,10 @@ export interface AddExpenseFormState {
   /** What each member ends up owing under the current receipt, per member. */
   itemShares: ItemShare[]
 
+  /** Editing a saved expense rather than adding one. */
+  isEdit: boolean
+  /** Edit mode: whether anything differs from the saved expense. Always true when adding. */
+  isDirty: boolean
   canSave: boolean
   saveLabel: string
   isPending: boolean
@@ -142,35 +148,70 @@ export interface AddExpenseFormState {
  * (the remainder counter, `canSave`, and the saved splits) reads from it — so
  * the footer can never claim "balanced" while Save disagrees.
  */
-export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
+export function useAddExpenseForm({ groupId, isMobile, onSuccess, initial }: {
   groupId: string
   isMobile: boolean
   onSuccess: () => void
+  /** Open pre-filled to edit this expense; Save overwrites it. */
+  initial?: Expense
 }): AddExpenseFormState {
   const { data: group }        = useGroup(groupId)
   const { data: members = [] } = useGroupMembers(groupId)
   const { data: profile }      = useCurrentProfile()
   const addExpense             = useAddExpense(groupId)
+  const updateExpense          = useUpdateExpense(groupId)
   const pushToast              = useUIStore(s => s.pushToast)
 
-  const [amount,         setAmount]         = useState('')
-  const [description,    setDescription]    = useState('')
+  // Captured once — the form owns the values from here, and the seed is what
+  // "dirty" is measured against. The sheet keys the form on the expense id,
+  // so a different expense always mounts a fresh seed.
+  const [seed] = useState(() => initial ? seedFromExpense(initial, isMobile) : null)
+  const isEdit = !!seed
+
+  const [amount,         setAmount]         = useState(seed?.amount ?? '')
+  const [description,    setDescription]    = useState(seed?.description ?? '')
   const [note,           setNote]           = useState('')
-  const [category,       setCategory]       = useState('💸')
-  const [manualCategory, setManualCategory] = useState(false)
-  const [splitMode,      setSplitMode]      = useState<SplitMode>('equal')
-  const [paidById,       setPaidById]       = useState<string | null>(null)
-  const [expenseDate,    setExpenseDate]    = useState(() => localISODate())
-  const [included,       setIncluded]       = useState<Set<string>>(new Set())
-  const [percents,       setPercents]       = useState<Record<string, string>>({})
-  const [exactAmounts,   setExactAmounts]   = useState<Record<string, string>>({})
+  const [category,       setCategory]       = useState(seed?.category ?? '💸')
+  // A saved category is a decision, not a guess to re-derive from the description.
+  const [manualCategory, setManualCategory] = useState(isEdit)
+  const [splitMode,      setSplitMode]      = useState<SplitMode>(seed?.splitMode ?? 'equal')
+  const [paidById,       setPaidById]       = useState<string | null>(seed?.paidById ?? null)
+  const [expenseDate,    setExpenseDate]    = useState(() => seed?.expenseDate ?? localISODate())
+  const [included,       setIncluded]       = useState<Set<string>>(() => seed ? new Set(seed.included) : new Set())
+  const [percents,       setPercents]       = useState<Record<string, string>>(seed?.percents ?? {})
+  const [exactAmounts,   setExactAmounts]   = useState<Record<string, string>>(seed?.exactAmounts ?? {})
   const [focusId,        setFocusId]        = useState<string | null>(null)
   const [openPanel,      setOpenPanel]      = useState<OpenPanel>(null)
 
   // Once the user edits a field by hand we stop re-deriving even shares for
-  // that mode — their numbers are intent, not a placeholder.
-  const [percentTouched, setPercentTouched] = useState(false)
-  const [exactTouched,   setExactTouched]   = useState(false)
+  // that mode — their numbers are intent, not a placeholder. Saved shares
+  // count as touched from the start.
+  const [percentTouched, setPercentTouched] = useState(isEdit)
+  const [exactTouched,   setExactTouched]   = useState(isEdit)
+
+  // Seats on the saved expense that the members query no longer returns —
+  // people who have left the group. Leaving never deletes the seat, so their
+  // split still points at it; without loading them here the stale-member
+  // cleanup below would silently drop their share on save. Edit-only: a new
+  // expense never offers a former member.
+  const loadedIds = new Set((members as GroupMember[]).map(m => m.id))
+  const formerIds = initial
+    ? [...new Set([...(initial.splits ?? []).map(s => s.group_member_id), initial.paid_by])]
+        .filter(id => !loadedIds.has(id))
+    : []
+  const { data: formerMembers = [] } = useQuery({
+    queryKey: ['group_members', groupId, 'former', formerIds.join(',')],
+    queryFn: async () => {
+      const { data, error } = await createClient()
+        .from('group_members')
+        .select('*, profile:profiles!group_members_user_id_fkey(*)')
+        .in('id', formerIds)
+      if (error) throw error
+      return (data ?? []) as GroupMember[]
+    },
+    // Wait for the members query, or every seat would look "former" on first render.
+    enabled: formerIds.length > 0 && members.length > 0,
+  })
 
   // Itemized receipt state — UI-only preview, nothing reaches handleSave yet
   const [items,    setItems]    = useState<LineItem[]>([])
@@ -180,7 +221,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
   const [tipVal,   setTipVal]   = useState(0)
   const nextItemId = useRef(0)
 
-  const typedMembers = members as GroupMember[]
+  const typedMembers = [...(members as GroupMember[]), ...formerMembers.filter(m => !loadedIds.has(m.id))]
   const memberIds   = typedMembers.map(m => m.id)
   const memberById  = Object.fromEntries(typedMembers.map(m => [m.id, m]))
   const slotById    = Object.fromEntries(typedMembers.map(m => [m.id, slotFor(typedMembers, m.id)]))
@@ -199,7 +240,9 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     if (memberIds.length === 0) return
     setIncluded(prev => {
       if (prev.size === 0) return new Set(memberIds)
-      const stale = [...prev].filter(id => !memberById[id])
+      // A former member on the saved expense isn't stale — their seat may just
+      // not have loaded yet.
+      const stale = [...prev].filter(id => !memberById[id] && !seed?.included.has(id))
       if (stale.length === 0) return prev
       const next = new Set(prev)
       stale.forEach(id => next.delete(id))
@@ -337,14 +380,34 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     splitMode === 'exact'      ? exactValid :
     true
 
-  const canSave = baseValid && splitValid && splitMode !== 'itemized'
+  // Edit mode: has anything split-related moved off the saved expense? If not,
+  // Save writes the saved split rows back untouched rather than re-deriving
+  // them — percents are rounded on the way in, and re-deriving could shift a
+  // cent between people on an edit that only fixed a typo.
+  const sameIds = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every(id => b.has(id))
+  const splitDirty = !seed ||
+    amount !== seed.amount ||
+    splitMode !== seed.splitMode ||
+    paidById !== seed.paidById ||
+    !sameIds(included, seed.included) ||
+    (splitMode === 'exact'      && [...included].some(id => (exactAmounts[id] ?? '') !== (seed.exactAmounts[id] ?? ''))) ||
+    (splitMode === 'percentage' && [...included].some(id => (percents[id] ?? '')     !== (seed.percents[id] ?? '')))
+  const isDirty = !seed || splitDirty ||
+    description.trim() !== seed.description ||
+    category !== seed.category ||
+    expenseDate !== seed.expenseDate
 
-  const saveLabel = addExpense.isPending ? 'Saving…' :
-    !baseValid                                  ? 'Save expense' :
-    splitMode === 'percentage' && !percentValid ? 'Balance to 100% first' :
-    splitMode === 'exact'      && !exactValid   ? "Doesn't add up yet" :
-    splitMode === 'itemized'                    ? 'Coming soon' :
-    'Save expense'
+  const isPending = addExpense.isPending || updateExpense.isPending
+  const canSave = baseValid && isDirty && splitMode !== 'itemized' && (splitValid || !splitDirty)
+
+  const idleLabel = isEdit ? 'Save changes' : 'Save expense'
+  const saveLabel = isPending ? 'Saving…' :
+    !baseValid                                                 ? idleLabel :
+    !splitDirty                                                ? idleLabel :
+    splitMode === 'percentage' && !percentValid                ? 'Balance to 100% first' :
+    splitMode === 'exact'      && !exactValid                  ? "Doesn't add up yet" :
+    splitMode === 'itemized'                                   ? 'Coming soon' :
+    idleLabel
 
   // The rows Save would write, built once per render. The desktop ledger and
   // footer read the same object through `previewSplits`, so neither can show a
@@ -389,7 +452,32 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     : null
 
   async function handleSave() {
-    if (!canSave || addExpense.isPending || !paidById || !built) return
+    if (!canSave || isPending || !paidById) return
+
+    if (initial && seed) {
+      const splits = splitDirty ? built?.splits : (initial.splits ?? [])
+      if (!splits) return
+      try {
+        await updateExpense.mutateAsync({
+          expenseId: initial.id,
+          description: description.trim(),
+          amount: round2(amt),
+          paid_by: paidById,
+          split_type: splitDirty && built ? built.splitType : initial.split_type,
+          splits,
+          category,
+          expense_date: expenseDate,
+        })
+      } catch {
+        // The global MutationCache handler already toasts the error; the RPC
+        // is one transaction, so nothing was written. Stay open to retry.
+        return
+      }
+      onSuccess()
+      return
+    }
+
+    if (!built) return
 
     const newExpense = await addExpense.mutateAsync({
       description: description.trim(),
@@ -453,6 +541,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess }: {
     tipMode, setTipMode, tipVal, setTipVal,
     subtotal, taxAmt, tipAmt, itemTotal, itemShares,
 
-    canSave, saveLabel, isPending: addExpense.isPending, handleSave,
+    isEdit, isDirty,
+    canSave, saveLabel, isPending, handleSave,
   }
 }

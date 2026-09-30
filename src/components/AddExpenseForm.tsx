@@ -14,6 +14,7 @@ import { MobilePanel } from '@/components/add-expense/MobilePanel'
 import { useIsMobileSheet } from '@/hooks/useMediaQuery'
 import { useGroup } from '@/queries/useGroups'
 import { ModalOrSheet } from '@/components/modal'
+import type { Expense } from '@/types'
 
 // The desktop dialog's two widths: the form alone, and the form with the
 // split ledger beside it.
@@ -26,11 +27,13 @@ interface AddExpenseFormProps {
   onCancel: () => void
   /** Desktop only — reports whether the panel wants the wide dialog. */
   onWideChange?: (wide: boolean) => void
+  /** Open pre-filled to edit this expense instead of adding a new one. */
+  expense?: Expense
 }
 
-export function AddExpenseForm({ groupId, onSuccess, onCancel, onWideChange }: AddExpenseFormProps) {
+export function AddExpenseForm({ groupId, onSuccess, onCancel, onWideChange, expense }: AddExpenseFormProps) {
   const isMobile = useIsMobileSheet()
-  const state = useAddExpenseForm({ groupId, isMobile, onSuccess })
+  const state = useAddExpenseForm({ groupId, isMobile, onSuccess, initial: expense })
 
   return isMobile
     ? <MobilePanel s={state} onCancel={onCancel} />
@@ -41,11 +44,14 @@ interface AddExpenseSheetProps {
   open: boolean
   onClose: () => void
   groupId: string
+  /** Edit this expense — the same form, pre-filled, saving over the original. */
+  expense?: Expense | null
 }
 
-export function AddExpenseSheet({ open, onClose, groupId }: AddExpenseSheetProps) {
+export function AddExpenseSheet({ open, onClose, groupId, expense }: AddExpenseSheetProps) {
   const { data: group } = useGroup(groupId)
-  const title = group ? `Add expense — ${group.name}` : 'Add expense'
+  const verb  = expense ? 'Edit expense' : 'Add expense'
+  const title = group ? `${verb} — ${group.name}` : verb
   // Owned here rather than in the panel because the modal's width is set out
   // here. The panel reports it, and resets it to narrow when it unmounts, so
   // the next open never starts wide.
@@ -63,7 +69,12 @@ export function AddExpenseSheet({ open, onClose, groupId }: AddExpenseSheetProps
       panelClassName="add-expense-panel-root"
       panelStyle={{ padding: 0, overflow: 'hidden' }}
     >
-      <AddExpenseForm groupId={groupId} onSuccess={onClose} onCancel={onClose} onWideChange={setWide} />
+      {/* Keyed so each expense (or a fresh add) mounts its own seed. */}
+      <AddExpenseForm
+        key={expense?.id ?? 'new'}
+        groupId={groupId} expense={expense ?? undefined}
+        onSuccess={onClose} onCancel={onClose} onWideChange={setWide}
+      />
     </ModalOrSheet>
   )
 }

@@ -7,13 +7,12 @@ import { EmojiTile } from '@/components/EmojiTile'
 import { SectionLabel } from '@/components/SectionLabel'
 import { ModalOrSheet, ModalContent, ModalFooter } from '@/components/modal'
 import { Btn } from '@/components/Btn'
-import { PersonToken } from '@/components/PersonToken'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
-import { formatAmount, stripNegative } from '@/lib/money'
+import { formatAmount } from '@/lib/money'
 import { calcExpenseNets } from '@/lib/balance'
 import { ReactionPills } from '@/components/ReactionPills'
 import { CommentsList } from '@/components/CommentsList'
-import { useDeleteExpense, useUpdateExpense } from '@/queries/useExpenses'
+import { useDeleteExpense } from '@/queries/useExpenses'
 import type { Expense, GroupMember } from '@/types'
 
 interface Props {
@@ -30,9 +29,11 @@ interface Props {
    */
   canPost?: boolean
   onClose: () => void
+  /** Edit opens the add-expense form pre-filled — owned by the page, not this sheet. */
+  onEdit: (expense: Expense) => void
 }
 
-type Screen = 'detail' | 'edit' | 'delete-confirm'
+type Screen = 'detail' | 'delete-confirm'
 
 /** Midnight-qualified so a bare YYYY-MM-DD isn't parsed as UTC and shown a day early. */
 function expenseDay(dateStr: string): string {
@@ -50,146 +51,6 @@ function splitCaption(expense: Expense): string {
   if (expense.split_type === 'percentage') return 'Split by percentage'
   if (expense.split_type === 'itemized')   return 'Split by items'
   return 'Split'
-}
-
-function DirtyDot() {
-  return <span style={{ width: 6, height: 6, borderRadius: '50%', background: T.sun, display: 'inline-block' }} />
-}
-
-// ── Edit expense ─────────────────────────────────────────────────────────
-function ExpenseEditDrawer({
-  expense, members, groupId, onCancel, onSaved,
-}: {
-  expense: Expense
-  members: GroupMember[]
-  groupId: string
-  onCancel: () => void
-  onSaved: () => void
-}) {
-  const updateExpense = useUpdateExpense(groupId)
-  const memberById: Record<string, GroupMember> = Object.fromEntries(members.map(m => [m.id, m]))
-  const splitMembers = (expense.splits ?? [])
-    .map(s => memberById[s.group_member_id])
-    .filter((m): m is GroupMember => !!m)
-
-  const [description, setDescription] = useState(expense.description)
-  const [amount, setAmount]           = useState(Number(expense.amount).toFixed(2))
-  const [paidBy, setPaidBy]           = useState(expense.paid_by)
-
-  const amt = parseFloat(amount) || 0
-  const descDirty   = description !== expense.description
-  const amountDirty = amount !== Number(expense.amount).toFixed(2)
-  const payerDirty  = paidBy !== expense.paid_by
-  const isDirty     = descDirty || amountDirty || payerDirty
-  const canSave     = isDirty && !!description.trim() && amt > 0 && !updateExpense.isPending
-
-  async function handleSave() {
-    if (!canSave) return
-    await updateExpense.mutateAsync({ expense, description: description.trim(), amount: amt, paid_by: paidBy })
-    onSaved()
-  }
-
-  const fieldBox = (dirty: boolean) => ({
-    background: T.surfaceAlt, borderRadius: 14,
-    boxShadow: dirty ? `inset 0 0 0 1.5px ${T.sun}` : `inset 0 0 0 1px ${T.line}`,
-    transition: 'box-shadow 0.18s',
-  })
-  const fieldLabelStyle: React.CSSProperties = { padding: '0 4px 6px', display: 'flex', alignItems: 'center', gap: 6 }
-
-  return (
-    <ModalContent style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: FH, fontSize: 17, fontWeight: 700, letterSpacing: -0.4, color: T.ink }}>Edit expense</span>
-        <Btn
-          onClick={handleSave} disabled={!canSave} variant="primary" size="sm"
-          style={{ fontWeight: 700, transition: 'all 0.18s' }}
-        >{updateExpense.isPending ? 'Saving…' : 'Save'}</Btn>
-      </div>
-
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', background: T.sunSoft, borderRadius: 12, fontSize: 12, lineHeight: 1.5, color: T.sunInk }}>
-        <svg width="16" height="16" viewBox="0 0 16 16" style={{ flexShrink: 0, marginTop: 1 }}>
-          <circle cx="8" cy="8" r="6.5" stroke={T.sunInk} strokeWidth="1.3" fill="none" />
-          <path d="M8 4.5v4M8 11v.4" stroke={T.sunInk} strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-        <span><b>Saving will mark this as modified.</b> Others will see <span style={{ fontFamily: FMONO }}>(edited)</span> in the activity feed.</span>
-      </div>
-
-      <div>
-        <SectionLabel size="sm" style={fieldLabelStyle}>Amount {amountDirty && <DirtyDot />}</SectionLabel>
-        <div style={{ ...fieldBox(amountDirty), padding: '10px 14px', display: 'flex', alignItems: 'baseline', gap: 3 }}>
-          <span style={{ fontSize: 18, color: T.inkMuted, fontFamily: FH, fontWeight: 500 }}>$</span>
-          <input
-            type="number" inputMode="decimal" min={0}
-            value={amount}
-            onChange={e => setAmount(stripNegative(e.target.value))}
-            style={{ border: 0, outline: 0, background: 'transparent', fontFamily: FH, fontSize: 26, fontWeight: 600, letterSpacing: -0.6, color: T.ink, width: '100%' }}
-          />
-        </div>
-      </div>
-
-      <div>
-        <SectionLabel size="sm" style={fieldLabelStyle}>Description {descDirty && <DirtyDot />}</SectionLabel>
-        <div style={{ ...fieldBox(descDirty), padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16 }}>{expense.category ?? '💸'}</span>
-          <input
-            value={description} onChange={e => setDescription(e.target.value)}
-            style={{ flex: 1, border: 0, outline: 0, background: 'transparent', fontSize: 16, fontWeight: 600, color: T.ink, fontFamily: 'inherit' }}
-          />
-        </div>
-      </div>
-
-      <div>
-        <SectionLabel size="sm" style={fieldLabelStyle}>Paid by {payerDirty && <DirtyDot />}</SectionLabel>
-        <div style={{ ...fieldBox(payerDirty), padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {splitMembers.map(m => (
-            <PersonToken
-              key={m.id}
-              member={m}
-              slot={slotFor(members, m.id)}
-              selected={paidBy === m.id}
-              onClick={() => setPaidBy(m.id)}
-              size="sm"
-            />
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <SectionLabel size="sm" style={fieldLabelStyle}>Split among</SectionLabel>
-        <div style={{ ...fieldBox(false), padding: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(expense.splits ?? []).map(split => {
-            const m = memberById[split.group_member_id]
-            if (!m) return null
-            return (
-              // Read-only, so it renders flat — a pill you can only look at.
-              <PersonToken
-                key={split.group_member_id}
-                member={m}
-                slot={slotFor(members, split.group_member_id)}
-                size="sm"
-                trailing={
-                  <span style={{ fontSize: 11, color: T.inkFaint, fontFamily: FMONO, marginLeft: 4 }}>
-                    {formatAmount(Number(split.owed_amount))}
-                  </span>
-                }
-              />
-            )
-          })}
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-        <Btn
-          onClick={onCancel} variant="outline" size="md"
-          style={{ flex: 1, fontFamily: F }}
-        >Cancel</Btn>
-        <Btn
-          onClick={handleSave} disabled={!canSave} variant="primary" size="md"
-          style={{ flex: 2, fontSize: 14.5, transition: 'all 0.18s' }}
-        >{updateExpense.isPending ? 'Saving…' : 'Save changes'}</Btn>
-      </div>
-    </ModalContent>
-  )
 }
 
 // ── Delete confirm ───────────────────────────────────────────────────────
@@ -329,7 +190,7 @@ function ExpenseDetailScreen({
 }
 
 // ── Root sheet ───────────────────────────────────────────────────────────
-export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPost = false, onClose }: Props) {
+export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPost = false, onClose, onEdit }: Props) {
   const deleteExpense = useDeleteExpense(groupId)
   const [screen, setScreen] = useState<Screen>('detail')
 
@@ -356,20 +217,10 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
     handleClose()
   }
 
-  const title = screen === 'edit' ? 'Edit expense' : screen === 'delete-confirm' ? 'Delete this expense?' : displayExpense.description
+  const title = screen === 'delete-confirm' ? 'Delete this expense?' : displayExpense.description
 
   return (
     <ModalOrSheet open={!!expense} onClose={handleClose} title={title} maxWidth={460}>
-      {screen === 'edit' && (
-        <ExpenseEditDrawer
-          expense={displayExpense}
-          members={members}
-          groupId={groupId}
-          onCancel={() => setScreen('detail')}
-          onSaved={handleClose}
-        />
-      )}
-
       {screen === 'delete-confirm' && (
         <DeleteConfirmDrawer
           expense={displayExpense}
@@ -396,7 +247,7 @@ export function ExpenseActionSheet({ expense, members, groupId, mySeatId, canPos
               pins to the bottom while the detail above it scrolls. */}
           <ModalFooter style={{ justifyContent: 'stretch', gap: 9 }}>
             <Btn
-              onClick={() => setScreen('edit')} variant="cocoa" size="lg"
+              onClick={() => onEdit(displayExpense)} variant="cocoa" size="lg"
               icon={
                 <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                   <path d="M11 2.5l2.5 2.5-8 8H3v-2.5l8-8z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round"/>

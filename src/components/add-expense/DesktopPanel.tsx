@@ -15,7 +15,7 @@ import { FilingRow } from './FilingRow'
 import { PayerSheetContent } from './PayerSheetContent'
 import { SplitLedger } from './SplitLedger'
 import { TokenSentence } from './TokenSentence'
-import { shortName, fmtPct } from './parts'
+import { shortName, fmtPct, EditedNotice } from './parts'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 // The narrowest viewport the 1010px dialog fits in with the modal's 24px
@@ -180,6 +180,7 @@ export function DesktopPanel({ s, onCancel, onWideChange }: {
 
   const compose = (
     <>
+      {s.isEdit && <div style={{ marginBottom: 14 }}><EditedNotice /></div>}
       <FilingRow s={s} />
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 168px', gap: 14, alignItems: 'end' }}>
@@ -195,7 +196,9 @@ export function DesktopPanel({ s, onCancel, onWideChange }: {
         </Field>
       </div>
 
-      <NoteWell value={s.note} onChange={s.setNote} />
+      {/* A note posts as the first comment on a new expense — editing has
+          the comments thread for that. */}
+      {!s.isEdit && <NoteWell value={s.note} onChange={s.setNote} />}
       <ItemizeStub />
 
       {/* The only statement of who paid and how it splits while the ledger is
@@ -221,7 +224,7 @@ export function DesktopPanel({ s, onCancel, onWideChange }: {
       className="add-expense-panel add-expense-panel--desktop"
       onSubmit={e => { e.preventDefault(); if (s.canSave) void s.handleSave() }}
     >
-      <ModalHeader title="Add an expense" onClose={onCancel} style={{ borderBottom: 'none', padding: '22px 26px 16px' }} />
+      <ModalHeader title={s.isEdit ? 'Edit expense' : 'Add an expense'} onClose={onCancel} style={{ borderBottom: 'none', padding: '22px 26px 16px' }} />
 
       <div className="add-expense-desktop-body">
         {side ? (

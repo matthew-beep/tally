@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import { rescaleSplits } from '@/lib/splits'
 import type { Expense } from '@/types'
 
 // Shared by useExpenses (single group) and useAllGroupData (fan-out) so
@@ -47,52 +46,37 @@ export function useDeleteExpense(groupId: string) {
   })
 }
 
-// Amount/description/paid_by only — split membership stays fixed (no UI to
-// change it yet). Existing owed_amount values are rescaled proportionally to
-// the new amount, preserving split_type/shape. Rounding remainder goes to
-// paid_by, per convention. paid_by must already own a split row; the caller
-// is responsible for keeping the payer picker scoped to existing members
-// until reassigning splits on payer change is supported.
+export interface ExpenseEdit {
+  expenseId: string
+  description: string
+  amount: number
+  paid_by: string
+  split_type: Expense['split_type']
+  splits: { group_member_id: string; owed_amount: number }[]
+  category: string
+  expense_date: string
+}
+
+// Full edit — the expense row and its splits replaced in one transaction by
+// update_expense_with_splits, so a failure can never leave an expense with no
+// splits. Split sum invariant: caller (lib/splits.ts) balances the splits; the
+// RPC re-checks and rejects anything that doesn't sum to the amount.
 export function useUpdateExpense(groupId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ expense, description, amount, paid_by }: {
-      expense: Expense
-      description: string
-      amount: number
-      paid_by: string
-    }) => {
-      const roundedAmount = Math.round(amount * 100) / 100
-      const oldSplits = expense.splits ?? []
-      if (oldSplits.length === 0) throw new Error('Expense has no splits to rescale')
-      if (!oldSplits.some(s => s.group_member_id === paid_by)) {
-        throw new Error('New payer must already be part of the split')
-      }
-
-      const rescaled = rescaleSplits(oldSplits, roundedAmount, paid_by)
-
-      // Update first: if this fails (e.g. amount <= 0), splits are untouched.
-      const { error: updateError } = await supabase
-        .from('expenses')
-        .update({ description: description.trim(), amount: roundedAmount, paid_by })
-        .eq('id', expense.id)
-      if (updateError) throw updateError
-
-      const { error: deleteError } = await supabase
-        .from('expense_splits')
-        .delete()
-        .eq('expense_id', expense.id)
-      if (deleteError) throw deleteError
-
-      const { error: insertError } = await supabase
-        .from('expense_splits')
-        .insert(rescaled.map(s => ({
-          expense_id: expense.id,
-          group_member_id: s.group_member_id,
-          owed_amount: s.owed_amount,
-        })))
-      if (insertError) throw insertError
+    mutationFn: async (edit: ExpenseEdit) => {
+      const { error } = await supabase.rpc('update_expense_with_splits', {
+        p_expense_id:   edit.expenseId,
+        p_description:  edit.description.trim(),
+        p_amount:       Math.round(edit.amount * 100) / 100,
+        p_paid_by:      edit.paid_by,
+        p_split_type:   edit.split_type,
+        p_category:     edit.category,
+        p_expense_date: edit.expense_date,
+        p_splits:       edit.splits.map(s => ({ group_member_id: s.group_member_id, owed_amount: Number(s.owed_amount) })),
+      })
+      if (error) throw error
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses', groupId] })

@@ -46,6 +46,9 @@ export default function GroupDetailPage() {
   const [settleOpen,      setSettleOpen]      = useState(false)
   const [leaderboardOpen, setLeaderboardOpen] = useState(false)
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
+  // Kept after close so the edit sheet can animate out on the same content.
+  const [editingExpense,  setEditingExpense]  = useState<Expense | null>(null)
+  const [editOpen,        setEditOpen]        = useState(false)
   const [settleUser, setSettleUser] = useState<string | null>(null)
   const [viewingMemberId, setViewingMemberId] = useState<string | null>(null)
 
@@ -405,6 +408,15 @@ export default function GroupDetailPage() {
         groupId={groupId}
       />
 
+      {/* Edit reuses the add form, pre-filled. A separate instance so the add
+          sheet's own open state (and ?add=1 deep link) is never disturbed. */}
+      <AddExpenseSheet
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        groupId={groupId}
+        expense={editingExpense}
+      />
+
       <SettleUpSheet
         open={settleOpen}
         onClose={() => { setSettleOpen(false); setSettleUser(null) }}
@@ -437,6 +449,7 @@ export default function GroupDetailPage() {
         mySeatId={myId}
         canPost={myMember?.status === 'active'}
         onClose={() => setExpenseSheet(null)}
+        onEdit={e => { setExpenseSheet(null); setEditingExpense(e); setEditOpen(true) }}
       />
 
     </div>

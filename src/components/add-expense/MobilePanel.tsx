@@ -14,6 +14,7 @@ import { SplitSheetContent } from './SplitSheetContent'
 import { DateSheetContent } from './DateSheetContent'
 import { CategorySheetContent } from './CategorySheetContent'
 import { ItemizedSheet } from './ItemizedSheet'
+import { EditedNotice } from './parts'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
 // Which field has the caret. Local to the layout — the hook has no opinion
@@ -172,6 +173,7 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
     s.isPending   ? 'Saving…' :
     isItemized    ? 'Itemized — coming soon' :
     !s.splitValid ? s.saveLabel :
+    s.isEdit      ? s.saveLabel :
     s.amt > 0     ? `Add ${formatAmount(s.amt)}` :
                     'Add expense'
 
@@ -221,12 +223,16 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
 
 
       <div className="add-expense-mobile-body">
+        {s.isEdit && <EditedNotice />}
+
         {/* what it was for */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <Glyph>{ICON_LINES}</Glyph>
           <span style={underline(field === 'desc', 8)}>
             <input
-              autoFocus
+              // Editing usually means one field — don't throw the keyboard up
+              // over the values the user came to look at.
+              autoFocus={!s.isEdit}
               value={s.description}
               onChange={e => s.setDescription(e.target.value)}
               onFocus={() => focusField('desc')}
@@ -293,8 +299,9 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
 
           {/* The note is a line of the form you type into, not a sheet with its
               own Save. 16px is a hard floor, not a design choice — iOS Safari
-              auto-zooms the viewport on focus for anything smaller. */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0' }}>
+              auto-zooms the viewport on focus for anything smaller. Hidden when
+              editing: a note posts as a new expense's first comment. */}
+          {!s.isEdit && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0' }}>
             <span style={{ width: 20, marginTop: 3, display: 'inline-flex', justifyContent: 'center', flexShrink: 0, color: field === 'note' || s.note ? T.inkMuted : T.inkFaint }}>{ICON_NOTE}</span>
             <textarea
               value={s.note}
@@ -308,7 +315,7 @@ export function MobilePanel({ s, onCancel, variant = 'sheet' }: { s: AddExpenseF
                 fontFamily: F, fontSize: 16, fontWeight: 600, lineHeight: 1.45, color: T.ink,
               }}
             />
-          </div>
+          </div>}
         </div>
 
         {/* Clearance so the last row sits clear of the commit button — and,
