@@ -33,7 +33,7 @@ export default function AddExpensePage() {
 function AddExpenseRoutePanel({ groupId }: { groupId: string }) {
   const router = useRouter()
   const goToGroup = () => router.push(`/groups/${groupId}`)
-  const state = useAddExpenseForm({ groupId, isMobile: true, onSuccess: goToGroup })
+  const state = useAddExpenseForm({ groupId, onSuccess: goToGroup })
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>

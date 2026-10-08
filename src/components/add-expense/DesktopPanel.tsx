@@ -132,16 +132,16 @@ function OutcomeLine({ s }: { s: AddExpenseFormState }) {
   const others = Object.keys(preview).filter(id => id !== s.paidById && preview[id] > 0)
 
   let body: ReactNode
-  if (s.paidById === s.youMemberId) {
-    if (others.length === 0) {
-      body = <>You paid <span style={strong}>{total}</span> · only you in this split</>
-    } else {
-      const owedToYou = round2(others.reduce((a, id) => a + preview[id], 0))
-      const who = others.length === 1
-        ? `${shortName(s.memberById[others[0]], s.youMemberId)} owes`
-        : `${others.length} people owe`
-      body = <>You paid <span style={strong}>{total}</span> · {who} you <span style={strong}>{formatAmount(owedToYou)}</span></>
-    }
+  if (others.length === 0) {
+    // Only the payer is in — a record of spend, not a debt.
+    const payer = shortName(s.memberById[s.paidById], s.youMemberId)
+    body = <>{payer} paid <span style={strong}>{total}</span> · nothing borrowed</>
+  } else if (s.paidById === s.youMemberId) {
+    const owedToYou = round2(others.reduce((a, id) => a + preview[id], 0))
+    const who = others.length === 1
+      ? `${shortName(s.memberById[others[0]], s.youMemberId)} owes`
+      : `${others.length} people owe`
+    body = <>You paid <span style={strong}>{total}</span> · {who} you <span style={strong}>{formatAmount(owedToYou)}</span></>
   } else {
     const payer = shortName(s.memberById[s.paidById], s.youMemberId)
     const mine = s.youMemberId ? preview[s.youMemberId] : undefined

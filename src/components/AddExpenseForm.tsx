@@ -33,7 +33,7 @@ interface AddExpenseFormProps {
 
 export function AddExpenseForm({ groupId, onSuccess, onCancel, onWideChange, expense }: AddExpenseFormProps) {
   const isMobile = useIsMobileSheet()
-  const state = useAddExpenseForm({ groupId, isMobile, onSuccess, initial: expense })
+  const state = useAddExpenseForm({ groupId, onSuccess, initial: expense })
 
   return isMobile
     ? <MobilePanel s={state} onCancel={onCancel} />

@@ -49,6 +49,11 @@ export function FeedCard({ model, size = 'full', footer, className }: Props) {
       style={{ padding: s.pad, cursor: clickable ? 'pointer' : 'default' }}
     >
       <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        {model.dateLabel && (
+          <div style={{ fontFamily: FMONO, fontSize: 11, fontWeight: 600, color: T.inkMuted, flexShrink: 0, width: 34, textAlign: 'center' }}>
+            {model.dateLabel}
+          </div>
+        )}
         {model.icon.kind === 'emoji' ? (
           <EmojiTile emoji={model.icon.emoji} size={s.tile} fontSize={s.tileFont} radius={s.tileRadius} background={T.bg} />
         ) : (
@@ -69,7 +74,7 @@ export function FeedCard({ model, size = 'full', footer, className }: Props) {
             {!!model.participants?.length && (
               <span className="feed-card-participants">
                 <span style={{ width: 3, height: 3, borderRadius: '50%', background: T.inkFaint }} />
-                <span>split {model.participants.length} ways</span>
+                <span>{model.participants.length > 1 ? `split ${model.participants.length} ways` : 'for'}</span>
                 <span style={{ display: 'inline-flex', marginLeft: 2 }}>
                   <AvatarStack
                     members={model.participants.map(p => ({ profile: p.avatar, slot: p.slot, isYou: p.isYou }))}

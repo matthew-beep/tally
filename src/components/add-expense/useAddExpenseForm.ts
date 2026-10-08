@@ -140,17 +140,15 @@ export interface AddExpenseFormState {
 /**
  * All add-expense state and math, shared by the mobile and desktop layouts.
  *
- * The one thing that genuinely differs between them is who owns an editable
- * amount in percent/exact mode:
- *   Mobile — every member except the payer; the payer's share is the remainder.
- *   Desktop — every member, payer included; the whole list must balance.
- * That difference is captured once, in `amountsIds`, and everything downstream
- * (the remainder counter, `canSave`, and the saved splits) reads from it — so
- * the footer can never claim "balanced" while Save disagrees.
+ * The split is exactly the ticked members, and in percent/exact mode every one
+ * of them owns an editable amount that must balance to the total. The payer is
+ * no exception: ticked, they carry a share like anyone; unticked, they fronted
+ * the whole thing for the others. `amountsIds` is that list, and everything
+ * downstream (the remainder counter, `canSave`, and the saved splits) reads
+ * from it — so the footer can never claim "balanced" while Save disagrees.
  */
-export function useAddExpenseForm({ groupId, isMobile, onSuccess, initial }: {
+export function useAddExpenseForm({ groupId, onSuccess, initial }: {
   groupId: string
-  isMobile: boolean
   onSuccess: () => void
   /** Open pre-filled to edit this expense; Save overwrites it. */
   initial?: Expense
@@ -165,7 +163,7 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess, initial }: {
   // Captured once — the form owns the values from here, and the seed is what
   // "dirty" is measured against. The sheet keys the form on the expense id,
   // so a different expense always mounts a fresh seed.
-  const [seed] = useState(() => initial ? seedFromExpense(initial, isMobile) : null)
+  const [seed] = useState(() => initial ? seedFromExpense(initial) : null)
   const isEdit = !!seed
 
   const [amount,         setAmount]         = useState(seed?.amount ?? '')
@@ -250,20 +248,11 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess, initial }: {
     })
   }, [membersKey])
 
-  // Payer can never be excluded from their own expense
-  useEffect(() => {
-    if (!paidById) return
-    setIncluded(prev => prev.has(paidById) ? prev : new Set(prev).add(paidById))
-  }, [paidById])
-
   useEffect(() => {
     if (!manualCategory && description) setCategory(detectCategory(description))
   }, [description, manualCategory])
 
-  // Mobile leaves the payer's share implicit; desktop makes everyone balance.
-  const amountsIds = isMobile && paidById
-    ? memberIds.filter(id => included.has(id) && id !== paidById)
-    : memberIds.filter(id => included.has(id))
+  const amountsIds = memberIds.filter(id => included.has(id))
 
   const percentSum = amountsIds.reduce((a, id) => a + parseNum(percents[id]), 0)
   const exactSum   = amountsIds.reduce((a, id) => a + parseNum(exactAmounts[id]), 0)
@@ -426,23 +415,10 @@ export function useAddExpenseForm({ groupId, isMobile, onSuccess, initial }: {
       return { splitType: 'equal', splits: trim(makeEqualSplits('', roundedAmt, [...included], paidById)) }
     }
     if (splitMode === 'percentage') {
-      // Mobile: the payer takes whatever percentage the others left over.
-      const percentInputs = [
-        ...(isMobile ? [{
-          group_member_id: paidById,
-          percent: Math.max(0, round2(100 - percentSum)),
-        }] : []),
-        ...amountsIds.map(id => ({ group_member_id: id, percent: parseNum(percents[id]) })),
-      ]
+      const percentInputs = amountsIds.map(id => ({ group_member_id: id, percent: parseNum(percents[id]) }))
       return { splitType: 'percentage', splits: trim(makePercentSplits('', roundedAmt, percentInputs, paidById)) }
     }
-    const exactInputs = [
-      ...(isMobile ? [{
-        group_member_id: paidById,
-        owed_amount: Math.max(0, round2(roundedAmt - exactSum)),
-      }] : []),
-      ...amountsIds.map(id => ({ group_member_id: id, owed_amount: parseNum(exactAmounts[id]) })),
-    ]
+    const exactInputs = amountsIds.map(id => ({ group_member_id: id, owed_amount: parseNum(exactAmounts[id]) }))
     return { splitType: 'exact', splits: trim(makeExactSplits('', exactInputs, roundedAmt, paidById)) }
   }
 

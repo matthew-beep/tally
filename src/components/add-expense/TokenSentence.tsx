@@ -123,10 +123,11 @@ export function ShareLine({ s }: { s: AddExpenseFormState }) {
     body = <>Split line by line · <span style={{ color: T.ink, fontWeight: 800 }}>tax and tip shared in proportion</span></>
   } else if (s.splitMode !== 'equal') {
     body = <>Split {splitSentence(s.splitMode)} across <span style={{ color: T.ink, fontWeight: 800 }}>{included.length} people</span></>
+  } else if (included.length > 0 && others.length === 0) {
+    // Only the payer is in — a record of spend, not a debt.
+    body = <>Nothing borrowed</>
   } else if (s.paidById === s.youMemberId) {
-    body = others.length === 0
-      ? <>Only you in this split</>
-      : <>{whoLabel(others, s)} owe{others.length === 1 ? 's' : ''} you <span style={strong}>{each}</span> each</>
+    body = <>{whoLabel(others, s)} owe{others.length === 1 ? 's' : ''} you <span style={strong}>{each}</span>{others.length > 1 ? ' each' : ''}</>
   } else if (youIn) {
     body = <>You owe <span style={strong}>{each}</span> to {shortName(s.memberById[s.paidById ?? ''], s.youMemberId)}</>
   } else {

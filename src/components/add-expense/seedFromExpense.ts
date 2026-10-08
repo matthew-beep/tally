@@ -23,12 +23,14 @@ export interface FormSeed {
  * split.
  *
  * Percents are derived (only dollar amounts are stored), so rounding to one
- * decimal can drift off 100. The editable rows are re-balanced by putting the
- * leftover on the largest one — desktop edits every row and must hit exactly
- * 100; mobile edits everyone but the payer, whose share is the remainder, so
- * those rows only need to match their true combined percent.
+ * decimal can drift off 100. The rows are re-balanced to exactly 100 by
+ * putting the leftover on the largest one.
+ *
+ * Only members with a nonzero share are included — the payer too. A payer
+ * with no share (or an old $0.00 row) fronted it for the others, and opening
+ * the edit shouldn't quietly tick them back in.
  */
-export function seedFromExpense(expense: Expense, isMobile: boolean): FormSeed {
+export function seedFromExpense(expense: Expense): FormSeed {
   const amount = Number(expense.amount)
   const splits = expense.splits ?? []
 
@@ -41,12 +43,10 @@ export function seedFromExpense(expense: Expense, isMobile: boolean): FormSeed {
   }
 
   const editable = splits
+    .filter(s => Number(s.owed_amount) > 0)
     .map(s => s.group_member_id)
-    .filter(id => !(isMobile && id === expense.paid_by))
   const round1 = (n: number) => Math.round(n * 10) / 10
-  const target = isMobile
-    ? round1(editable.reduce((a, id) => a + rawPercents[id], 0))
-    : 100
+  const target = 100
 
   const percentNums: Record<string, number> = {}
   for (const id of Object.keys(rawPercents)) percentNums[id] = round1(rawPercents[id])
@@ -69,7 +69,7 @@ export function seedFromExpense(expense: Expense, isMobile: boolean): FormSeed {
     expenseDate: expense.expense_date,
     paidById: expense.paid_by,
     splitMode: expense.split_type === 'itemized' ? 'exact' : expense.split_type,
-    included: new Set([...splits.map(s => s.group_member_id), expense.paid_by]),
+    included: new Set(editable),
     exactAmounts,
     percents,
   }

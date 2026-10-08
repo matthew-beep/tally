@@ -1,4 +1,4 @@
-import { isLive } from './balance'
+import { isLive, isPersonal } from './balance'
 import { round2 } from './money'
 import type { Expense } from '@/types'
 
@@ -19,6 +19,9 @@ export interface LeaderboardEntry {
  * not subtracted, because paying someone back doesn't un-front the dinner.
  * Net standing is `calcNetBalances`' job and is shown separately.
  *
+ * Personal expenses (only the payer in the split) are skipped — paying for
+ * yourself isn't covering anyone.
+ *
  * Every seat passed in gets an entry, including pending, left, and guest
  * seats — they fronted real money, so hiding them would misstate the total.
  * Sorted by `paid` descending; the sort is stable, so ties keep the order of
@@ -34,7 +37,7 @@ export function calcLeaderboard(
   const txns = Object.fromEntries(memberIds.map(id => [id, 0]))
 
   expenses
-    .filter(e => e.group_id === groupId && isLive(e))
+    .filter(e => e.group_id === groupId && isLive(e) && !isPersonal(e))
     .forEach(e => {
       if (!(e.paid_by in paid)) return  // payer's seat isn't in the list — skip, don't invent a row
       paid[e.paid_by] += Number(e.amount)

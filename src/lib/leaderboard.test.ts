@@ -19,6 +19,16 @@ function expense(paid_by: string, amount: number, over: Partial<Expense> = {}): 
 describe('calcLeaderboard', () => {
   const members = ['a', 'b', 'c']
 
+  it('skips personal expenses — only the payer in the split', () => {
+    const split = (group_member_id: string, owed_amount: number) =>
+      ({ id: group_member_id, expense_id: 'x', group_member_id, owed_amount })
+    const board = calcLeaderboard(G, [
+      expense('a', 40, { splits: [split('a', 40)] }),
+      expense('a', 20, { splits: [split('b', 20)] }),
+    ], members)
+    expect(board.find(e => e.memberId === 'a')).toEqual({ memberId: 'a', paid: 20, txns: 1 })
+  })
+
   it('ranks by gross fronted, descending', () => {
     const board = calcLeaderboard(G, [
       expense('a', 30),

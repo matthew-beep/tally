@@ -1,5 +1,6 @@
 import { avatarProfile, displayName, firstName, slotFor } from './memberDisplay'
 import { formatAmount, round2 } from './money'
+import { isPersonal } from './balance'
 import type { FeedItem } from './feed'
 import type { ActivityItem, FeedCardModel, GroupMember } from '@/types'
 
@@ -16,6 +17,12 @@ import type { ActivityItem, FeedCardModel, GroupMember } from '@/types'
 export function shortDate(dateStr: string): string {
   // Midnight-qualified so a bare YYYY-MM-DD isn't read as UTC and shown a day early.
   return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+/** "10/01" — zero-padded so the group feed's date gutter stays a fixed width. */
+export function numericDate(dateStr: string): string {
+  const [, m, d] = dateStr.split('-')
+  return `${m}/${d}`
 }
 
 /**
@@ -86,19 +93,22 @@ export function toGroupFeedCard(
       ? round2(splits.filter(s => s.group_member_id !== e.paid_by).reduce((sum, s) => sum + Number(s.owed_amount), 0))
       : round2(Number(mySplit?.owed_amount ?? 0))
     const involved = youPaid || !!mySplit
+    const personal = isPersonal(e)
 
     return {
       id: e.id,
       icon: { kind: 'emoji', emoji: e.category ?? '💸' },
+      dateLabel: numericDate(e.expense_date),
       title: e.description,
       titleTag: e.updated_at && e.updated_at !== e.created_at ? '(edited)' : undefined,
-      subtitle: `${youPaid ? 'You' : nameOf(e.paid_by)} paid · ${formatAmount(Number(e.amount))}`,
+      subtitle: `${youPaid ? 'You' : nameOf(e.paid_by)} paid · ${formatAmount(Number(e.amount))}${personal ? ' · nothing borrowed' : ''}`,
       // Someone else's expense you're not in still belongs in the feed, but it
       // has no number for you — showing $0.00 would read as a real balance.
       amount: involved && myAmt > 0 ? myAmt : 0,
       amountTone: involved && myAmt > 0 ? (youPaid ? 'positive' : 'negative') : undefined,
       amountCaption: involved && myAmt > 0 ? 'your share' : undefined,
-      participants: splits.map(s => ({
+      // Nothing to show for a personal expense — the subtitle already says so.
+      participants: personal ? [] : splits.filter(s => Number(s.owed_amount) > 0).map(s => ({
         id: s.group_member_id,
         avatar: memberById[s.group_member_id]
           ? avatarProfile(memberById[s.group_member_id])
@@ -117,6 +127,7 @@ export function toGroupFeedCard(
   return {
     id: s.id,
     icon: { kind: 'settlement', confirmed },
+    dateLabel: numericDate(s.settled_date),
     title: `${youFrom ? 'You' : firstName(nameOf(s.from_member_id))} paid ${youTo ? 'you' : firstName(nameOf(s.to_member_id))}`,
     subtitle: s.note ?? '',
     statusTag: s.status,

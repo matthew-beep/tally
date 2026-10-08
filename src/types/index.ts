@@ -200,6 +200,8 @@ export interface FeedCardModel {
   icon:
     | { kind: 'emoji'; emoji: string }
     | { kind: 'settlement'; confirmed: boolean }
+  /** Numeric MM/DD gutter left of the icon. Group feed only. */
+  dateLabel?: string
   title: string
   /** Rendered muted beside the title, e.g. "(edited)". */
   titleTag?: string

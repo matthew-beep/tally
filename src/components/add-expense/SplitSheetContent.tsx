@@ -13,20 +13,26 @@ import { SPLIT_TABS } from './types'
 import { RemainderInline, Checkbox, shortName, fmtPct } from './parts'
 import type { AddExpenseFormState } from './useAddExpenseForm'
 
-// Avatar + name for one member row. Payer rows are non-interactive.
+// Avatar + name for one member row. The payer toggles like anyone else —
+// unticked, they fronted it for the others — and is only tagged.
 function PersonLabel({ m, id, slotById, isPayer, youMemberId, onClick }: {
   m: GroupMember | undefined; id: string; slotById: Record<string, 0|1|2|3>
   isPayer: boolean; youMemberId?: string; onClick: () => void
 }) {
   return (
     <div
-      onClick={() => { if (!isPayer) onClick() }}
-      style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: isPayer ? 'default' : 'pointer', minWidth: 0 }}
+      onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, cursor: 'pointer', minWidth: 0 }}
     >
       <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotById[id] ?? 0} size={30} isYou={id === youMemberId} />
       <span style={{ fontSize: 15, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {shortName(m, youMemberId)}
       </span>
+      {isPayer && (
+        <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: T.inkFaint }}>
+          paid
+        </span>
+      )}
     </div>
   )
 }
@@ -89,12 +95,10 @@ function StatusRow({ s }: { s: AddExpenseFormState }) {
   )
 }
 
-// The member list for equal/exact/percentage.
-// Balance semantics are unchanged from the inline version this replaced: equal
-// divides the total across everyone included; exact/% only require the OTHER
-// members to balance — the payer's share is whatever is left over, computed in
-// handleSave. Rows read straight off the hook's shared validity state, so this
-// can never disagree with the Save button.
+// The member list for equal/exact/percentage. Every ticked member, payer
+// included, is in the split: equal divides the total across them; exact/%
+// require their amounts to balance to the total. Rows read straight off the
+// hook's shared validity state, so this can never disagree with the Save button.
 function MemberSplitList({ s, payerId }: { s: AddExpenseFormState; payerId: string }) {
   const {
     splitMode, memberIds, memberById, slotById, amt: total, included, toggleIncluded,
@@ -112,7 +116,7 @@ function MemberSplitList({ s, payerId }: { s: AddExpenseFormState; payerId: stri
         const on = included.has(id)
         const isLast = idx === memberIds.length - 1
         const pct = parseNum(percents[id])
-        const rowAmt = on ? (isPayer ? total : per) : 0
+        const rowAmt = on ? (s.previewSplits?.[id] ?? per) : 0
 
         return (
           <div key={id} style={{
@@ -120,23 +124,13 @@ function MemberSplitList({ s, payerId }: { s: AddExpenseFormState; payerId: stri
             borderBottom: isLast ? 'none' : `0.5px solid ${T.line}`,
             opacity: on ? 1 : 0.35, transition: 'opacity 0.15s',
           }}>
-            {isPayer
-              ? <div style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, background: T.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: T.bg }} />
-                </div>
-              : <Checkbox on={on} onClick={() => toggleIncluded(id)} />
-            }
+            <Checkbox on={on} onClick={() => toggleIncluded(id)} />
             <PersonLabel m={m} id={id} slotById={slotById} isPayer={isPayer} youMemberId={youMemberId} onClick={() => toggleIncluded(id)} />
 
             {splitMode === 'equal' ? (
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: on ? T.ink : T.inkFaint }}>{formatAmount(rowAmt)}</div>
-                <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>{isPayer ? 'paid' : on ? 'owes' : '—'}</div>
-              </div>
-            ) : isPayer ? (
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontFamily: FMONO, fontSize: 14, fontWeight: 700, color: T.ink }}>{formatAmount(total)}</div>
-                <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>paid</div>
+                <div style={{ fontSize: 10, color: T.inkFaint, marginTop: 1 }}>{on ? 'owes' : '—'}</div>
               </div>
             ) : splitMode === 'exact' ? (
               <Input

@@ -9,7 +9,7 @@ import { ModalOrSheet, ModalContent, ModalFooter } from '@/components/modal'
 import { Btn } from '@/components/Btn'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import { formatAmount } from '@/lib/money'
-import { calcExpenseNets } from '@/lib/balance'
+import { calcExpenseNets, isPersonal } from '@/lib/balance'
 import { ReactionPills } from '@/components/ReactionPills'
 import { CommentsList } from '@/components/CommentsList'
 import { useDeleteExpense } from '@/queries/useExpenses'
@@ -43,7 +43,9 @@ function expenseDay(dateStr: string): string {
 }
 
 function splitCaption(expense: Expense): string {
-  const n = expense.splits?.length ?? 0
+  const n = (expense.splits ?? []).filter(s => Number(s.owed_amount) > 0).length
+  if (isPersonal(expense)) return 'Nothing borrowed'
+  if (n === 1)             return 'Full amount'
   if (expense.split_type === 'equal' && n > 0) {
     return `Split ${n} ways · ${formatAmount(Number(expense.amount) / n)} each`
   }
@@ -117,56 +119,66 @@ function ExpenseDetailScreen({
   const payer     = memberById[expense.paid_by]
   const payerName = payer ? (expense.paid_by === mySeatId ? 'You' : firstName(displayName(payer))) : '…'
   const edited    = expense.updated_at && expense.updated_at !== expense.created_at
-  const nets      = calcExpenseNets(expense, members.map(m => m.id))
+  // A payer with no share of their own (fronted it for others) has no row.
+  const shares    = calcExpenseNets(expense, members.map(m => m.id)).filter(r => r.owed > 0)
 
   return (
     <ModalContent style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Head — identity and the headline number */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-        <EmojiTile emoji={expense.category ?? '💸'} size={50} fontSize={25} radius={16} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: FH, fontSize: 18, fontWeight: 700, letterSpacing: -0.3, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {expense.description}
-          </div>
-          <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 2 }}>
-            <span style={{ color: T.inkMuted, fontWeight: 600 }}>{payerName}</span>
-            {' paid · '}{expenseDay(expense.expense_date)}
-            {edited && <span style={{ marginLeft: 5 }}>(edited)</span>}
+      {/* Head — identity, then the headline: what was paid and by whom */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+          <EmojiTile emoji={expense.category ?? '💸'} size={50} fontSize={25} radius={16} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: FH, fontSize: 18, fontWeight: 700, letterSpacing: -0.3, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {expense.description}
+            </div>
+            <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 2 }}>
+              {expenseDay(expense.expense_date)}
+              {edited && <span style={{ marginLeft: 5 }}>(edited)</span>}
+            </div>
           </div>
         </div>
-        <div style={{ fontFamily: FH, fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: T.ink, flexShrink: 0 }}>
-          {formatAmount(Number(expense.amount))}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: FH, fontSize: 24, fontWeight: 700, letterSpacing: -0.6, color: T.ink }}>
+            {formatAmount(Number(expense.amount))}
+          </span>
+          <span style={{ fontSize: 14, color: T.inkMuted }}>
+            paid by <span style={{ color: T.ink, fontWeight: 600 }}>{payerName}</span>
+          </span>
         </div>
       </div>
 
-      {/* Per-person effect of this expense alone — not a running balance */}
+      {/* Each participant's share of this expense — not a running balance,
+          so no green/red: owing your share here says nothing about whether
+          you're up or down in the group overall. */}
       <div>
         <SectionLabel size="sm" style={{ marginBottom: 8, padding: '0 2px' }}>{splitCaption(expense)}</SectionLabel>
+        {isPersonal(expense) ? (
+          <div style={{ background: T.surfaceAlt, borderRadius: T.r.card, padding: '12px 14px', fontSize: 13, color: T.inkMuted }}>
+            Only {payerName === 'You' ? 'you' : payerName} in this split — no one owes anything.
+          </div>
+        ) : (
         <div style={{ background: T.surfaceAlt, borderRadius: T.r.card, overflow: 'hidden' }}>
-          {nets.map((row, i) => {
-            const m      = memberById[row.memberId]
-            const isYou  = row.memberId === mySeatId
-            const name   = isYou ? 'You' : m ? firstName(displayName(m)) : '…'
-            const isPayer = row.memberId === expense.paid_by
-            const settled = Math.abs(row.net) < 0.01
+          {shares.map((row, i) => {
+            const m       = memberById[row.memberId]
+            const isYou   = row.memberId === mySeatId
+            const name    = isYou ? 'You' : m ? firstName(displayName(m)) : '…'
+            const verb    = isYou ? 'owe' : 'owes'
             return (
               <div key={row.memberId} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 14px', borderTop: i > 0 ? `0.5px solid ${T.line}` : 'none' }}>
                 <Avatar profile={m ? avatarProfile(m) : undefined} slot={slotFor(members, row.memberId)} size={28} isYou={isYou} />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 5 }}>
                   <span style={{ fontSize: 13.5, fontWeight: 600, color: T.ink }}>{name}</span>
-                  {isPayer && (
-                    <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: T.sunInk, background: T.sunSoft, padding: '1.5px 6px', borderRadius: T.r.pill }}>
-                      paid
-                    </span>
-                  )}
+                  <span style={{ fontSize: 13, color: T.inkMuted }}>{verb}</span>
                 </div>
-                <span style={{ fontFamily: FMONO, fontSize: 12.5, fontWeight: 700, flexShrink: 0, color: settled ? T.inkFaint : row.net > 0 ? T.mintInk : T.coralInk }}>
-                  {settled ? '—' : formatAmount(row.net, { sign: true })}
+                <span style={{ fontFamily: FMONO, fontSize: 13, fontWeight: 700, flexShrink: 0, color: T.ink }}>
+                  {formatAmount(row.owed)}
                 </span>
               </div>
             )
           })}
         </div>
+        )}
       </div>
 
       <ReactionPills

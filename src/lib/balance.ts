@@ -11,6 +11,18 @@ export function isLive(e: Pick<Expense, 'deleted_at'>): boolean {
   return !e.deleted_at
 }
 
+/**
+ * Only the payer has a share — they logged their own spend in the group. It
+ * moves no money between anyone, so the UI calls it "nothing borrowed" and
+ * the leaderboard doesn't count it as fronting.
+ */
+export function isPersonal(e: Pick<Expense, 'paid_by' | 'splits'>): boolean {
+  // Every saved expense has at least one split row, so none means "not
+  // loaded" — not evidence that nobody else is in it.
+  if (!e.splits?.length) return false
+  return !e.splits.some(s => s.group_member_id !== e.paid_by && Number(s.owed_amount) > 0)
+}
+
 export function calcNetBalances(
   groupId: string,
   expenses: Expense[],

@@ -147,24 +147,22 @@ export function SplitLedger({ s, placement, onClose }: {
               display: 'flex', alignItems: 'center', gap: 10, padding: '8px 2px',
               borderBottom: i < memberIds.length - 1 ? `0.5px solid ${T.line}` : 'none',
             }}>
-              {isPayer ? (
-                <span style={{ width: IN_COL, flexShrink: 0 }} />
-              ) : (
-                <button
-                  type="button" onClick={() => toggleIncluded(id)}
-                  role="checkbox" aria-checked={on} aria-label={`${shortName(m, youMemberId)} is in the split`}
-                  style={{ width: IN_COL, flexShrink: 0, display: 'inline-flex', justifyContent: 'center', padding: '6px 0', border: 0, background: 'transparent', cursor: 'pointer' }}
-                >
-                  <InBox on={on} />
-                </button>
-              )}
+              {/* The payer is a checkbox like anyone else — unticking them
+                  means they fronted it for the others and owe none of it. */}
+              <button
+                type="button" onClick={() => toggleIncluded(id)}
+                role="checkbox" aria-checked={on} aria-label={`${shortName(m, youMemberId)} is in the split`}
+                style={{ width: IN_COL, flexShrink: 0, display: 'inline-flex', justifyContent: 'center', padding: '6px 0', border: 0, background: 'transparent', cursor: 'pointer' }}
+              >
+                <InBox on={on} />
+              </button>
 
               <button
-                type="button" onClick={() => toggleIncluded(id)} disabled={isPayer} tabIndex={-1}
+                type="button" onClick={() => toggleIncluded(id)} tabIndex={-1}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 11, flex: 1, minWidth: 0,
                   padding: '4px 0', border: 0, background: 'transparent', textAlign: 'left',
-                  cursor: isPayer ? 'default' : 'pointer', fontFamily: F,
+                  cursor: 'pointer', fontFamily: F,
                 }}
               >
                 <span style={{ display: 'inline-flex', flexShrink: 0, opacity: on ? 1 : 0.4, transition: 'opacity .15s ease' }}>

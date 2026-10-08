@@ -56,6 +56,9 @@ export default function GroupSettingsPage() {
   const myMember = members.find(m => m.user_id === profile?.id)
   const others   = activeMembers.filter(m => m.id !== myMember?.id)
   const isAdmin  = !!group && !!profile && group.created_by === profile.id
+  // Name and emoji are anyone's to change — matches the "active members can
+  // update" policy, which column grants limit to exactly these two fields.
+  const canEditGroup = myMember?.status === 'active'
 
   async function handleAddMembers() {
     if (!pendingMembers.length) return
@@ -85,7 +88,7 @@ export default function GroupSettingsPage() {
   }
 
   function startEditName() {
-    if (!group) return
+    if (!group || !canEditGroup) return
     setDraftName(group.name)
     setEditingName(true)
   }
@@ -153,12 +156,12 @@ export default function GroupSettingsPage() {
         <Card tone="surface" style={{ border: `0.5px solid ${T.line}`, borderRadius: T.r.card, padding: '13px 14px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <button
             ref={emojiBtnRef}
-            onClick={() => isAdmin && setEmojiOpen(o => !o)}
-            disabled={!isAdmin}
-            style={{ position: 'relative', width: 54, height: 54, borderRadius: T.r.card, fontSize: 28, border: `1.5px solid ${T.line}`, background: T.surfaceAlt, cursor: isAdmin ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+            onClick={() => canEditGroup && setEmojiOpen(o => !o)}
+            disabled={!canEditGroup}
+            style={{ position: 'relative', width: 54, height: 54, borderRadius: T.r.card, fontSize: 28, border: `1.5px solid ${T.line}`, background: T.surfaceAlt, cursor: canEditGroup ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
           >
             {group.emoji}
-            {isAdmin && (
+            {canEditGroup && (
               <span style={{ position: 'absolute', bottom: -3, right: -3, width: 18, height: 18, borderRadius: '50%', background: T.ink, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width="8" height="8" viewBox="0 0 12 12" fill="none">
                   <path d="M8 1.5l2.5 2.5-6 6H2v-2.5l6-6z" stroke={T.bg} strokeWidth="1.4" strokeLinejoin="round"/>
@@ -179,13 +182,13 @@ export default function GroupSettingsPage() {
             ) : (
               <div
                 onClick={startEditName}
-                style={{ fontFamily: FH, fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: T.ink, cursor: isAdmin ? 'text' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                style={{ fontFamily: FH, fontSize: 22, fontWeight: 700, letterSpacing: -0.5, color: T.ink, cursor: canEditGroup ? 'text' : 'default', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
               >
                 {group.name}
               </div>
             )}
             <div style={{ fontSize: 12, color: T.inkFaint, marginTop: 2 }}>
-              {!isAdmin ? 'Only the creator can rename' : editingName ? 'Press Enter to save' : 'Tap to rename'}
+              {!canEditGroup ? 'Only members can rename' : editingName ? 'Press Enter to save' : 'Tap to rename'}
             </div>
           </div>
         </Card>
