@@ -68,8 +68,13 @@ export default function GroupDetailPage() {
   // Pairwise nets from my perspective — positive = they owe me, negative = I owe them
   const pairwiseNets = myId ? calcPairwiseNets(myId, expenses, settlements) : {}
 
-  // Desktop members ledger — sorted by group standing, highest first
-  const orderedMembers = [...members].sort((a, b) => (net[b.id] ?? 0) - (net[a.id] ?? 0))
+  // Desktop members ledger — "You" pinned first, everyone else by group standing, highest first
+  const orderedMembers = [...members].sort((a, b) => {
+    const aYou = a.user_id === profile?.id
+    const bYou = b.user_id === profile?.id
+    if (aYou !== bYou) return aYou ? -1 : 1
+    return (net[b.id] ?? 0) - (net[a.id] ?? 0)
+  })
 
   // Leaderboard — gross fronted, ranked. Deliberately not `net`: this answers
   // "who's been covering the group", which settlements don't undo.
@@ -140,7 +145,7 @@ export default function GroupDetailPage() {
   return (
     <div style={{ flex: 1, minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column', position: 'relative', fontFamily: F, color: T.ink }}>
 
-      {/* ── Desktop: shared app header — breadcrumb + Add expense action ── */}
+      {/* ── Desktop: shared app header — breadcrumb + Settle up / Add expense actions ── */}
       <div className="group-detail-topbar">
         <AppHeader
           title={
@@ -159,6 +164,10 @@ export default function GroupDetailPage() {
               </span>
             </span>
           }
+          secondaryAction={{
+            label: 'Settle up',
+            onClick: () => { setSettleUser(null); setSettleOpen(true) },
+          }}
           action={{
             label: 'Add expense',
             onClick: () => setAddExpenseOpen(true),
@@ -423,6 +432,7 @@ export default function GroupDetailPage() {
         groupId={groupId}
         mySeatId={myId ?? ''}
         transfers={transfers}
+        members={members}
         preselect={preselectTransfer}
       />
 

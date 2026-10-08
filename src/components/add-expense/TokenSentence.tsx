@@ -15,7 +15,7 @@ import type { AddExpenseFormState } from './useAddExpenseForm'
  * while its sheet is open — the same two states the tabs and inputs already
  * use, so the token introduces no new material.
  */
-function TkTok({ open, onClick, avatar, children }: {
+export function TkTok({ open, onClick, avatar, children }: {
   open: boolean; onClick: () => void; avatar?: ReactNode; children: ReactNode
 }) {
   return (

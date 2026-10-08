@@ -86,6 +86,14 @@
   --tally-shadow-cocoa:         inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -2px 0 rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.14), 0 6px 14px rgba(107,81,64,0.34);
   --tally-shadow-cocoa-hover:   inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -2px 0 rgba(0,0,0,0.24), 0 3px 6px rgba(0,0,0,0.16), 0 10px 22px rgba(107,81,64,0.34);
   --tally-shadow-cocoa-pressed: inset 0 2px 5px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 rgba(107,81,64,0), 0 0 0 rgba(107,81,64,0);
+  /* Mint — the settle action. Built like sun/cocoa: hi/lo are the mid shaded
+     so it lights from above, and the shadow triple carries a green glow. */
+  --tally-mint-hi: #4CCB91;
+  --tally-mint-lo: #1F9A63;
+  --tally-mint-on: #FFFFFF;
+  --tally-shadow-mint:         inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.16), 0 2px 4px rgba(31,26,20,0.12), 0 6px 14px rgba(45,185,122,0.32);
+  --tally-shadow-mint-hover:   inset 0 1px 0 rgba(255,255,255,0.32), inset 0 -2px 0 rgba(0,0,0,0.18), 0 3px 6px rgba(31,26,20,0.14), 0 10px 22px rgba(45,185,122,0.34);
+  --tally-shadow-mint-pressed: inset 0 2px 5px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 rgba(45,185,122,0), 0 0 0 rgba(45,185,122,0);
   /* Tactile depth — recessed trough (inputs) and the flat information tier.
      --tally-sink is deliberately a step darker than --tally-surface-alt so a
      well reads as a hole, not a tint. */
@@ -179,6 +187,13 @@
   --tally-shadow-cocoa:         inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -2px 0 rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.14), 0 6px 14px rgba(0,0,0,0.45);
   --tally-shadow-cocoa-hover:   inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -2px 0 rgba(0,0,0,0.24), 0 3px 6px rgba(0,0,0,0.16), 0 10px 22px rgba(0,0,0,0.45);
   --tally-shadow-cocoa-pressed: inset 0 2px 5px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0);
+  /* See :root — dark mint is a pale green, so it takes dark ink and a black glow. */
+  --tally-mint-hi: #8EDEC2;
+  --tally-mint-lo: #55BA97;
+  --tally-mint-on: #10251C;
+  --tally-shadow-mint:         inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.18), 0 2px 4px rgba(0,0,0,0.3), 0 6px 14px rgba(0,0,0,0.45);
+  --tally-shadow-mint-hover:   inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(0,0,0,0.2), 0 3px 6px rgba(0,0,0,0.32), 0 10px 22px rgba(0,0,0,0.5);
+  --tally-shadow-mint-pressed: inset 0 2px 5px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.18), 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0);
   /* Tactile depth — recessed trough (inputs) and the flat information tier.
      The design specifies rgba(0,0,0,0.34); pinned to the solid it resolves to
      over --tally-surface so a well looks identical on surface and card-bg. */

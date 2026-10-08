@@ -4,7 +4,7 @@ import { useState } from 'react'
 import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react'
 import { T, F, FH } from '@/design/tokens'
 
-export type BtnVariant = 'primary' | 'cocoa' | 'outline' | 'danger' | 'dangerOutline' | 'soft'
+export type BtnVariant = 'primary' | 'cocoa' | 'mint' | 'outline' | 'danger' | 'dangerOutline' | 'soft'
 export type BtnSize = 'sm' | 'md' | 'lg'
 
 interface BtnProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'style'> {
@@ -24,7 +24,7 @@ const SIZE: Record<BtnSize, CSSProperties> = {
 // Variants with a solid fill are "raised" tactile objects — they get depth
 // shadow + press motion. Bordered/transparent variants (outline, dangerOutline)
 // stay flat — that's already the right read for quiet/secondary actions.
-const RAISED_VARIANTS: BtnVariant[] = ['primary', 'cocoa', 'soft', 'danger']
+const RAISED_VARIANTS: BtnVariant[] = ['primary', 'cocoa', 'mint', 'soft', 'danger']
 
 function variantStyle(variant: BtnVariant, disabled: boolean, hover: boolean, press: boolean): CSSProperties {
   switch (variant) {
@@ -55,6 +55,17 @@ function variantStyle(variant: BtnVariant, disabled: boolean, hover: boolean, pr
           : `linear-gradient(180deg, ${T.cocoaHi} 0%, ${T.cocoa} 55%, ${T.cocoaLo} 100%)`,
         color: T.cocoaOn, border: 0,
         boxShadow: press ? T.shadowCocoaPressed : hover ? T.shadowCocoaHover : T.shadowCocoa,
+      }
+    case 'mint':
+      // The settle action — money changing hands. Built exactly like cocoa so
+      // it sits beside the sun primary as a peer without being another sun.
+      if (disabled) return { background: T.lineStrong, color: T.inkFaint, border: 0 }
+      return {
+        background: press
+          ? `linear-gradient(180deg, ${T.mintLo} 0%, ${T.mintLo} 55%, ${T.mint} 100%)`
+          : `linear-gradient(180deg, ${T.mintHi} 0%, ${T.mint} 55%, ${T.mintLo} 100%)`,
+        color: T.mintOn, border: 0,
+        boxShadow: press ? T.shadowMintPressed : hover ? T.shadowMintHover : T.shadowMint,
       }
     case 'outline':
       // Inset ring rather than a real border — matches the design's flat "hair"

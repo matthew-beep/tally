@@ -37,11 +37,15 @@ export function TransferRow({ transfer, onTap }: Props) {
   }
 
   return (
+    // Outlined card + chevron so the row reads as tappable (it drills into the settle form).
     <button
       onClick={onTap}
-      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 4px', background: 'transparent', border: 0, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
+      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '11px 12px', marginBottom: 6, background: T.surface, border: `0.5px solid ${T.lineStrong}`, borderRadius: T.r.md, boxShadow: T.shadowSm, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
     >
       {content}
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ opacity: 0.4, flexShrink: 0 }}>
+        <path d="M6 3.5l4.5 4.5L6 12.5" stroke={T.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
     </button>
   )
 }

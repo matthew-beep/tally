@@ -66,6 +66,13 @@ export const T = {
   shadowCocoa:         'var(--tally-shadow-cocoa)',
   shadowCocoaHover:    'var(--tally-shadow-cocoa-hover)',
   shadowCocoaPressed:  'var(--tally-shadow-cocoa-pressed)',
+  // Mint — the settle action (Settle up). Same recipe as sun/cocoa.
+  mintHi:              'var(--tally-mint-hi)',
+  mintLo:              'var(--tally-mint-lo)',
+  mintOn:              'var(--tally-mint-on)',
+  shadowMint:          'var(--tally-shadow-mint)',
+  shadowMintHover:     'var(--tally-shadow-mint-hover)',
+  shadowMintPressed:   'var(--tally-shadow-mint-pressed)',
 
   // Tactile depth — recessed trough (inputs) + the flat information tier
   sink:            'var(--tally-sink)',

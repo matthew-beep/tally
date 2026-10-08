@@ -232,6 +232,15 @@ edit bead is now a sun bead, and the member-remove `×` is a recessed bead
 coral — the sibling of `--tally-sun-on`, but unlike sun it flips per theme
 (deep coral takes white, dark's pale peach takes dark ink).
 
+### Mint — the settle action (2026-10-08)
+
+`Btn variant="mint"` is a filled green built exactly like cocoa:
+`--tally-mint-hi/-lo` shade the mid so it lights from above, `--tally-mint-on`
+is the text colour (white in light; dark ink in dark, where mint is pale), and
+`--tally-shadow-mint` (`-hover`, `-pressed`) carries a green glow (black in
+dark). It's reserved for settling up — money changing hands — and is used for
+the group detail header's **Settle up**, beside the sun **Add expense**.
+
 ### Two animation traps
 
 Both cause a visible *snap* instead of an ease, and both were live bugs:

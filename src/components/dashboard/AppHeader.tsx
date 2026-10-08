@@ -25,13 +25,15 @@ interface AppHeaderProps {
   greeting?: boolean
   /** Defaults to "Add expense" (opens the global AddExpenseGroupPicker), hidden below 1024px since FloatingTabBar's center key covers mobile — pass to override. */
   action?: AppHeaderAction
+  /** Mint button rendered before the primary action (group detail's "Settle up"). */
+  secondaryAction?: { label: string; onClick: () => void }
 }
 
 /**
  * Persistent header shared by Home/Groups/Activity/Me. Owns its own bell +
  * notification sheet — each mount is independent, no wiring needed by callers.
  */
-export function AppHeader({ title, greeting = false, action }: AppHeaderProps) {
+export function AppHeader({ title, greeting = false, action, secondaryAction }: AppHeaderProps) {
   const { data: profile } = useCurrentProfile()
   const notificationSheet = useNotificationReviewSheet()
   const setFabOpen = useUIStore(s => s.setFabOpen)
@@ -58,6 +60,11 @@ export function AppHeader({ title, greeting = false, action }: AppHeaderProps) {
       </div>
 
       <div className="app-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        {secondaryAction && (
+          <Btn variant="mint" size="sm" onClick={secondaryAction.onClick}>
+            {secondaryAction.label}
+          </Btn>
+        )}
         <Btn
           variant="primary"
           size="sm"
