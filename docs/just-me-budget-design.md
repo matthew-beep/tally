@@ -136,9 +136,6 @@ to run and monitor).
 
 ## Existing Code to Build On
 
-These exist only as uncommitted work at the time of writing, apart from
-`useAllGroupData`:
-
 - `src/lib/spending.ts`: month helpers, category totals, and "your share" of an
   expense. It looks at one group at a time, so a view across groups is new work.
 - `src/components/spending/`: month picker and charts.
