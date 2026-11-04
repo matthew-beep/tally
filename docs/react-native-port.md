@@ -97,7 +97,7 @@ These files have no `document`, `window`, Next, or CSS. They are the product.
 | `src/lib/feed.ts` + `.test.ts` | `mergeFeed` |
 | `src/lib/feedCards.ts` + `.test.ts` | Activity / group-feed card models |
 | `src/lib/reactions.ts` + `.test.ts` | Group and toggle reaction rows |
-| `src/lib/leaderboard.ts` + `.test.ts` | Gross-fronted ranking (not a balance) |
+| `src/lib/spending.ts` + `.test.ts` | Spend by category, as full amounts or your share (not a balance) |
 | `src/lib/notifications.ts` + `.test.ts` | Collapse rows into `NotificationBatch` |
 | `src/lib/money.ts` | `round2`, `parseNum`, `formatAmount`, `splitAmount` |
 | `src/lib/categories.ts` | 7 emoji categories + keyword detect |
@@ -334,7 +334,7 @@ Same contract as web (`ModalOrSheet` → always a sheet on native):
 - Member actions + guest claim (`MemberActionSheet`)
 - Invite link (`InviteGroupSheet`)
 - Home balance / person (`BalanceSheet`, `PersonProfileSheet`)
-- Leaderboard (`LeaderboardSheet`)
+- Spending by category (`SpendingSheet`)
 - Delete group (`DeleteGroupSheet`)
 - Emoji picker (`EmojiPickerSheet` — not the desktop popover)
 
@@ -349,7 +349,7 @@ of scope.
 
 - Auth — Google + password / dev login; handle onboarding
 - Home — hero, per-person rows, `BalanceSheet` / `PersonProfileSheet`
-- Groups — list, create, detail (feed, balances, members, leaderboard)
+- Groups — list, create, detail (feed, balances, members, spending)
 - Add expense — equal / exact / percentage via `useAddExpenseForm` + mobile layout
 - Edit / delete expense (no split-membership editor — same as web)
 - Settle up + confirm / deny, including notification review

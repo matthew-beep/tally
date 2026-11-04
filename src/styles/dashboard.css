@@ -579,10 +579,6 @@
   overflow: hidden;
 }
 
-.group-detail-whos-ahead--desktop {
-  display: none;
-}
-
 .group-detail-left {
   display: none;
   flex-direction: column;
@@ -757,14 +753,6 @@
     display: none !important;
   }
 
-  .group-detail-whos-ahead--mobile {
-    display: none !important;
-  }
-
-  .group-detail-whos-ahead--desktop {
-    display: block;
-  }
-
   .group-detail-empty-members {
     display: none !important;
   }
@@ -785,4 +773,79 @@
 .sidebar-icon-btn:hover {
   background: var(--tally-surface-alt);
   color: var(--tally-ink);
+}
+
+/* Spending banner: the same line, shorter where it has less room. */
+.spending-banner-short {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .spending-banner-long {
+    display: none;
+  }
+
+  .spending-banner-short {
+    display: inline;
+  }
+}
+
+/* ── Tactile raised tier, for bespoke rows that can't be a Btn ──
+   Same recipes and timing as Btn. Fills are gradients in every state, and the
+   shadows all carry four layers, so selecting and pressing ease instead of
+   snapping (docs/design-system.md, "Two animation traps"). */
+.tactile-raised {
+  background: linear-gradient(180deg, var(--tally-surface) 0%, var(--tally-surface) 100%);
+  box-shadow: var(--tally-shadow-raised);
+  cursor: pointer;
+  transition: transform .09s ease, box-shadow .12s ease, background .14s ease;
+}
+
+.tactile-raised:active {
+  box-shadow: var(--tally-shadow-pressed);
+  transform: translateY(1px);
+}
+
+.tactile-raised--sun {
+  background: linear-gradient(180deg, var(--tally-sun-hi) 0%, var(--tally-sun) 100%);
+  box-shadow: var(--tally-shadow-sun);
+}
+
+.tactile-raised--sun:active {
+  box-shadow: var(--tally-shadow-sun-pressed);
+}
+
+.tactile-raised.is-lifted:not(:active) {
+  box-shadow: var(--tally-shadow-raised-hover);
+  transform: translateY(-1px);
+}
+
+/* A control sitting in a recessed track: no object until you reach for it. */
+.tactile-ghost {
+  transition: background .12s ease, box-shadow .12s ease;
+}
+
+.tactile-ghost:active:not(:disabled) {
+  background: var(--tally-line) !important;
+  box-shadow: var(--tally-shadow-pressed);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tactile-raised:hover:not(:active) {
+    box-shadow: var(--tally-shadow-raised-hover);
+    transform: translateY(-1px);
+  }
+
+  .tactile-raised--sun:hover:not(:active) {
+    box-shadow: var(--tally-shadow-sun-hover);
+  }
+
+  .tactile-ghost:hover:not(:disabled) {
+    background: var(--tally-line) !important;
+  }
+}
+
+.spending-breakdown button:focus-visible {
+  outline: 2px solid var(--tally-sun);
+  outline-offset: 2px;
 }

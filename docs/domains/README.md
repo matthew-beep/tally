@@ -19,7 +19,7 @@ when you're working on a *concern* across domains.
 | notifications.md | `notifications` | ☐ wave 2 |
 | identity.md | `profiles` | ☐ wave 3 |
 | activity.md | *derivation* — `lib/feed.ts`, `useAllActivity` | ☐ wave 3 |
-| social.md | `expense_reactions`, `lib/leaderboard.ts` | ☐ wave 3 |
+| social.md | `expense_reactions` | ☐ wave 3 |
 
 ## Ownership rules
 

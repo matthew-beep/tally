@@ -24,6 +24,15 @@ export const T = {
   coralOn:  'var(--tally-coral-on)',
   lav:      'var(--tally-lav)', lavSoft:   'var(--tally-lav-soft)', lavInk:   'var(--tally-lav-ink)',
 
+  // Spending charts only. A color belongs to a category, never to a rank.
+  catHome:          'var(--tally-cat-home)',
+  catGroceries:     'var(--tally-cat-groceries)',
+  catFood:          'var(--tally-cat-food)',
+  catTravel:        'var(--tally-cat-travel)',
+  catTransport:     'var(--tally-cat-transport)',
+  catEntertainment: 'var(--tally-cat-entertainment)',
+  catOther:         'var(--tally-cat-other)',
+
   r: {
     tag:   6,
     sm:    8,

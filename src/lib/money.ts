@@ -23,6 +23,17 @@ export function formatAmount(n: number, { sign = false }: { sign?: boolean } = {
   return `${n > 0 ? '+' : '−'}$${abs}`
 }
 
+/** "$1,850.00" — formatAmount has no thousands separator. For figures that reach four digits. */
+export function formatDollars(n: number): string {
+  const { whole, cents } = splitAmount(n)
+  return `$${whole}${cents}`
+}
+
+/** "$1,850", rounded. For charts and summaries only, never a figure someone settles against. */
+export function formatWholeDollars(n: number): string {
+  return `$${Math.round(n).toLocaleString('en-US')}`
+}
+
 /**
  * Splits a magnitude into the two pieces the design system's amount anatomy
  * renders in different fonts/weights: a comma-grouped whole-dollar string and

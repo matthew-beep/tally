@@ -59,6 +59,14 @@
   --tally-lav:         #9179EF;
   --tally-lav-soft:    #EDE9FD;
   --tally-lav-ink:     #3C2BA8;
+  /* Category colors, validated as a set in both themes. Only spending charts use them. */
+  --tally-cat-home:          #D49A00;
+  --tally-cat-groceries:     #0F8F66;
+  --tally-cat-food:          #E5532D;
+  --tally-cat-travel:        #3FA0EA;
+  --tally-cat-transport:     #5A3CC4;
+  --tally-cat-entertainment: #E77FB3;
+  --tally-cat-other:         #A79E90;
   /* Lifted card surface */
   --tally-card-bg:     #FFFFFF;
   --tally-card-border: none;
@@ -163,6 +171,13 @@
   --tally-lav:         #C3B6EB;
   --tally-lav-soft:    rgba(195,182,235,0.18);
   --tally-lav-ink:     #F0EAFB;
+  --tally-cat-home:          #B88A10;
+  --tally-cat-groceries:     #15936B;
+  --tally-cat-food:          #C83A24;
+  --tally-cat-travel:        #3F97E0;
+  --tally-cat-transport:     #6F50D8;
+  --tally-cat-entertainment: #C966B4;
+  --tally-cat-other:         #7D7366;
   /* Lifted card surface */
   --tally-card-bg:     #2B241D;
   --tally-card-border: 0.5px solid rgba(244,238,227,0.10);
@@ -409,6 +424,16 @@ a {
 .animate-fade-up   { animation: fade-up   0.2s ease-out; }
 .animate-tally-pop { animation: tally-pop 0.15s ease-out; }
 .animate-slide-up  { animation: slide-up  0.15s ease-out; }
+
+@keyframes side-panel-in {
+  from { transform: translateX(calc(100% + 16px)); }
+  to   { transform: none; }
+}
+
+@keyframes side-panel-out {
+  from { transform: none; }
+  to   { transform: translateX(calc(100% + 16px)); }
+}
 
 @keyframes modal-fade-in {
   from { opacity: 0; }

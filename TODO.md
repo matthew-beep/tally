@@ -261,6 +261,8 @@ Matthew's list of what's left before shipping, in his priority order. Supersedes
      wired into `groups/[id]/page.tsx`. The placement/range/tie-breaking
      questions this section opened aren't separately documented as
      resolved — check the shipped UI directly if that detail matters.
+   - **Removed 2026-11-03** — replaced by spending by category
+     (`src/lib/spending.ts`, `src/components/spending/`).
 
 4. **Responsive views for every screen** 🟡 — no new decisions made this session; this is
    the existing "Desktop / web layout — remaining" backlog further down this file
@@ -1781,7 +1783,7 @@ confirm+re-close or diagnose the actual gap.
   `NotificationsSheet` (manual duplicate — pill radius instead of `T.r.md`). Most
   `ModalOrSheet` consumers (`ExpenseActionSheet`, `SettleUpSheet`, `BalanceSheet`,
   `DeleteGroupSheet`, `InviteGroupSheet`, `MemberActionSheet`, `PersonProfileSheet`,
-  `LeaderboardSheet`, `MemberBalancesModal`) render inline content titles with no
+  `SpendingSheet`, `MemberBalancesModal`) render inline content titles with no
   header bar and no visible X on desktop — close is overlay/Escape only. Mobile
   relies on Vaul drag handle + swipe; add-expense mobile uses a text Cancel instead.
   `EmojiPickerSheet` is backdrop-only; `ActionSheet` is a third pattern (Cancel card

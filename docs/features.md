@@ -78,7 +78,7 @@ never cached in the DB — recomputation happens on read.
 | File | Purpose |
 |---|---|
 | `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold), `calcExpenseNets` (one expense's effect per participant — detail sheet only, not a balance) — all pure, tested incl. pairwise↔net invariant. No min-transfer simplification (`simplifyDebts`, deleted 2026-08-02) — settling up always uses pairwise nets |
-| `leaderboard.ts` | `calcLeaderboard` — gross fronted per member, ranked. Not a balance: settlements never subtract from it |
+| `spending.ts` | `calcSpending` / `calcMonthly` / `calcMonthContext` / `calcMemberShares` — a group's spend by category for one month or all time, as full amounts or your split of them. Not a balance: settlements never subtract from it |
 | `feed.ts` | `mergeFeed` — expenses + settlements → one `created_at`-sorted tagged timeline |
 | `settlements.ts` | `batchNet` / `batchStatus` / `buildSettlementBatch` — turns allocations into insert-ready rows. Owns the rule that a batch's confirmation status comes from the sign of its net, once per payment rather than per row |
 | `notifications.ts` | `groupNotifications` — collapses a recipient's rows into one `NotificationBatch` per payment, plus the id helpers confirm/deny and cache invalidation read from |
@@ -97,7 +97,7 @@ never cached in the DB — recomputation happens on read.
 |---|---|
 | `AddExpenseForm` / `AddExpenseSheet` | Add-expense form, mobile sheet + desktop modal branches. Desktop (`add-expense/DesktopPanel.tsx`, design E4) is a 560px dialog: filing chips (group · date · category), What for / How much / Note wells, a stubbed "Split by item" row, and the token sentence. The split token slides `SplitLedger` in beside the form and widens the dialog to 1010px (below the sentence under a 1080px viewport); the footer states the outcome from `previewSplits` |
 | `ExpenseActionSheet` | Expense tap → detail (per-person nets, edit/delete footer) / edit drawer / delete confirm |
-| `GroupLeaderboard` | Collapsible "who fronted the most" bars on the group page |
+| `SpendingBanner` / `SpendingSheet` / `MonthPicker` / `SpendingCharts` | Banner above the group feed, opening the Spending breakdown panel: month picker, Whole group / Your share, Ring and Over time charts, categories, and a category's months, split and expenses. Design: `Spending Sheet.html`. Replaced the Who's ahead leaderboard 2026-11-03 |
 | `MemberCombobox`, `SuggestedMembers` | Member search input + recents |
 | `MemberActionSheet` | Member tap → remove (real members) or, for a guest row, a two-path claim flow: search + confirmation-required invite (Path B), or a self-serve claim-link screen (Path A) |
 | `InviteGroupSheet` | Group settings "Invite to group" — link card, copy, `navigator.share` |

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sanitizeAmount } from './money'
+import { formatDollars, formatWholeDollars, sanitizeAmount } from './money'
 
 // Ported from the retired NumericPad.pressKey suite: the same rules, now
 // applied to whatever the system keyboard puts in the field rather than to one
@@ -43,5 +43,19 @@ describe('sanitizeAmount', () => {
 
   it('passes an empty field through', () => {
     expect(sanitizeAmount('')).toBe('')
+  })
+})
+
+describe('formatDollars', () => {
+  it('groups thousands and keeps cents', () => {
+    expect(formatDollars(1850)).toBe('$1,850.00')
+    expect(formatDollars(12.5)).toBe('$12.50')
+  })
+})
+
+describe('formatWholeDollars', () => {
+  it('rounds and groups thousands', () => {
+    expect(formatWholeDollars(1850.4)).toBe('$1,850')
+    expect(formatWholeDollars(0)).toBe('$0')
   })
 })

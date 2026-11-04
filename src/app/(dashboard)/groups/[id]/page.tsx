@@ -13,8 +13,8 @@ import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
 import { SettleUpSheet } from '@/components/SettleUpSheet'
 import { MemberBalancesModal } from '@/components/settle/MemberBalancesModal'
-import { WhosAheadRow } from '@/components/leaderboard/WhosAheadRow'
-import { LeaderboardSheet } from '@/components/leaderboard/LeaderboardSheet'
+import { SpendingBanner } from '@/components/spending/SpendingBanner'
+import { SpendingSheet } from '@/components/spending/SpendingSheet'
 import { AppHeader } from '@/components/dashboard/AppHeader'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReactionPills } from '@/components/ReactionPills'
@@ -23,7 +23,6 @@ import { SettingsIcon } from 'lucide-react'
 import { useGroupDetail } from '@/queries/useGroupDetail'
 import { PullToRefresh } from '@/components/PullToRefresh'
 import { calcNetBalances, calcPairwiseNets } from '@/lib/balance'
-import { calcLeaderboard } from '@/lib/leaderboard'
 import { mergeFeed, feedItemDate, type FeedItem } from '@/lib/feed'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
 import type { GroupMember, Expense, Settlement, Transfer } from '@/types'
@@ -44,7 +43,7 @@ export default function GroupDetailPage() {
   // state so closing the sheet doesn't fight the param still being in the URL.
   const [addExpenseOpen,  setAddExpenseOpen]  = useState(() => searchParams.get('add') === '1')
   const [settleOpen,      setSettleOpen]      = useState(false)
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false)
+  const [spendingOpen,    setSpendingOpen]    = useState(false)
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
   // Kept after close so the edit sheet can animate out on the same content.
   const [editingExpense,  setEditingExpense]  = useState<Expense | null>(null)
@@ -75,10 +74,6 @@ export default function GroupDetailPage() {
     if (aYou !== bYou) return aYou ? -1 : 1
     return (net[b.id] ?? 0) - (net[a.id] ?? 0)
   })
-
-  // Leaderboard — gross fronted, ranked. Deliberately not `net`: this answers
-  // "who's been covering the group", which settlements don't undo.
-  const leaderboard = calcLeaderboard(groupId, expenses, memberIds)
 
   const oweMeEntries = Object.entries(pairwiseNets).filter(([, v]) => v > 0.01)
   const IOweEntries  = Object.entries(pairwiseNets).filter(([, v]) => v < -0.01)
@@ -290,11 +285,6 @@ export default function GroupDetailPage() {
               })}
             </div>
           </div>
-
-          {/* ── Who's ahead? — desktop placement, bottom of the Members column ── */}
-          <div className="group-detail-whos-ahead--desktop" style={{ marginTop: 16 }}>
-            <WhosAheadRow entries={leaderboard} members={members} myId={myId} onOpen={() => setLeaderboardOpen(true)} />
-          </div>
         </div>
 
         {/* ── Right column / mobile scrollable body ── */}
@@ -361,9 +351,9 @@ export default function GroupDetailPage() {
                 </svg>
               </button>
 
-              {/* ── Who's ahead? — mobile placement, below the hero ── */}
-              <div className="group-detail-whos-ahead--mobile" style={{ marginBottom: 20 }}>
-                <WhosAheadRow entries={leaderboard} members={members} myId={myId} onOpen={() => setLeaderboardOpen(true)} />
+              {/* ── Spending — above the feed on every layout ── */}
+              <div style={{ marginBottom: 20 }}>
+                <SpendingBanner expenses={expenses} onOpen={() => setSpendingOpen(true)} />
               </div>
 
               {/* ── Expense + settlement feed ──
@@ -436,10 +426,10 @@ export default function GroupDetailPage() {
         preselect={preselectTransfer}
       />
 
-      <LeaderboardSheet
-        open={leaderboardOpen}
-        onClose={() => setLeaderboardOpen(false)}
-        entries={leaderboard}
+      <SpendingSheet
+        open={spendingOpen}
+        onClose={() => setSpendingOpen(false)}
+        expenses={expenses}
         members={members}
         myId={myId}
       />

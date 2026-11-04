@@ -13,8 +13,7 @@ export function isLive(e: Pick<Expense, 'deleted_at'>): boolean {
 
 /**
  * Only the payer has a share — they logged their own spend in the group. It
- * moves no money between anyone, so the UI calls it "nothing borrowed" and
- * the leaderboard doesn't count it as fronting.
+ * moves no money between anyone, so the UI calls it "nothing borrowed".
  */
 export function isPersonal(e: Pick<Expense, 'paid_by' | 'splits'>): boolean {
   // Every saved expense has at least one split row, so none means "not

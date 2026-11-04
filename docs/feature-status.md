@@ -14,6 +14,7 @@ priority order.
 | Auth + onboarding (Google, @handle)            | ✅       | ✅      | ✅       | —                                                                                            |
 | Group create / list                            | ✅       | ✅      | ✅       | —                                                                                            |
 | Group detail (feed, balances, members)         | ✅       | ✅      | ✅ 2-col | Avatar tap → person sheet on group page still blocked on global data prefetch                 |
+| Spending by category (group page)              | ✅       | ✅      | ✅       | Replaced Who's ahead 2026-11-03. Side panel (bottom sheet on mobile) with month picker, Whole group / Your share, Ring and Over time, month comparison, each category's months, split and expenses. Expense rows are read-only |
 | Add members (search, invite link, QR, guests)  | ✅       | ✅      | ✅       | Cancel pending invite; invite-link regenerate                                                |
 | Invite accept / decline → guest conversion     | ✅       | ✅      | ✅       | —                                                                                            |
 | Add expense (equal / exact / percentage)       | ✅       | ✅      | ✅       | Mobile rebuilt as a full-screen route 2026-08-26 (`/groups/[id]/add`, sheet kept as fallback) with Date/Category/Note sheets added; itemized tab still "Coming soon" on desktop; desktop still has no note field |

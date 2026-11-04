@@ -1,5 +1,9 @@
 # Expense social + group leaderboard — design
 
+> **Leaderboard removed 2026-11-03.** Who's ahead was replaced by spending by
+> category (`lib/spending.ts`, `components/spending/`). Leaderboard sections
+> below are history; the social sections still apply.
+
 **Status:** design agreed 2026-08-08. Phases A–C and D1 shipped (leaderboard,
 detail drawer, reactions, comment thread + composer). **D2 (comment
 discoverability chip) is decided and next priority** — see Phasing. Phase E

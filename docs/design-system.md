@@ -198,9 +198,15 @@ warm-white insert rather than sun (the primary action owns the sun).
 - `Token` / `PersonToken` (`components/PersonToken.tsx`) — the one selectable
   pill shape. Renders **flat when it has no `onClick`**: a pill you can only
   read is information.
-- `Segmented` — recessed track, raised insert.
+- `Segmented` — recessed track, raised insert. `tone="sun"` fills the selected
+  segment instead, for a view with no primary action. The Spending breakdown
+  panel uses it on both of its switches, a deliberate exception to the
+  one-sun rule.
 - `Input` — recessed well + the borderless field, sizes
   `hero | title | md | cellLg | cell`.
+- `.tactile-raised` (`styles/dashboard.css`) — the raised tier for bespoke rows
+  and cells that can't be a `Btn`, with `--sun` for a selected one and
+  `.tactile-ghost` for controls inside a recessed track.
 - `well(focused, rimColor)` (`design/tokens.ts`) — the recessed primitive, for
   inputs whose well holds more than a value (`MemberCombobox`'s chips,
   `HandleInput`'s validation pip) and for segmented-style tracks.
