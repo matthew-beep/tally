@@ -1,28 +1,55 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
+
+interface SharedQuery {
+  mq: MediaQueryList
+  subscribers: Set<() => void>
+  onChange: () => void
+}
+
+/**
+ * One native listener per query, however many components ask. A feed renders an
+ * emoji picker per row, and with a listener each, crossing a breakpoint ran a
+ * separate React commit per row, enough to trip "Maximum update depth exceeded"
+ * in a group with a few dozen expenses. Notifying everyone from one event
+ * batches them into a single render.
+ */
+const shared = new Map<string, SharedQuery>()
+
+function getShared(query: string): SharedQuery {
+  let entry = shared.get(query)
+  if (!entry) {
+    const subscribers = new Set<() => void>()
+    entry = {
+      mq: window.matchMedia(query),
+      subscribers,
+      onChange: () => subscribers.forEach(notify => notify()),
+    }
+    shared.set(query, entry)
+  }
+  return entry
+}
 
 export function useMediaQuery(query: string): boolean {
-  // Resolve synchronously on the client so the first paint is already correct.
-  // Defaulting to `false` made every consumer render its desktop branch for one
-  // frame on mobile — most visibly AddExpenseForm, which flashed the two-column
-  // modal before swapping to the sheet. Guarded for SSR, where there's no
-  // matchMedia and `false` is the only answer available.
-  const [matches, setMatches] = useState(() =>
-    typeof window === 'undefined' ? false : window.matchMedia(query).matches
-  )
-
-  useEffect(() => {
-    const mq = window.matchMedia(query)
-    setMatches(mq.matches)
-    function onChange(e: MediaQueryListEvent) {
-      setMatches(e.matches)
+  const subscribe = useCallback((notify: () => void) => {
+    const entry = getShared(query)
+    if (entry.subscribers.size === 0) entry.mq.addEventListener('change', entry.onChange)
+    entry.subscribers.add(notify)
+    return () => {
+      entry.subscribers.delete(notify)
+      if (entry.subscribers.size === 0) entry.mq.removeEventListener('change', entry.onChange)
     }
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
   }, [query])
 
-  return matches
+  // Correct from the first client render, so AddExpenseForm doesn't flash its
+  // desktop modal on mobile. The server has no matchMedia, so hydration starts
+  // from `false` and React corrects it before the browser paints.
+  return useSyncExternalStore(
+    subscribe,
+    () => getShared(query).mq.matches,
+    () => false,
+  )
 }
 
 /** True when viewport is mobile sheet breakpoint (matches .modal-sheet-* CSS). */
