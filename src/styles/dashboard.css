@@ -775,18 +775,70 @@
   color: var(--tally-ink);
 }
 
-/* Spending banner: the same line, shorter where it has less room. */
-.spending-banner-short {
-  display: none;
+/* Expenses / Stats tabs. Negative margins cancel .group-detail-right's padding,
+   so the bar runs edge to edge and stays in view as the tab scrolls. Sticky
+   offsets are measured inside a scroller's padding, so `top` cancels it too. */
+.group-tabs {
+  position: sticky;
+  top: -16px;
+  z-index: 5;
+  display: flex;
+  gap: 24px;
+  margin: -16px -16px 16px;
+  padding: 0 16px;
+  background: var(--tally-bg);
+  border-bottom: 0.5px solid var(--tally-line);
+}
+
+.group-tab {
+  position: relative;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--tally-ink-muted);
+}
+
+.group-tab:hover,
+.group-tab[aria-selected="true"] {
+  color: var(--tally-ink);
+}
+
+.group-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.5px;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+  background: var(--tally-sun);
+}
+
+.group-tab:focus-visible {
+  outline: 2px solid var(--tally-sun);
+  outline-offset: -2px;
 }
 
 @media (max-width: 767px) {
-  .spending-banner-long {
-    display: none;
+  .group-tabs {
+    gap: 0;
   }
 
-  .spending-banner-short {
-    display: inline;
+  .group-tab {
+    flex: 1;
+  }
+}
+
+@media (min-width: 1024px) {
+  .group-tabs {
+    top: -20px;
+    margin: -20px -28px 20px;
+    padding: 0 28px;
   }
 }
 

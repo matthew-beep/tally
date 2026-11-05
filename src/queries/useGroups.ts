@@ -106,6 +106,7 @@ export function useDeleteGroup() {
       qc.removeQueries({ queryKey: ['group_members', groupId] })
       qc.removeQueries({ queryKey: ['expenses', groupId] })
       qc.removeQueries({ queryKey: ['settlements', groupId] })
+      qc.removeQueries({ queryKey: ['budget', groupId] })
     },
   })
 }

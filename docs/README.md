@@ -25,7 +25,7 @@ start there when you're working on a concern across domains.
 | [notifications-and-membership-design.md](./notifications-and-membership-design.md) | Paused design discussion: invite accept/decline notifications, activity-vs-notification framework, `group_members.status` semantics |
 | [social-and-leaderboard-design.md](./social-and-leaderboard-design.md) | Expense reactions/comments, the expense detail drawer, and the group leaderboard — data model, RLS shape, phasing. Phases A–C and D1 shipped; D2 (comment discoverability chip) decided as next priority; comment notifications (E) still planned |
 | [statement-import-design.md](./statement-import-design.md) | **Plan, not as-built** — bulk expense import from banking screenshots: vision-first extraction, swappable provider (Gemini now, self-hosted later), validation/dedupe, staging UI, privacy rules. Nothing built; `/api/ocr` is still a 501 stub |
-| [just-me-budget-design.md](./just-me-budget-design.md) | **Plan, not as-built** — private personal budget page: monthly cap, category limits, your share of group expenses with filter chips, decisions and open questions. Nothing built |
+| [group-budget-design.md](./group-budget-design.md) | Shared group budgets with a Stats tab and solo groups (phase 1, on `feature/group-budgets`), then a planned private "Your spending" total across groups, with an optional personal cap later. Decisions, schema, and open questions |
 
 ## What Tally is
 

@@ -5,7 +5,9 @@ import { useParams, useRouter } from 'next/navigation'
 import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { useProfileByAddCode } from '@/queries/useProfile'
-import { useGroups, useProfileGroups } from '@/queries/useGroups'
+import { useGroupMembers, useGroups, useProfileGroups } from '@/queries/useGroups'
+import { useExpenses } from '@/queries/useExpenses'
+import { SoloInviteWarning } from '@/components/SoloInviteWarning'
 import { postJson } from '@/lib/api'
 import { firstName } from '@/lib/memberDisplay'
 import { SectionLabel } from '@/components/SectionLabel'
@@ -29,6 +31,18 @@ export default function AddByCodePage() {
   const effectiveSelected = selectedGroupId ?? eligible[0]?.id ?? null
   const selectedGroup = myGroups.find(g => g.id === effectiveSelected)
   const targetName = target ? (target.display_name ?? target.name) : ''
+
+  const selectedMembers  = useGroupMembers(effectiveSelected ?? '')
+  const selectedExpenses = useExpenses(effectiveSelected ?? '')
+  const [soloWarningOpen, setSoloWarningOpen] = useState(false)
+  // Held back until it's known whether this is a one-person group with history.
+  const checkingSelected = !!effectiveSelected && (selectedMembers.isLoading || selectedExpenses.isLoading)
+  const expenseCount = selectedExpenses.data?.length ?? 0
+
+  function requestAdd() {
+    if (selectedMembers.data?.length === 1 && expenseCount > 0) setSoloWarningOpen(true)
+    else handleAdd()
+  }
 
   async function handleAdd() {
     if (!target || !effectiveSelected) return
@@ -207,7 +221,7 @@ export default function AddByCodePage() {
             </button>
             {eligible.length > 0 && selectedGroup && (
               <Btn
-                onClick={handleAdd} disabled={adding} variant="primary" size="lg"
+                onClick={requestAdd} disabled={adding || checkingSelected} variant="primary" size="lg"
                 style={{
                   flex: 1, padding: '14px 18px', borderRadius: 14,
                   fontFamily: FH, fontSize: 16, fontWeight: 600, letterSpacing: -0.2,
@@ -220,6 +234,14 @@ export default function AddByCodePage() {
           </div>
         </div>
       </div>
+
+      <SoloInviteWarning
+        open={soloWarningOpen}
+        groupName={selectedGroup?.name ?? ''}
+        expenseCount={expenseCount}
+        onCancel={() => setSoloWarningOpen(false)}
+        onContinue={() => { setSoloWarningOpen(false); handleAdd() }}
+      />
     </div>
   )
 }

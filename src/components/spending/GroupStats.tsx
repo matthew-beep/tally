@@ -5,7 +5,7 @@ import { T, F, FH, FMONO } from '@/design/tokens'
 import { Avatar } from '@/components/Avatar'
 import { Btn } from '@/components/Btn'
 import { Segmented } from '@/components/Segmented'
-import { ModalHeader, SidePanelOrSheet } from '@/components/modal'
+import { budgetCategoryRows, budgetForMonth, calcBudgetMonth, type BudgetCategoryRow, type LimitState } from '@/lib/budget'
 import { CATEGORIES } from '@/lib/categories'
 import { formatDollars, formatWholeDollars, splitAmount } from '@/lib/money'
 import { avatarProfile, displayName, firstName, slotFor } from '@/lib/memberDisplay'
@@ -15,19 +15,25 @@ import {
   type CategorySpend, type MonthContext, type MonthSpend, type SpendingPeriod, type SpendingView,
 } from '@/lib/spending'
 import { localISODate } from '@/lib/time'
+import { useGroupBudget } from '@/queries/useGroupBudget'
 import type { Expense, GroupMember } from '@/types'
+import { BudgetCard, LockLabel, SetBudgetPrompt } from './BudgetCard'
+import { BudgetEditSheet } from './BudgetEditSheet'
 import { MonthPicker } from './MonthPicker'
 import { CATEGORY_COLOR, ChartWell, OverTimeChart, RingChart, sharePercent, type ChartKind } from './SpendingCharts'
 
 interface Props {
-  open: boolean
-  onClose: () => void
+  groupId: string
+  groupName: string
   expenses: Expense[]
   members: GroupMember[]
   myId?: string
+  /** Active members can change the budget. Someone previewing an invite can't. */
+  canEdit: boolean
 }
 
 const eyebrow = { fontSize: 11, fontWeight: 800, letterSpacing: '.09em', textTransform: 'uppercase', color: T.inkFaint } as const
+const stack = { display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gridAutoRows: 'max-content', alignContent: 'start', gap: 12 } as const
 
 /** "Oct 3", with the year once it isn't this one. Parsed by hand to avoid UTC drift. */
 function shortDate(iso: string, today: string): string {
@@ -74,28 +80,42 @@ function ContextLine({ context: c }: { context: MonthContext }) {
   }
 }
 
+function Note({ children }: { children: React.ReactNode }) {
+  return <div style={{ margin: '0 2px', fontSize: 13, fontWeight: 600, lineHeight: 1.45, color: T.inkFaint }}>{children}</div>
+}
+
 /**
- * Where a group's money went, for one month or all time: a total, a chart, and
- * a ranked list of categories that each open onto their expenses. Whole group
- * counts full expense amounts; Your share counts your split of each one,
- * whoever paid. Neither is a balance.
+ * The group's Stats tab: where its money went, for one month or all time, and
+ * how that compares with its budget. Whole group counts full expense amounts;
+ * Your share counts your split of each one, whoever paid. Neither is a balance,
+ * and a budget only ever measures the whole group.
  */
-export function SpendingSheet({ open, onClose, expenses, members, myId }: Props) {
+export function GroupStats({ groupId, groupName, expenses, members, myId, canEdit }: Props) {
   const today = localISODate()
   const [pickedMonth, setPickedMonth] = useState<string | null>(null)
   const [isAll, setIsAll] = useState(false)
-  const [view, setView] = useState<SpendingView>('group')
+  const [viewChoice, setViewChoice] = useState<SpendingView>('group')
   const [chart, setChart] = useState<ChartKind>('ring')
   const [selected, setSelected] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
-  const scrollerRef = useRef<HTMLDivElement>(null)
+  const [editing, setEditing] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
   // Moving between the overview and a category starts at the top of the new view.
   useEffect(() => {
-    scrollerRef.current?.scrollTo({ top: 0 })
+    rootRef.current?.closest('.group-detail-right')?.scrollTo({ top: 0 })
   }, [selected])
 
-  const month = pickedMonth ?? currentMonth(today)
+  // With one person, whole group and your share are the same number.
+  const solo = members.length === 1
+  const view: SpendingView = solo ? 'group' : viewChoice
+  const mine = view === 'mine'
+
+  const budgetQuery = useGroupBudget(groupId)
+  const versions = useMemo(() => budgetQuery.data ?? [], [budgetQuery.data])
+  const thisMonth = currentMonth(today)
+
+  const month = pickedMonth ?? thisMonth
   const period: SpendingPeriod = isAll ? ALL_TIME : month
   const bounds = useMemo(() => spendingBounds(expenses, today), [expenses, today])
   const summary = useMemo(() => calcSpending(expenses, period, view, myId), [expenses, period, view, myId])
@@ -107,15 +127,30 @@ export function SpendingSheet({ open, onClose, expenses, members, myId }: Props)
 
   const phrase = periodPhrase(period, bounds, today)
   const context = calcMonthContext(period, summary.amount, allMonths, view, bounds, today)
-  const mine = view === 'mine'
 
-  function handleClose() {
-    setSelected(null)
-    setPickedMonth(null)
-    setIsAll(false)
-    setHovered(null)
-    onClose()
-  }
+  // A budget is compared only in the whole-group view of a single month.
+  const budget = !isAll && !mine ? budgetForMonth(versions, month) : null
+  const budgetState = useMemo(
+    () => (budget ? calcBudgetMonth(expenses, budget, month, today) : null),
+    [budget, expenses, month, today],
+  )
+  const rows: BudgetCategoryRow[] = useMemo(
+    () => budgetState
+      ? budgetCategoryRows(summary.categories, budgetState)
+      : summary.categories.map(category => ({ category, limit: null })),
+    [budgetState, summary.categories],
+  )
+  const maxAmount = Math.max(0, ...rows.map(r => r.category.amount))
+
+  const capLines = useMemo(() => {
+    if (mine) return {}
+    return Object.fromEntries(recentMonths.flatMap(m => {
+      const cap = budgetForMonth(versions, m.month)?.cap
+      return cap != null ? [[m.month, cap]] : []
+    }))
+  }, [mine, recentMonths, versions])
+
+  const hasCurrentBudget = budgetForMonth(versions, thisMonth) != null
 
   function openCategory(emoji: string) {
     setHovered(null)
@@ -125,6 +160,12 @@ export function SpendingSheet({ open, onClose, expenses, members, myId }: Props)
   function pickMonth(next: string) {
     setPickedMonth(next)
     setIsAll(false)
+  }
+
+  function openEdit() {
+    setPickedMonth(null)
+    setIsAll(false)
+    setEditing(true)
   }
 
   const controls = (
@@ -142,48 +183,77 @@ export function SpendingSheet({ open, onClose, expenses, members, myId }: Props)
     </div>
   )
 
-  return (
-    <SidePanelOrSheet open={open} onClose={handleClose} title="Spending breakdown" width={480}>
-      <ModalHeader title="Spending breakdown" onClose={handleClose} style={{ padding: '16px 16px 14px 24px', alignItems: 'center' }} />
+  // Nothing about a budget until it has loaded, so a failed or slow fetch can't
+  // read as "this group has no budget" and offer to set a new one.
+  let budgetSection: React.ReactNode = null
+  if (budgetQuery.isSuccess && !isAll) {
+    if (mine) {
+      if (hasCurrentBudget) budgetSection = <Note>The budget tracks the whole group&rsquo;s spending, so it&rsquo;s hidden in Your share.</Note>
+    } else if (budgetState) {
+      budgetSection = <BudgetCard state={budgetState} month={month} canEdit={canEdit} onEdit={openEdit} />
+    } else if (month !== thisMonth) {
+      if (month < thisMonth) budgetSection = <Note>No budget was set for {monthName(month)}.</Note>
+    } else if (canEdit) {
+      budgetSection = <SetBudgetPrompt groupName={groupName} solo={solo} onSet={openEdit} />
+    }
+  }
 
-      {/* max-content rows: anything shorter squeezes a clipping child, like the
-          expense list, into the space left over instead of letting this scroll. */}
-      <div ref={scrollerRef} className="spending-breakdown" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 24px 22px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gridAutoRows: 'max-content', alignContent: 'start', gap: 12, fontFamily: F, color: T.ink }}>
-        {selected ? (
+  const selectedRow = rows.find(r => r.category.emoji === selected)
+  const footnote = (
+    <div style={{ gridColumn: '1 / -1', padding: '4px 2px 8px', fontSize: 12.5, fontWeight: 600, lineHeight: 1.45, color: T.inkFaint }}>
+      {mine ? 'Your share of each expense after it’s split, whoever paid.' : solo ? 'Every expense in this group.' : 'Full expense amounts, whoever paid.'}
+      {' Settlements aren’t spending, so they’re left out. Open an expense from the group to edit it.'}
+    </div>
+  )
+
+  return (
+    <div ref={rootRef} className="spending-breakdown" style={{ fontFamily: F, color: T.ink }}>
+      {selected ? (
+        <div style={{ ...stack, maxWidth: 620, margin: '0 auto' }}>
           <CategoryDetail
             emoji={selected}
-            category={summary.categories.find(c => c.emoji === selected)}
+            category={selectedRow?.category}
+            limit={selectedRow?.limit ?? null}
             view={view}
+            solo={solo}
             period={period}
             phrase={phrase}
             controls={controls}
             months={recentMonths}
             allMonths={allMonths}
+            versions={versions}
             members={members}
             myId={myId}
             today={today}
+            canAddLimit={canEdit && budgetQuery.isSuccess && !isAll && !mine && month === thisMonth}
+            onEdit={openEdit}
             onPickMonth={pickMonth}
             onBack={() => setSelected(null)}
           />
-        ) : (
-          <>
+          {footnote}
+        </div>
+      ) : (
+        // Two columns when the page has room for them, one otherwise. The group
+        // page's width depends on its members column, so this goes by what fits
+        // rather than by a screen-width breakpoint.
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(340px, 100%), 1fr))', gap: '20px 32px', alignItems: 'start', maxWidth: 1040, margin: '0 auto' }}>
+          <div style={stack}>
             {controls}
-
-            {myId && (
+            {myId && !solo && (
               <Segmented
                 fullWidth
-                tone="sun"
                 value={view}
-                onChange={setView}
+                onChange={setViewChoice}
                 options={[{ value: 'group', label: 'Whole group' }, { value: 'mine', label: 'Your share' }]}
               />
             )}
-
             <Hero label={`${mine ? 'Your share' : 'Total spent'} ${phrase}`} amount={summary.amount} context={context} />
+            {budgetSection}
+          </div>
 
+          <div style={stack}>
             <Segmented
               fullWidth
-              tone="sun"
               value={chart}
               onChange={setChart}
               options={[{ value: 'ring', label: 'Ring' }, { value: 'time', label: 'Over time' }]}
@@ -191,7 +261,7 @@ export function SpendingSheet({ open, onClose, expenses, members, myId }: Props)
 
             <ChartWell>
               {chart === 'time' ? (
-                <OverTimeChart months={recentMonths} period={period} view={view} hovered={hovered} onHover={setHovered} onPickMonth={pickMonth} />
+                <OverTimeChart months={recentMonths} period={period} view={view} solo={solo} capLines={capLines} hovered={hovered} onHover={setHovered} onPickMonth={pickMonth} />
               ) : summary.amount > 0 ? (
                 <RingChart
                   categories={summary.categories}
@@ -208,42 +278,54 @@ export function SpendingSheet({ open, onClose, expenses, members, myId }: Props)
               )}
             </ChartWell>
 
-            {summary.categories.length > 0 && (
+            {rows.length > 0 && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', margin: '12px 2px 0' }}>
                   <span style={eyebrow}>Categories</span>
-                  <span style={eyebrow}>{summary.categories.length}</span>
+                  <span style={eyebrow}>{rows.length}</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {summary.categories.map(c => (
+                  {rows.map(({ category, limit }) => (
                     <CategoryRow
-                      key={c.emoji}
-                      category={c}
-                      max={summary.categories[0].amount}
+                      key={category.emoji}
+                      category={category}
+                      limit={limit}
+                      budgeted={!!budgetState}
+                      max={maxAmount}
                       view={view}
-                      showShare={!!myId}
-                      highlighted={hovered === c.emoji}
+                      showShare={!!myId && !solo}
+                      highlighted={hovered === category.emoji}
                       onHover={setHovered}
-                      onOpen={() => openCategory(c.emoji)}
+                      onOpen={() => openCategory(category.emoji)}
                     />
                   ))}
                 </div>
               </>
             )}
-          </>
-        )}
-      </div>
+          </div>
 
-      <div style={{ flexShrink: 0, padding: '12px 24px 14px', borderTop: `1px solid ${T.line}`, fontFamily: F, fontSize: 12.5, fontWeight: 600, lineHeight: 1.45, color: T.inkFaint }}>
-        {mine ? 'Your share of each expense after it’s split, whoever paid.' : 'Full expense amounts, whoever paid.'}
-        {' Settlements aren’t spending, so they’re left out. Open an expense from the group to edit it.'}
-      </div>
-    </SidePanelOrSheet>
+          {footnote}
+        </div>
+      )}
+
+      <BudgetEditSheet
+        open={editing}
+        onClose={() => setEditing(false)}
+        groupId={groupId}
+        groupName={groupName}
+        solo={solo}
+        expenses={expenses}
+        versions={versions}
+      />
+    </div>
   )
 }
 
-function CategoryRow({ category, max, view, showShare, highlighted, onHover, onOpen }: {
+function CategoryRow({ category, limit, budgeted, max, view, showShare, highlighted, onHover, onOpen }: {
   category: CategorySpend
+  limit: LimitState | null
+  /** This month has a budget, so bars measure limits rather than shares. */
+  budgeted: boolean
   max: number
   view: SpendingView
   showShare: boolean
@@ -252,6 +334,27 @@ function CategoryRow({ category, max, view, showShare, highlighted, onHover, onO
   onOpen: () => void
 }) {
   const { fill } = CATEGORY_COLOR[category.emoji]
+  const over = !!limit?.over
+
+  let tag: React.ReactNode = sharePercent(category.fraction)
+  let barWidth = max > 0 ? (category.amount / max) * 100 : 0
+  let barFill = fill
+  let small: React.ReactNode = !showShare ? null : view === 'mine'
+    ? `of ${formatWholeDollars(category.total)} total`
+    : `${formatWholeDollars(category.yourShare)} yours`
+
+  if (limit) {
+    tag = `${Math.round(limit.fraction * 100)}% used`
+    barWidth = Math.min(limit.fraction * 100, 100)
+    barFill = over ? T.coral : fill
+    small = over ? `${formatWholeDollars(-limit.left)} over ${formatWholeDollars(limit.limit)}` : `of ${formatWholeDollars(limit.limit)}`
+  } else if (budgeted) {
+    // A bar with no limit has nothing to fill toward, so it stays quiet beside the ones that do.
+    tag = null
+    barFill = T.inkFaint
+    small = 'no limit'
+  }
+
   return (
     <button
       type="button"
@@ -265,18 +368,16 @@ function CategoryRow({ category, max, view, showShare, highlighted, onHover, onO
       <span style={{ minWidth: 0 }}>
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 14.5, fontWeight: 700 }}>
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{category.label}</span>
-          <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: T.inkFaint, fontVariantNumeric: 'tabular-nums' }}>{sharePercent(category.fraction)}</span>
+          {tag && <span style={{ flexShrink: 0, fontSize: 12, fontWeight: 700, color: over ? T.coralInk : T.inkFaint, fontVariantNumeric: 'tabular-nums' }}>{tag}</span>}
         </span>
         <span style={{ display: 'block', height: 6, marginTop: 8, borderRadius: 4, background: T.surfaceAlt, overflow: 'hidden' }}>
-          <i style={{ display: 'block', height: '100%', width: `${max > 0 ? (category.amount / max) * 100 : 0}%`, borderRadius: 4, background: fill, transition: 'width .35s cubic-bezier(.2,.8,.2,1)' }} />
+          <i style={{ display: 'block', height: '100%', width: `${barWidth}%`, borderRadius: 4, background: barFill, transition: 'width .35s cubic-bezier(.2,.8,.2,1)' }} />
         </span>
       </span>
-      <span style={{ textAlign: 'right', fontSize: 14.5, fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      <span style={{ textAlign: 'right', fontSize: 14.5, fontWeight: 800, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: over ? T.coralInk : T.ink }}>
         {formatWholeDollars(category.amount)}
-        {showShare && (
-          <small style={{ display: 'block', marginTop: 3, fontSize: 12, fontWeight: 600, color: T.inkFaint }}>
-            {view === 'mine' ? `of ${formatWholeDollars(category.total)} total` : `${formatWholeDollars(category.yourShare)} yours`}
-          </small>
+        {small && (
+          <small style={{ display: 'block', marginTop: 3, fontSize: 12, fontWeight: 600, color: T.inkFaint }}>{small}</small>
         )}
       </span>
       <svg aria-hidden width="8" height="13" viewBox="0 0 8 13" fill="none"><path d="M1.5 1l5 5.5-5 5.5" stroke={T.inkFaint} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -293,19 +394,62 @@ function CategoryIcon({ emoji, size = 36 }: { emoji: string; size?: number }) {
   )
 }
 
-function CategoryDetail({ emoji, category, view, period, phrase, controls, months, allMonths, members, myId, today, onPickMonth, onBack }: {
+function LimitRow({ limit, period, today, canAddLimit, onEdit }: {
+  limit: LimitState | null
+  period: SpendingPeriod
+  today: string
+  canAddLimit: boolean
+  onEdit: () => void
+}) {
+  const isCurrent = period === currentMonth(today)
+  if (!limit && !canAddLimit) return null
+  const rowStyle = { display: 'flex', alignItems: 'center', gap: 10, minHeight: 52, padding: '8px 14px', borderRadius: T.r.card, boxShadow: T.shadowHair, fontWeight: 700 } as const
+  const sub = { display: 'block', marginTop: 2, fontSize: 12, fontWeight: 600 } as const
+
+  if (!limit) {
+    return (
+      <div style={rowStyle}>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          No monthly limit
+          <span style={{ ...sub, color: T.inkFaint }}>This still counts toward any monthly total</span>
+        </span>
+        <Btn variant="soft" size="sm" onClick={onEdit}>Add a limit</Btn>
+      </div>
+    )
+  }
+  return (
+    <div style={rowStyle}>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        {formatWholeDollars(limit.limit)} monthly limit
+        <span style={{ ...sub, color: limit.over ? T.coralInk : T.inkFaint }}>
+          {limit.over ? `${formatWholeDollars(-limit.left)} over` : `${formatWholeDollars(limit.left)} left`}
+        </span>
+      </span>
+      {isCurrent
+        ? canAddLimit && <Btn variant="soft" size="sm" onClick={onEdit}>Edit</Btn>
+        : period < currentMonth(today) && <LockLabel>Past month</LockLabel>}
+    </div>
+  )
+}
+
+function CategoryDetail({ emoji, category, limit, view, solo, period, phrase, controls, months, allMonths, versions, members, myId, today, canAddLimit, onEdit, onPickMonth, onBack }: {
   emoji: string
   /** Undefined when this category has nothing in the selected period. */
   category?: CategorySpend
+  limit: LimitState | null
   view: SpendingView
+  solo: boolean
   period: SpendingPeriod
   phrase: string
   controls: React.ReactNode
   months: MonthSpend[]
   allMonths: MonthSpend[]
+  versions: Parameters<typeof budgetForMonth>[0]
   members: GroupMember[]
   myId?: string
   today: string
+  canAddLimit: boolean
+  onEdit: () => void
   onPickMonth: (month: string) => void
   onBack: () => void
 }) {
@@ -315,7 +459,9 @@ function CategoryDetail({ emoji, category, view, period, phrase, controls, month
   const shares = calcMemberShares(expenses)
   const average = allMonths.reduce((s, m) => s + viewAmount(m.byCategory[emoji], view), 0) / allMonths.length
   const values = months.map(m => viewAmount(m.byCategory[emoji], view))
-  const max = Math.max(0, ...values)
+  const limitLines = months.map(m => (view === 'group' ? budgetForMonth(versions, m.month)?.limits[emoji] ?? 0 : 0))
+  const max = Math.max(0, ...values, ...limitLines)
+  const BAR = 70
 
   function memberName(id: string): string {
     if (id === myId) return 'You'
@@ -354,6 +500,8 @@ function CategoryDetail({ emoji, category, view, period, phrase, controls, month
         </div>
       </div>
 
+      <LimitRow limit={limit} period={period} today={today} canAddLimit={canAddLimit} onEdit={onEdit} />
+
       <div style={{ padding: '14px 16px 12px', borderRadius: T.r.lg, boxShadow: T.shadowHair }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10 }}>
           <span style={eyebrow}>{months.length > 0 ? monthRange(months[0].month, months[months.length - 1].month) : ''}</span>
@@ -362,17 +510,22 @@ function CategoryDetail({ emoji, category, view, period, phrase, controls, month
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${months.length}, minmax(0, 1fr))`, gap: 8, alignItems: 'end', height: 120, marginTop: 12 }}>
           {months.map((m, i) => {
             const on = period === ALL_TIME || period === m.month
+            const barHeight = max > 0 && values[i] ? Math.max((values[i] / max) * BAR, 4) : 0
+            const lineHeight = max > 0 ? (limitLines[i] / max) * BAR : 0
             return (
               <button
                 key={m.month}
                 type="button"
-                aria-label={`${monthShort(m.month)}, ${formatWholeDollars(values[i])}`}
+                aria-label={`${monthShort(m.month)}, ${formatWholeDollars(values[i])}${limitLines[i] ? `, limit ${formatWholeDollars(limitLines[i])}` : ''}`}
                 aria-pressed={period === m.month}
                 onClick={() => onPickMonth(m.month)}
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 6, height: '100%', minWidth: 0, padding: 0, border: 0, borderRadius: 8, background: 'transparent', cursor: 'pointer', fontFamily: F }}
               >
                 <span style={{ fontSize: 11, fontWeight: 800, color: T.inkMuted, fontVariantNumeric: 'tabular-nums' }}>{values[i] ? formatWholeDollars(values[i]) : '—'}</span>
-                <span style={{ width: '100%', maxWidth: 40, height: max > 0 && values[i] ? Math.max((values[i] / max) * 70, 4) : 0, borderRadius: '7px 7px 4px 4px', background: fill, opacity: on ? 1 : 0.32, transition: 'height .35s cubic-bezier(.2,.8,.2,1)' }} />
+                <span style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', height: Math.max(barHeight, lineHeight) }}>
+                  <span style={{ width: '100%', maxWidth: 40, height: barHeight, borderRadius: '7px 7px 4px 4px', background: fill, opacity: on ? 1 : 0.32, transition: 'height .35s cubic-bezier(.2,.8,.2,1)' }} />
+                  {limitLines[i] > 0 && <i aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: lineHeight, borderTop: `2px dashed ${T.ink}`, opacity: 0.55 }} />}
+                </span>
                 <span style={{ fontSize: 11, fontWeight: 700, color: on ? T.ink : T.inkFaint }}>{monthShort(m.month)}</span>
               </button>
             )
@@ -380,7 +533,7 @@ function CategoryDetail({ emoji, category, view, period, phrase, controls, month
         </div>
       </div>
 
-      {shares.length > 0 && (
+      {shares.length > 0 && !solo && (
         <>
           <div style={{ ...eyebrow, margin: '12px 2px 0' }}>How it splits</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
@@ -403,10 +556,7 @@ function CategoryDetail({ emoji, category, view, period, phrase, controls, month
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '12px 2px 0' }}>
         <span style={eyebrow}>{period === ALL_TIME ? 'All expenses' : `${monthName(period)} expenses`}</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, color: T.inkFaint }}>
-          <svg aria-hidden width="11" height="12" viewBox="0 0 11 12" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="1" y="5" width="9" height="6.2" rx="1.8" /><path d="M3 5V3.6a2.5 2.5 0 015 0V5" /></svg>
-          Read-only here
-        </span>
+        <LockLabel>Read-only here</LockLabel>
       </div>
 
       <div style={{ borderRadius: T.r.card, boxShadow: T.shadowHair, overflow: 'hidden' }}>
@@ -417,7 +567,9 @@ function CategoryDetail({ emoji, category, view, period, phrase, controls, month
           <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 50, padding: '8px 14px', borderTop: i > 0 ? `1px solid ${T.line}` : 'none' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13.5, fontWeight: 600, color: T.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.description}</div>
-              <div style={{ marginTop: 1, fontSize: 11.5, fontWeight: 600, color: T.inkFaint }}>{shortDate(e.expense_date, today)} · {payerLabel(e)}</div>
+              <div style={{ marginTop: 1, fontSize: 11.5, fontWeight: 600, color: T.inkFaint }}>
+                {shortDate(e.expense_date, today)}{solo ? '' : ` · ${payerLabel(e)}`}
+              </div>
             </div>
             <span style={{ flexShrink: 0, fontSize: 13.5, fontWeight: 700, color: T.ink, fontVariantNumeric: 'tabular-nums' }}>{formatDollars(Number(e.amount))}</span>
           </div>

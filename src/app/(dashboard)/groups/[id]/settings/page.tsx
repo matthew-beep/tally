@@ -11,6 +11,7 @@ import { EmojiPicker } from '@/components/EmojiPicker'
 import { GROUP_EMOJI } from '@/lib/emoji'
 import { MemberActionSheet } from '@/components/MemberActionSheet'
 import { InviteGroupSheet } from '@/components/InviteGroupSheet'
+import { SoloInviteWarning } from '@/components/SoloInviteWarning'
 import { DeleteGroupSheet } from '@/components/DeleteGroupSheet'
 import { useUpdateGroup, useLeaveGroup, useRemoveMember } from '@/queries/useGroups'
 import { useGroupDetail } from '@/queries/useGroupDetail'
@@ -41,6 +42,9 @@ export default function GroupSettingsPage() {
   const [deleteOpen,    setDeleteOpen]    = useState(false)
   const [leaveConfirm,  setLeaveConfirm]  = useState(false)
   const [inviteOpen,    setInviteOpen]    = useState(false)
+  // Which way in the solo-group warning is standing in front of, if any.
+  const [soloWarning,   setSoloWarning]   = useState<'link' | 'member' | null>(null)
+  const [soloWarned,    setSoloWarned]    = useState(false)
 
   const { group, loadingGroup, members, loadingMembers, expenses, settlements, profile } = useGroupDetail(groupId)
 
@@ -59,6 +63,18 @@ export default function GroupSettingsPage() {
   // Name and emoji are anyone's to change — matches the "active members can
   // update" policy, which column grants limit to exactly these two fields.
   const canEditGroup = myMember?.status === 'active'
+
+  function continueInvite(way: 'link' | 'member') {
+    if (way === 'link') setInviteOpen(true)
+    else setAddMemberOpen(true)
+  }
+
+  // Adding a member or guest and sharing the link all let someone into what's
+  // already here, so a one-person group with expenses warns first, once a visit.
+  function startInvite(way: 'link' | 'member') {
+    if (members.length === 1 && expenses.length > 0 && !soloWarned) setSoloWarning(way)
+    else continueInvite(way)
+  }
 
   async function handleAddMembers() {
     if (!pendingMembers.length) return
@@ -194,7 +210,7 @@ export default function GroupSettingsPage() {
         </Card>
 
         <button
-          onClick={() => setInviteOpen(true)}
+          onClick={() => startInvite('link')}
           style={{ width: '100%', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: T.r.card, border: `0.5px solid ${T.line}`, background: T.surface, boxShadow: T.shadowSm, cursor: 'pointer', font: 'inherit', textAlign: 'left' }}
         >
           <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M7.5 10.5a3 3 0 004.24 0l2.5-2.5a3 3 0 00-4.24-4.24l-.9.9M10.5 7.5a3 3 0 00-4.24 0l-2.5 2.5a3 3 0 004.24 4.24l.9-.9" stroke={T.inkMuted} strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -205,7 +221,7 @@ export default function GroupSettingsPage() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 0 6px' }}>
           <SectionLabel>Members · {members.length}</SectionLabel>
           <button
-            onClick={() => setAddMemberOpen(o => !o)}
+            onClick={() => { if (addMemberOpen) cancelAddMember(); else startInvite('member') }}
             style={{ width: 26, height: 26, borderRadius: '50%', border: `1.5px solid ${T.sun}`, background: addMemberOpen ? T.sun : T.sunSoft, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: addMemberOpen ? T.sunOn : T.sunInk, fontSize: 16, lineHeight: 1, padding: 0, textAlign: 'center' }}
           >
             <PlusIcon size={16} />
@@ -364,6 +380,18 @@ export default function GroupSettingsPage() {
         removing={removeMember.isPending && removeMember.variables?.memberId === memberSheetId}
         onRemove={memberId => removeMember.mutate({ groupId, memberId }, { onSuccess: () => setMemberSheetId(null) })}
         onClose={() => setMemberSheetId(null)}
+      />
+
+      <SoloInviteWarning
+        open={soloWarning !== null}
+        groupName={group.name}
+        expenseCount={expenses.length}
+        onCancel={() => setSoloWarning(null)}
+        onContinue={() => {
+          if (soloWarning) continueInvite(soloWarning)
+          setSoloWarned(true)
+          setSoloWarning(null)
+        }}
       />
 
       <InviteGroupSheet

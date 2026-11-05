@@ -13,8 +13,7 @@ import { AddExpenseSheet } from '@/components/AddExpenseForm'
 import { ExpenseActionSheet } from '@/components/ExpenseActionSheet'
 import { SettleUpSheet } from '@/components/SettleUpSheet'
 import { MemberBalancesModal } from '@/components/settle/MemberBalancesModal'
-import { SpendingBanner } from '@/components/spending/SpendingBanner'
-import { SpendingSheet } from '@/components/spending/SpendingSheet'
+import { GroupStats } from '@/components/spending/GroupStats'
 import { AppHeader } from '@/components/dashboard/AppHeader'
 import { FeedCard } from '@/components/feed/FeedCard'
 import { ReactionPills } from '@/components/ReactionPills'
@@ -43,7 +42,7 @@ export default function GroupDetailPage() {
   // state so closing the sheet doesn't fight the param still being in the URL.
   const [addExpenseOpen,  setAddExpenseOpen]  = useState(() => searchParams.get('add') === '1')
   const [settleOpen,      setSettleOpen]      = useState(false)
-  const [spendingOpen,    setSpendingOpen]    = useState(false)
+  const [tab,             setTab]             = useState<'expenses' | 'stats'>('expenses')
   const [expenseSheet,    setExpenseSheet]    = useState<Expense | null>(null)
   // Kept after close so the edit sheet can animate out on the same content.
   const [editingExpense,  setEditingExpense]  = useState<Expense | null>(null)
@@ -290,7 +289,36 @@ export default function GroupDetailPage() {
         {/* ── Right column / mobile scrollable body ── */}
         <PullToRefresh className="group-detail-right">
 
-          {expenses.length === 0 ? (
+          <div className="group-tabs" role="tablist" aria-label="Group sections">
+            {([['expenses', 'Expenses'], ['stats', 'Stats']] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                className="group-tab"
+                onClick={e => {
+                  setTab(value)
+                  e.currentTarget.closest('.group-detail-right')?.scrollTo({ top: 0 })
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {tab === 'stats' ? (
+
+            <GroupStats
+              groupId={groupId}
+              groupName={group.name}
+              expenses={expenses}
+              members={members}
+              myId={myId}
+              canEdit={myMember?.status === 'active'}
+            />
+
+          ) : expenses.length === 0 ? (
 
             /* ══ EMPTY STATE ══ */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 0 0', textAlign: 'center', gap: 10 }}>
@@ -350,11 +378,6 @@ export default function GroupDetailPage() {
                   <path d="M3.5 6l4.5 4.5 4.5-4.5" stroke={T.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
-
-              {/* ── Spending — above the feed on every layout ── */}
-              <div style={{ marginBottom: 20 }}>
-                <SpendingBanner expenses={expenses} onOpen={() => setSpendingOpen(true)} />
-              </div>
 
               {/* ── Expense + settlement feed ──
                    A stack of FeedCards rather than hairline rows in one card:
@@ -424,14 +447,6 @@ export default function GroupDetailPage() {
         transfers={transfers}
         members={members}
         preselect={preselectTransfer}
-      />
-
-      <SpendingSheet
-        open={spendingOpen}
-        onClose={() => setSpendingOpen(false)}
-        expenses={expenses}
-        members={members}
-        myId={myId}
       />
 
       <MemberBalancesModal

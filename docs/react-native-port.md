@@ -334,7 +334,7 @@ Same contract as web (`ModalOrSheet` → always a sheet on native):
 - Member actions + guest claim (`MemberActionSheet`)
 - Invite link (`InviteGroupSheet`)
 - Home balance / person (`BalanceSheet`, `PersonProfileSheet`)
-- Spending by category (`SpendingSheet`)
+- Spending by category and group budgets (`GroupStats`)
 - Delete group (`DeleteGroupSheet`)
 - Emoji picker (`EmojiPickerSheet` — not the desktop popover)
 

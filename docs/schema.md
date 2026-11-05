@@ -107,6 +107,24 @@ expense_splits (
                                            -- RLS no-op on edit into a loud error
 )
 
+group_budgets (
+  group_id     uuid → groups ON DELETE CASCADE,
+  starts_month date,                 -- first of the month; applies until a later row
+  monthly_cap  numeric(10,2),        -- NULL = no monthly total
+  created_by   uuid → profiles ON DELETE SET NULL,
+  created_at   timestamptz,
+  PRIMARY KEY (group_id, starts_month)
+  -- No total and no limits = no budget from this month on (removal).
+  -- Written by save_group_budget(), one transaction, rejects past months.
+)
+
+group_budget_limits (
+  group_id, starts_month → group_budgets ON DELETE CASCADE,
+  category     text,                 -- emoji, same as expenses.category
+  amount       numeric(10,2) CHECK (amount > 0),
+  PRIMARY KEY (group_id, starts_month, category)
+)
+
 settlements (
   id             uuid PK,
   group_id       uuid → groups ON DELETE CASCADE NOT NULL,

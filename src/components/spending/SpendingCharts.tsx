@@ -101,16 +101,22 @@ export function RingChart({ categories, amount, caption, hovered, onHover, onOpe
  * category also divides into your share and the faded remainder, which is why
  * the key below it exists; in your-share view there's only one layer.
  */
-export function OverTimeChart({ months, period, view, hovered, onHover, onPickMonth }: {
+export function OverTimeChart({ months, period, view, solo = false, capLines = {}, hovered, onHover, onPickMonth }: {
   months: MonthSpend[]
   period: SpendingPeriod
   view: SpendingView
+  /** One person in the group, so there are no shares to tell apart. */
+  solo?: boolean
+  /** Month → that month's budget, drawn as a dashed line across its bar. */
+  capLines?: Record<string, number>
   hovered: string | null
   onHover: (emoji: string | null) => void
   onPickMonth: (month: string) => void
 }) {
-  const showKey = view === 'group'
-  const max = Math.max(0, ...months.map(m => viewAmount(m, view)))
+  const showShares = view === 'group' && !solo
+  const hasLines = months.some(m => capLines[m.month])
+  const barSpace = showShares || hasLines ? 146 : 164
+  const max = Math.max(0, ...months.map(m => viewAmount(m, view)), ...months.map(m => capLines[m.month] ?? 0))
   // Largest overall sits on the baseline, in every month, so segments line up.
   const order = CATEGORIES
     .map(c => ({ emoji: c.emoji, label: c.label, amount: months.reduce((s, m) => s + viewAmount(m.byCategory[c.emoji], view), 0) }))
@@ -122,11 +128,14 @@ export function OverTimeChart({ months, period, view, hovered, onHover, onPickMo
         {months.map(m => {
           const selected = period === ALL_TIME || period === m.month
           const amount = viewAmount(m, view)
+          const cap = capLines[m.month] ?? 0
+          const barHeight = max > 0 ? (amount / max) * barSpace : 0
+          const lineHeight = max > 0 ? (cap / max) * barSpace : 0
           return (
             <button
               key={m.month}
               type="button"
-              aria-label={`${monthShort(m.month)}, ${formatWholeDollars(amount)}`}
+              aria-label={`${monthShort(m.month)}, ${formatWholeDollars(amount)}${cap ? `, budget ${formatWholeDollars(cap)}` : ''}`}
               aria-pressed={period === m.month}
               onClick={() => onPickMonth(m.month)}
               style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 6, height: '100%', minWidth: 0, padding: '2px 0', border: 0, borderRadius: 10, background: 'transparent', cursor: 'pointer' }}
@@ -134,7 +143,8 @@ export function OverTimeChart({ months, period, view, hovered, onHover, onPickMo
               <span style={{ fontSize: 11.5, fontWeight: 800, color: selected ? T.inkMuted : T.inkFaint, fontVariantNumeric: 'tabular-nums' }}>
                 {amount > 0 ? formatWholeDollars(amount) : '—'}
               </span>
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%', maxWidth: 44, height: max > 0 ? (amount / max) * (showKey ? 146 : 164) : 0, borderRadius: '7px 7px 4px 4px', overflow: 'hidden', opacity: selected ? 1 : 0.4 }}>
+              <span style={{ position: 'relative', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', height: Math.max(barHeight, lineHeight) }}>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 1, width: '100%', maxWidth: 44, height: barHeight, borderRadius: '7px 7px 4px 4px', overflow: 'hidden', opacity: selected ? 1 : 0.4 }}>
                 {order.map(c => {
                   const spend = m.byCategory[c.emoji]
                   if (!spend) return null
@@ -149,15 +159,22 @@ export function OverTimeChart({ months, period, view, hovered, onHover, onPickMo
                   )
                 })}
               </span>
+              {cap > 0 && <i aria-hidden style={{ position: 'absolute', left: 0, right: 0, bottom: lineHeight, borderTop: `2px dashed ${T.ink}`, opacity: 0.55 }} />}
+              </span>
               <span style={{ fontSize: 11.5, fontWeight: 700, color: selected ? T.ink : T.inkFaint }}>{monthShort(m.month)}</span>
             </button>
           )
         })}
       </div>
-      {showKey && (
+      {(showShares || hasLines) && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginTop: 8, fontSize: 11.5, fontWeight: 600, color: T.inkFaint }}>
-          <span><i style={{ display: 'inline-block', width: 12, height: 9, borderRadius: 2, marginRight: 6, background: T.inkMuted }} />Your share</span>
-          <span><i style={{ display: 'inline-block', width: 12, height: 9, borderRadius: 2, marginRight: 6, background: T.inkMuted, opacity: 0.3 }} />Others&rsquo; share</span>
+          {showShares && (
+            <>
+              <span><i style={{ display: 'inline-block', width: 12, height: 9, borderRadius: 2, marginRight: 6, background: T.inkMuted }} />Your share</span>
+              <span><i style={{ display: 'inline-block', width: 12, height: 9, borderRadius: 2, marginRight: 6, background: T.inkMuted, opacity: 0.3 }} />Others&rsquo; share</span>
+            </>
+          )}
+          {hasLines && <span><i style={{ display: 'inline-block', width: 14, height: 0, marginRight: 6, borderTop: `2px dashed ${T.ink}`, opacity: 0.55, verticalAlign: 3 }} />Budget</span>}
         </div>
       )}
     </div>

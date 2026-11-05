@@ -199,9 +199,7 @@ warm-white insert rather than sun (the primary action owns the sun).
   pill shape. Renders **flat when it has no `onClick`**: a pill you can only
   read is information.
 - `Segmented` — recessed track, raised insert. `tone="sun"` fills the selected
-  segment instead, for a view with no primary action. The Spending breakdown
-  panel uses it on both of its switches, a deliberate exception to the
-  one-sun rule.
+  segment instead, for a view with no primary action.
 - `Input` — recessed well + the borderless field, sizes
   `hero | title | md | cellLg | cell`.
 - `.tactile-raised` (`styles/dashboard.css`) — the raised tier for bespoke rows

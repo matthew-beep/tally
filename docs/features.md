@@ -57,6 +57,7 @@ from `.home-topbar*` when the header stopped being Home-only).
 | `useAcceptGroupInvite`, `useDeclineGroupInvite` | `useMembers.ts` | Pending → active / POST `/api/invite/decline` (delete or guest conversion) |
 | `useRecentCollaborators` | `useMembers.ts` | Recents for the member combobox |
 | `useInviteGuestToSeat` | `useGroups.ts` | POST `/api/groups/members/claim-invite` — Path B assisted guest claim |
+| `useGroupBudget`, `useSaveGroupBudget` | `useGroupBudget.ts` | Every budget a group has had; saves through `save_group_budget` |
 | `useExpenses` | `useExpenses.ts` | Group expenses + splits + payer (soft-deleted excluded) |
 | `useAddExpense` | `useExpenses.ts` | Insert expense + splits |
 | `useUpdateExpense` | `useExpenses.ts` | Edit desc/amount/payer; rescales splits proportionally |
@@ -78,6 +79,7 @@ never cached in the DB — recomputation happens on read.
 | File | Purpose |
 |---|---|
 | `balance.ts` | `calcNetBalances` (net per member), `calcPairwiseNets` (them-vs-me map), `summarizeBalances` (hero fold), `calcExpenseNets` (one expense's effect per participant — detail sheet only, not a balance) — all pure, tested incl. pairwise↔net invariant. No min-transfer simplification (`simplifyDebts`, deleted 2026-08-02) — settling up always uses pairwise nets |
+| `budget.ts` | `budgetForMonth` / `calcBudgetMonth` / `budgetCategoryRows` — which budget applies to a month, and that month's whole-group spending against it. Not a balance |
 | `spending.ts` | `calcSpending` / `calcMonthly` / `calcMonthContext` / `calcMemberShares` — a group's spend by category for one month or all time, as full amounts or your split of them. Not a balance: settlements never subtract from it |
 | `feed.ts` | `mergeFeed` — expenses + settlements → one `created_at`-sorted tagged timeline |
 | `settlements.ts` | `batchNet` / `batchStatus` / `buildSettlementBatch` — turns allocations into insert-ready rows. Owns the rule that a batch's confirmation status comes from the sign of its net, once per payment rather than per row |
@@ -97,7 +99,9 @@ never cached in the DB — recomputation happens on read.
 |---|---|
 | `AddExpenseForm` / `AddExpenseSheet` | Add-expense form, mobile sheet + desktop modal branches. Desktop (`add-expense/DesktopPanel.tsx`, design E4) is a 560px dialog: filing chips (group · date · category), What for / How much / Note wells, a stubbed "Split by item" row, and the token sentence. The split token slides `SplitLedger` in beside the form and widens the dialog to 1010px (below the sentence under a 1080px viewport); the footer states the outcome from `previewSplits` |
 | `ExpenseActionSheet` | Expense tap → detail (per-person nets, edit/delete footer) / edit drawer / delete confirm |
-| `SpendingBanner` / `SpendingSheet` / `MonthPicker` / `SpendingCharts` | Banner above the group feed, opening the Spending breakdown panel: month picker, Whole group / Your share, Ring and Over time charts, categories, and a category's months, split and expenses. Design: `Spending Sheet.html`. Replaced the Who's ahead leaderboard 2026-11-03 |
+| `GroupStats` / `MonthPicker` / `SpendingCharts` | The group page's Stats tab: month picker, Whole group / Your share, Ring and Over time charts, categories, and a category's months, split and expenses, with the budget alongside. Design: `Group Stats Tab.html` |
+| `BudgetCard` / `BudgetEditSheet` | A month's budget against its spending, and the sheet that sets a monthly total and category limits from the current month on |
+| `SoloInviteWarning` | Shown before the first person joins a one-member group with expenses, in group settings and the QR add page |
 | `MemberCombobox`, `SuggestedMembers` | Member search input + recents |
 | `MemberActionSheet` | Member tap → remove (real members) or, for a guest row, a two-path claim flow: search + confirmation-required invite (Path B), or a self-serve claim-link screen (Path A) |
 | `InviteGroupSheet` | Group settings "Invite to group" — link card, copy, `navigator.share` |
